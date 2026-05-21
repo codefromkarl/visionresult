@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     google_cse_id: str = ""
     bing_api_key: str = ""
 
+    # Cloudflare
+    deploy_token: str = ""
+    cloudflare_account_id: str = ""
+    cloudflare_zone_id: str = ""
+    pages_project: str = "vision-insight"
+
     model_config = {"env_prefix": "VIA_", "env_file": ".env"}
 
 
