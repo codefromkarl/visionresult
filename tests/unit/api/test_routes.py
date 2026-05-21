@@ -291,3 +291,180 @@ class TestAPIEndpoints:
         response = client.get("/api/v1/reports?keyword=test&scene_type=street")
         assert response.status_code == 200
         assert isinstance(response.json(), list)
+
+    def test_list_reports_with_location_filter(self, client):
+        """GET /api/v1/reports with location filter should work."""
+        response = client.get("/api/v1/reports?location=Tokyo")
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+
+    @patch("vision_insight.api.routes.get_analysis")
+    def test_ask_location_question(self, mock_get_analysis, client):
+        """POST /api/v1/ask should answer location questions."""
+        mock_record = MagicMock()
+        mock_record.status = "completed"
+        mock_record.scene_description = "A busy street in Tokyo"
+        mock_record.location_guess = "Tokyo, Japan"
+        mock_record.location_confidence = 0.85
+        mock_record.time_guess = "night winter"
+        mock_record.ocr_results_json = '[]'
+        mock_record.entities_json = '{"brands": [], "landmarks": ["Shibuya 109"]}'
+        mock_record.report_markdown = "# Test Report"
+        mock_get_analysis.return_value = mock_record
+
+        response = client.post(
+            "/api/v1/ask",
+            json={"analysis_id": "test-001", "question": "Where was this photo taken?"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "answer" in data
+        assert "confidence" in data
+        assert "Tokyo" in data["answer"]
+
+    @patch("vision_insight.api.routes.get_analysis")
+    def test_ask_time_question(self, mock_get_analysis, client):
+        """POST /api/v1/ask should answer time questions."""
+        mock_record = MagicMock()
+        mock_record.status = "completed"
+        mock_record.scene_description = "Night scene"
+        mock_record.location_guess = "Tokyo"
+        mock_record.location_confidence = 0.8
+n        mock_record.time_guess = "night winter 2024"
+        mock_record.ocr_results_json = '[]'
+        mock_record.entities_json = '{}'
+        mock_record.report_markdown = "# Test"
+        mock_get_analysis.return_value = mock_record
+
+        response = client.post(
+            "/api/v1/ask",
+            json={"analysis_id": "test-001", "question": "What time was this taken?"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "night" in data["answer"].lower() or "time" in data["answer"].lower()
+
+    @patch("vision_insight.api.routes.get_analysis")
+    def test_ask_ocr_question(self, mock_get_analysis, client):
+        """POST /api/v1/ask should answer OCR questions."""
+        mock_record = MagicMock()
+        mock_record.status = "completed"
+        mock_record.scene_description = "Street scene"
+        mock_record.location_guess = "Tokyo"
+        mock_record.location_confidence = 0.8
+        mock_record.time_guess = "night"
+        mock_record.ocr_results_json = '[{"text": "Shibuya 109", "confidence": 0.95}]'
+        mock_record.entities_json = '{"brands": [], "landmarks": []}'
+        mock_record.report_markdown = "# Test"
+        mock_get_analysis.return_value = mock_record
+
+        response = client.post(
+            "/api/v1/ask",
+            json={"analysis_id": "test-001", "question": "What text is in the image?"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "Shibuya" in data["answer"] or "109" in data["answer"]
+
+    @patch("vision_insight.api.routes.get_analysis")
+    def test_ask_brand_question(self, mock_get_analysis, client):
+        """POST /api/v1/ask should answer brand questions."""
+        mock_record = MagicMock()
+        mock_record.status = "completed"
+        mock_record.scene_description = "Store front"
+        mock_record.location_guess = "New York"
+        mock_record.location_confidence = 0.7
+        mock_record.time_guess = "day"
+        mock_record.ocr_results_json = '[]'
+        mock_record.entities_json = '{"brands": ["Nike", "Adidas"], "landmarks": []}'
+        mock_record.report_markdown = "# Test"
+        mock_get_analysis.return_value = mock_record
+
+        response = client.post(
+            "/api/v1/ask",
+            json={"analysis_id": "test-001", "question": "What brands are visible?"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "Nike" in data["answer"] or "Adidas" in data["answer"]
+
+    @patch("vision_insight.api.routes.get_analysis")
+    def test_ask_generic_question(self, mock_get_analysis, client):
+        """POST /api/v1/ask should handle generic questions."""
+        mock_record = MagicMock()
+        mock_record.status = "completed"
+        mock_record.scene_description = "A beautiful sunset over the ocean"
+        mock_record.location_guess = "Hawaii"
+        mock_record.location_confidence = 0.6
+        mock_record.time_guess = "evening"
+        mock_record.ocr_results_json = '[]'
+        mock_record.entities_json = '{}'
+        mock_record.report_markdown = "# Test"
+        mock_get_analysis.return_value = mock_record
+
+        response = client.post(
+            "/api/v1/ask",
+            json={"analysis_id": "test-001", "question": "Tell me about this image"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "answer" in data
+        assert len(data["answer"]) > 0
+
+    @patch("vision_insight.api.routes.get_analysis")
+    def test_ask_on_pending_analysis(self, mock_get_analysis, client):
+        """POST /api/v1/ask should reject pending analyses."""
+        mock_record = MagicMock()
+        mock_record.status = "pending"
+        mock_get_analysis.return_value = mock_record
+
+        response = client.post(
+            "/api/v1/ask",
+            json={"analysis_id": "test-001", "question": "What is this?"},
+        )
+        assert response.status_code == 400
+        assert "not completed" in response.json()["detail"].lower()
+
+    def test_ask_nonexistent_analysis(self, client):
+        """POST /api/v1/ask should return 404 for unknown analysis."""
+        response = client.post(
+            "/api/v1/ask",
+            json={"analysis_id": "nonexistent", "question": "What is this?"},
+        )
+        assert response.status_code == 404
+
+    def test_batch_rejects_non_image_files(self, client):
+        """POST /api/v1/analyze/batch should reject non-image files."""
+        files = [("files", ("test.txt", b"not an image", "text/plain"))]
+        response = client.post("/api/v1/analyze/batch", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        # Should have error for the non-image file
+        assert "error" in data["tasks"][0]
+
+    def test_delete_existing_report(self, client):
+        """DELETE /api/v1/report/{id} should delete existing report."""
+        # First create a report
+        import io
+        from PIL import Image
+
+        img = Image.new("RGB", (10, 10), color="red")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        image_bytes = buf.getvalue()
+
+        # Create
+        create_response = client.post(
+            "/api/v1/analyze",
+            files={"file": ("test.jpg", image_bytes, "image/jpeg")},
+        )
+        task_id = create_response.json()["task_id"]
+
+        # Delete
+        delete_response = client.delete(f"/api/v1/report/{task_id}")
+        assert delete_response.status_code == 200
+        assert delete_response.json()["task_id"] == task_id
+
+        # Verify deleted
+        get_response = client.get(f"/api/v1/report/{task_id}")
+        assert get_response.status_code == 404
