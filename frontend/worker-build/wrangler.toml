@@ -1,19 +1,18 @@
-# Cloudflare Pages 配置
-name = "vision-insight"
+name = "vision-insight-api"
+main = "worker.js"
 compatibility_date = "2024-01-01"
-pages_build_output_dir = "deploy"
 
-# R2 存储桶（存储图片）
 [[r2_buckets]]
 binding = "IMAGE_BUCKET"
 bucket_name = "vision-insight-images"
 
-# D1 数据库（存储分析结果）
 [[d1_databases]]
 binding = "DB"
 database_name = "vision-insight-db"
 database_id = "f1df5e69-9e62-4021-ac4c-6e419181492a"
 
-# Workers AI（图像分析）
 [ai]
 binding = "AI"
+
+[site]
+bucket = "./public"

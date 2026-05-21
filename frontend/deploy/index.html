@@ -201,7 +201,7 @@
         return 'http://localhost:8001';
       }
       // Cloudflare Pages Functions: 留空即可，自动处理 /api/* 路径
-      return 'https://vision-insight-api.1069123094.workers.dev';
+      return '';
     })();
 
     // ─── DOM Elements ──────────────────────────────────────
@@ -395,7 +395,7 @@
     }
 
     function escapeHtml(str) {
-      if (!str) return 'https://vision-insight-api.1069123094.workers.dev';
+      if (!str) return '';
       return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
   </script>
