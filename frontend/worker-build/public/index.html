@@ -28,15 +28,6 @@
       -webkit-text-fill-color: transparent;
     }
     .subtitle { color: #aaa; margin-bottom: 2rem; font-size: 1.1rem; }
-    .status {
-      display: inline-block;
-      padding: 0.5rem 1.5rem;
-      background: rgba(0, 210, 255, 0.1);
-      border: 1px solid rgba(0, 210, 255, 0.3);
-      border-radius: 2rem;
-      color: #00d2ff;
-      margin-bottom: 2rem;
-    }
     .features {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -67,9 +58,6 @@
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       opacity: 0; cursor: pointer;
     }
-    .api-docs { margin-top: 2rem; font-size: 0.85rem; color: #666; }
-    .api-docs a { color: #00d2ff; text-decoration: none; }
-    .api-docs a:hover { text-decoration: underline; }
 
     /* 结果展示 */
     .result { display: none; margin-top: 2rem; text-align: left; }
@@ -110,48 +98,13 @@
       border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
     }
 
-    /* API 配置 */
-    .api-config {
-      margin-top: 1rem;
-      padding: 0.8rem;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      font-size: 0.8rem;
-    }
-    .api-config input {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fff;
-      padding: 0.3rem 0.5rem;
-      border-radius: 4px;
-      width: 250px;
-      font-size: 0.8rem;
-    }
-    .api-config button {
-      background: rgba(0,210,255,0.2);
-      border: 1px solid rgba(0,210,255,0.3);
-      color: #00d2ff;
-      padding: 0.3rem 0.8rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.8rem;
-    }
-    .api-status {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      margin-right: 0.3rem;
-    }
-    .api-status.connected { background: #4ade80; }
-    .api-status.disconnected { background: #f87171; }
+    .footer { margin-top: 2rem; font-size: 0.75rem; color: #555; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🔍 Visual Insight</h1>
     <p class="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
-    <div class="status" id="statusBadge">⏳ 检查 API 状态...</div>
 
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="fileInput" accept="image/*" aria-label="选择图片文件">
@@ -186,69 +139,33 @@
       </div>
     </div>
 
-    <div class="api-docs">
-      Powered by Cloudflare Workers AI
-    </div>
+    <div class="footer">Powered by Cloudflare Workers AI</div>
   </div>
 
   <script>
-    // ─── API Base URL ──────────────────────────────────────
-    // API Base URL
-    // Cloudflare Pages Functions 自动部署到同一域名的 /api/* 路径
+    // API 地址 — 自动配置，无需用户填写
     const API_BASE = (() => {
-      // 本地开发环境
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return 'http://localhost:8001';
       }
-      // Cloudflare Pages Functions: 留空即可，自动处理 /api/* 路径
       return 'https://vision-insight-api.1069123094.workers.dev';
     })();
 
-    // ─── DOM Elements ──────────────────────────────────────
+    // DOM
     const fileInput = document.getElementById('fileInput');
     const uploadZone = document.getElementById('uploadZone');
     const preview = document.getElementById('preview');
     const previewImg = document.getElementById('previewImg');
     const loading = document.getElementById('loading');
     const result = document.getElementById('result');
-    const statusBadge = document.getElementById('statusBadge');
 
-    // ─── Health Check ──────────────────────────────────────
-    const apiUrlInput = document.getElementById('apiUrlInput');
-    const apiStatus = document.getElementById('apiStatus');
-
-    // 初始化 API URL 输入框
-    apiUrlInput.value = API_BASE;
-
-    function saveApiUrl() {
-      const url = apiUrlInput.value.trim();
-      if (url) {
-        localStorage.setItem('api_base', url);
-        location.reload();
-      }
-    }
-
-    async function checkHealth() {
-      try {
-        // Cloudflare Pages Functions 自动可用
-        statusBadge.textContent = '✅ 系统就绪';
-        statusBadge.style.borderColor = 'rgba(0, 200, 0, 0.3)';
-        statusBadge.style.color = '#4ade80';
-        apiStatus.className = 'api-status connected';
-      } catch {
-        statusBadge.textContent = '⚠️ 系统错误';
-        apiStatus.className = 'api-status disconnected';
-      }
-    }
-    checkHealth();
-
-    // ─── File Input Handler ────────────────────────────────
+    // 文件选择
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) handleFile(file);
     });
 
-    // ─── Drag & Drop ───────────────────────────────────────
+    // 拖拽上传
     uploadZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       uploadZone.classList.add('dragover');
@@ -263,7 +180,7 @@
       if (file && file.type.startsWith('image/')) handleFile(file);
     });
 
-    // ─── Handle File Upload ────────────────────────────────
+    // 处理文件上传
     async function handleFile(file) {
       // 预览
       const reader = new FileReader();
@@ -273,13 +190,12 @@
       };
       reader.readAsDataURL(file);
 
-      // 显示加载状态
+      // 加载状态
       loading.classList.add('show');
       result.classList.remove('show');
       result.innerHTML = '';
 
       try {
-        // 上传到 API
         const formData = new FormData();
         formData.append('file', file);
 
@@ -291,10 +207,7 @@
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        const taskId = data.task_id;
-
-        // 轮询结果
-        await pollResult(taskId);
+        await pollResult(data.task_id);
       } catch (err) {
         showError(`上传失败: ${err.message}`);
       } finally {
@@ -302,10 +215,10 @@
       }
     }
 
-    // ─── Poll for Results ──────────────────────────────────
+    // 轮询结果
     async function pollResult(taskId, maxAttempts = 30) {
       for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 2000));
 
         try {
           const response = await fetch(`${API_BASE}/api/report/${taskId}`);
@@ -316,7 +229,7 @@
             renderReport(report);
             return;
           } else if (report.status === 'failed') {
-            showError('分析失败');
+            showError('分析失败: ' + (report.error || '未知错误'));
             return;
           }
         } catch { continue; }
@@ -324,78 +237,55 @@
       showError('分析超时');
     }
 
-    // ─── Render Report ─────────────────────────────────────
+    // 渲染报告
     function renderReport(report) {
       let html = '';
 
-      // 场景
-      if (report.scene_analysis) {
-        const sa = report.scene_analysis;
-        html += `<div class="result-card">
-          <h3>🎬 场景分析</h3>
-          <p>${escapeHtml(sa.description)}</p>
-        </div>`;
+      if (report.analysis) {
+        const a = report.analysis;
 
-        // 地点
-        if (sa.location_guess) {
-          const loc = sa.location_guess;
-          const confClass = loc.confidence >= 0.7 ? 'high' : loc.confidence >= 0.4 ? 'medium' : 'low';
+        if (a.description) {
+          html += `<div class="result-card"><h3>🎬 场景分析</h3><p>${escapeHtml(a.description)}</p></div>`;
+        }
+
+        if (a.location_guess) {
+          const conf = a.location_guess.confidence || 0;
+          const cls = conf >= 0.7 ? 'high' : conf >= 0.4 ? 'medium' : 'low';
           html += `<div class="result-card">
             <h3>📍 地点推测</h3>
-            <p>${escapeHtml(loc.location)}
-              <span class="confidence ${confClass}">${Math.round(loc.confidence * 100)}%</span>
-            </p>
-            ${loc.evidence?.length ? `<ul>${loc.evidence.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>` : ''}
+            <p>${escapeHtml(a.location_guess.location || '未知')} <span class="confidence ${cls}">${Math.round(conf * 100)}%</span></p>
           </div>`;
         }
 
-        // 时间
-        if (sa.time_guess) {
-          const tg = sa.time_guess;
-          const parts = [tg.time_of_day, tg.season, tg.year_estimate].filter(Boolean);
+        if (a.time_guess) {
+          const parts = [a.time_guess.time_of_day, a.time_guess.season].filter(Boolean);
           if (parts.length) {
-            html += `<div class="result-card">
-              <h3>🕐 时间推测</h3>
-              <p>${parts.map(escapeHtml).join(' · ')}</p>
-            </div>`;
+            html += `<div class="result-card"><h3>🕐 时间推测</h3><p>${parts.map(escapeHtml).join(' · ')}</p></div>`;
           }
+        }
+
+        if (a.detected_text?.length) {
+          html += `<div class="result-card"><h3>📝 检测到的文字</h3><ul>${a.detected_text.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul></div>`;
+        }
+
+        if (a.key_evidence?.length) {
+          html += `<div class="result-card"><h3>🔗 关键证据</h3><ul>${a.key_evidence.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
         }
       }
 
-      // OCR
-      if (report.ocr_results?.length) {
-        html += `<div class="result-card">
-          <h3>📝 OCR 文字</h3>
-          <ul>${report.ocr_results.map(r =>
-            `<li>${escapeHtml(r.text)} <span class="confidence ${r.confidence >= 0.8 ? 'high' : 'medium'}">${Math.round(r.confidence * 100)}%</span></li>`
-          ).join('')}</ul>
-        </div>`;
-      }
+      html += `<div class="result-card"><h3>ℹ️ 任务信息</h3><p>ID: ${report.id} · 耗时: ${Math.round((new Date(report.completed_at) - new Date(report.created_at)) / 1000)}秒</p></div>`;
 
-      // 结论
-      if (report.conclusions?.length) {
-        html += `<div class="result-card">
-          <h3>🔗 分析结论</h3>
-          <ul>${report.conclusions.map(c => {
-            const confClass = c.probability >= 0.7 ? 'high' : c.probability >= 0.4 ? 'medium' : 'low';
-            return `<li>${escapeHtml(c.statement)} <span class="confidence ${confClass}">${Math.round(c.probability * 100)}%</span></li>`;
-          }).join('')}</ul>
-        </div>`;
-      }
-
-      result.innerHTML = html || '<div class="result-card"><p>无分析结果</p></div>';
+      result.innerHTML = html || '<div class="result-card"><p>分析完成，但无详细结果</p></div>';
       result.classList.add('show');
     }
 
     function showError(msg) {
-      result.innerHTML = `<div class="result-card" style="border-color: rgba(255,0,0,0.3);">
-        <h3>❌ 错误</h3><p>${escapeHtml(msg)}</p>
-      </div>`;
+      result.innerHTML = `<div class="result-card" style="border-color: rgba(255,0,0,0.3);"><h3>❌ 错误</h3><p>${escapeHtml(msg)}</p></div>`;
       result.classList.add('show');
     }
 
     function escapeHtml(str) {
-      if (!str) return 'https://vision-insight-api.1069123094.workers.dev';
+      if (!str) return '';
       return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
   </script>
