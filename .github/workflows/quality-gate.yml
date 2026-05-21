@@ -77,12 +77,12 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: playwright install chromium --with-deps
 
+      # E2E 需要单独运行（Playwright 事件循环与 pytest-asyncio 冲突）
       - name: Run E2E Tests
         run: pytest tests/e2e/ -q
 
       - name: E2E Quality Guard
-        run: |
-          pytest tests/quality/test_quality_guard.py -k "E2E" -q
+        run: pytest tests/quality/test_quality_guard.py -k "E2E" -q
 
   # ─── 5. 质量门禁 ─────────────────────────────────────────
   quality-gate:
