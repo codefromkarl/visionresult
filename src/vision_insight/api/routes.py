@@ -16,6 +16,7 @@ from vision_insight.core.database import (
     get_analysis,
     list_analyses,
     save_analysis,
+    search_analyses,
 )
 from vision_insight.models.schemas import (
     AnalysisReport,
@@ -160,7 +161,7 @@ async def _run_analysis(task_id: str, image_bytes: bytes, filename: str = None) 
         _progress[task_id].append(("done", 100))
 
 
-@router.post("/analyze", response_model=AnalysisTaskResponse)
+@router.post("/analyze", response_model=AnalysisTaskResponse, tags=["analysis"], summary="上传图片分析")
 async def create_analysis(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -194,7 +195,7 @@ async def create_analysis(
     )
 
 
-@router.post("/analyze/url", response_model=AnalysisTaskResponse)
+@router.post("/analyze/url", response_model=AnalysisTaskResponse, tags=["analysis"], summary="URL图片分析")
 async def create_analysis_from_url(
     background_tasks: BackgroundTasks,
     request: ImageUploadRequest,
@@ -231,7 +232,7 @@ async def create_analysis_from_url(
     )
 
 
-@router.get("/report/{task_id}")
+@router.get("/report/{task_id}", tags=["reports"], summary="获取分析报告")
 async def get_report(task_id: str, format: str = "json"):
     """Get analysis report by task ID.
 
@@ -254,14 +255,35 @@ async def get_report(task_id: str, format: str = "json"):
     return record.to_dict()
 
 
-@router.get("/reports")
-async def list_reports(limit: int = 20, offset: int = 0):
-    """List recent analysis reports."""
-    records = list_analyses(limit=limit, offset=offset)
+@router.get("/reports", tags=["reports"], summary="历史报告列表")
+async def list_reports(
+    limit: int = 20,
+    offset: int = 0,
+    keyword: str = None,
+    scene_type: str = None,
+    location: str = None,
+):
+    """List recent analysis reports with optional filters.
+
+    Args:
+        keyword: Search in report text, scene description, filename
+        scene_type: Filter by scene type (street, indoor, outdoor, etc.)
+        location: Filter by location guess
+    """
+    if keyword or scene_type or location:
+        records = search_analyses(
+            keyword=keyword,
+            scene_type=scene_type,
+            location=location,
+            limit=limit,
+            offset=offset,
+        )
+    else:
+        records = list_analyses(limit=limit, offset=offset)
     return [r.to_dict() for r in records]
 
 
-@router.delete("/report/{task_id}")
+@router.delete("/report/{task_id}", tags=["reports"], summary="删除报告")
 async def delete_report(task_id: str):
     """Delete an analysis report."""
     if not delete_analysis(task_id):
@@ -269,7 +291,7 @@ async def delete_report(task_id: str):
     return {"message": "Deleted", "task_id": task_id}
 
 
-@router.post("/analyze/batch")
+@router.post("/analyze/batch", tags=["analysis"], summary="批量图片分析")
 async def create_batch_analysis(
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
@@ -305,7 +327,7 @@ async def create_batch_analysis(
     return {"tasks": results}
 
 
-@router.get("/analyze/{task_id}/stream")
+@router.get("/analyze/{task_id}/stream", tags=["analysis"], summary="实时进度SSE")
 async def stream_progress(task_id: str):
     """Stream analysis progress via SSE."""
     record = get_analysis(task_id)
@@ -341,7 +363,7 @@ async def stream_progress(task_id: str):
     )
 
 
-@router.get("/stats")
+@router.get("/stats", tags=["system"], summary="系统统计")
 async def get_stats():
     """Get database statistics."""
     records = list_analyses(limit=1000)
@@ -356,3 +378,96 @@ async def get_stats():
         "failed": failed,
         "pending": pending,
     }
+
+
+@router.post("/ask", tags=["knowledge"], summary="分析问答")
+async def ask_question(request: QuestionRequest):
+    """Ask a question about a completed analysis.
+
+    Uses the analysis context to answer questions about the image.
+    """
+    record = get_analysis(request.analysis_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    if record.status != "completed":
+        raise HTTPException(status_code=400, detail="Analysis not completed yet")
+
+    # Build context from the analysis
+    context_parts = []
+    if record.scene_description:
+        context_parts.append(f"场景描述: {record.scene_description}")
+    if record.location_guess:
+        context_parts.append(f"地点推测: {record.location_guess} (置信度: {record.location_confidence})")
+    if record.time_guess:
+        context_parts.append(f"时间推测: {record.time_guess}")
+    if record.ocr_results_json:
+        ocr = json.loads(record.ocr_results_json)
+        if ocr:
+            texts = [r.get("text", "") for r in ocr]
+            context_parts.append(f"OCR文字: {', '.join(texts)}")
+    if record.entities_json:
+        ent = json.loads(record.entities_json)
+        if ent.get("brands"):
+            context_parts.append(f"品牌: {', '.join(ent['brands'])}")
+        if ent.get("landmarks"):
+            context_parts.append(f"地标: {', '.join(ent['landmarks'])}")
+    if record.report_markdown:
+        context_parts.append(f"完整报告:\n{record.report_markdown[:1000]}")
+
+    context = "\n".join(context_parts)
+
+    # Simple rule-based QA (could be enhanced with LLM)
+    question = request.question.lower()
+    answer = ""
+    confidence = 0.7
+    sources = []
+
+    if any(kw in question for kw in ["地点", "位置", "哪里", "where", "location"]):
+        answer = f"根据分析，拍摄地点推测为: {record.location_guess or '未知'}"
+        confidence = record.location_confidence or 0.5
+        sources = ["VLM场景分析", "实体抽取"]
+
+    elif any(kw in question for kw in ["时间", "什么时候", "when", "time"]):
+        answer = f"时间推测: {record.time_guess or '未知'}"
+        confidence = 0.6
+        sources = ["VLM场景分析", "EXIF元数据"]
+
+    elif any(kw in question for kw in ["场景", "什么", "描述", "what", "scene"]):
+        answer = f"场景描述: {record.scene_description or '未知'}"
+        confidence = 0.8
+        sources = ["VLM场景分析"]
+
+    elif any(kw in question for kw in ["文字", "OCR", "text", "写了什么"]):
+        ocr = json.loads(record.ocr_results_json or "[]")
+        if ocr:
+            texts = [r.get("text", "") for r in ocr]
+            answer = f"检测到的文字: {', '.join(texts)}"
+            confidence = 0.9
+        else:
+            answer = "未检测到文字"
+            confidence = 0.95
+        sources = ["OCR文字识别"]
+
+    elif any(kw in question for kw in ["品牌", "logo", "brand"]):
+        ent = json.loads(record.entities_json or "{}")
+        brands = ent.get("brands", [])
+        if brands:
+            answer = f"检测到的品牌: {', '.join(brands)}"
+            confidence = 0.85
+        else:
+            answer = "未检测到品牌"
+            confidence = 0.7
+        sources = ["实体抽取"]
+
+    else:
+        # Generic answer based on report
+        answer = f"关于这张图片的分析: {record.scene_description or '暂无详细描述'}"
+        confidence = 0.5
+        sources = ["综合分析"]
+
+    return QuestionResponse(
+        answer=answer,
+        confidence=confidence,
+        sources=sources,
+    )

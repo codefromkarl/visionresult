@@ -159,3 +159,31 @@ def delete_analysis(analysis_id: str) -> bool:
         raise
     finally:
         session.close()
+
+
+def search_analyses(
+    keyword: str = None,
+    scene_type: str = None,
+    location: str = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[AnalysisRecord]:
+    """Search analyses by keyword, scene type, or location."""
+    session = get_session()
+    try:
+        query = session.query(AnalysisRecord)
+
+        if keyword:
+            query = query.filter(
+                AnalysisRecord.report_markdown.ilike(f"%{keyword}%") |
+                AnalysisRecord.scene_description.ilike(f"%{keyword}%") |
+                AnalysisRecord.image_filename.ilike(f"%{keyword}%")
+            )
+        if scene_type:
+            query = query.filter(AnalysisRecord.scene_type == scene_type)
+        if location:
+            query = query.filter(AnalysisRecord.location_guess.ilike(f"%{location}%"))
+
+        return query.order_by(AnalysisRecord.created_at.desc()).offset(offset).limit(limit).all()
+    finally:
+        session.close()
