@@ -109,6 +109,42 @@
       max-width: 100%; max-height: 200px;
       border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
     }
+
+    /* API 配置 */
+    .api-config {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .api-config input {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 0.3rem 0.5rem;
+      border-radius: 4px;
+      width: 250px;
+      font-size: 0.8rem;
+    }
+    .api-config button {
+      background: rgba(0,210,255,0.2);
+      border: 1px solid rgba(0,210,255,0.3);
+      color: #00d2ff;
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .api-status {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 0.3rem;
+    }
+    .api-status.connected { background: #4ade80; }
+    .api-status.disconnected { background: #f87171; }
   </style>
 </head>
 <body>
@@ -153,13 +189,30 @@
     <div class="api-docs">
       <a href="/docs">API 文档</a> · <a href="/redoc">ReDoc</a> · <a href="/health">Health</a>
     </div>
+
+    <div class="api-config">
+      <span class="api-status" id="apiStatus"></span>
+      API: <input type="text" id="apiUrlInput" placeholder="http://localhost:8000" />
+      <button onclick="saveApiUrl()">保存</button>
+    </div>
   </div>
 
   <script>
     // ─── API Base URL ──────────────────────────────────────
-    const API_BASE = window.location.hostname.includes('codefromkarl.xyz')
-      ? 'https://imagerecognition.codefromkarl.xyz'
-      : '';
+    // API Base URL
+    // 本地开发: http://localhost:8000
+    // 生产环境: 需要单独部署 API 服务器
+    const API_BASE = (() => {
+      // 本地开发环境
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:8000';
+      }
+      // 生产环境 - 从 URL 参数或 localStorage 读取 API 地址
+      const saved = localStorage.getItem('api_base');
+      if (saved) return saved;
+      // 默认: 假设 API 部署在同一域名（需要反向代理）
+      return window.location.origin;
+    })();
 
     // ─── DOM Elements ──────────────────────────────────────
     const fileInput = document.getElementById('fileInput');
@@ -171,13 +224,34 @@
     const statusBadge = document.getElementById('statusBadge');
 
     // ─── Health Check ──────────────────────────────────────
+    const apiUrlInput = document.getElementById('apiUrlInput');
+    const apiStatus = document.getElementById('apiStatus');
+
+    // 初始化 API URL 输入框
+    apiUrlInput.value = API_BASE;
+
+    function saveApiUrl() {
+      const url = apiUrlInput.value.trim();
+      if (url) {
+        localStorage.setItem('api_base', url);
+        location.reload();
+      }
+    }
+
     async function checkHealth() {
       try {
-        // API 部署在后端，前端是静态页面
-        statusBadge.textContent = '✅ 系统就绪';
-        statusBadge.style.borderColor = 'rgba(0, 200, 0, 0.3)';
+        const resp = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
+        if (resp.ok) {
+          statusBadge.textContent = '✅ API 已连接';
+          apiStatus.className = 'api-status connected';
+        } else {
+          throw new Error('not ok');
+        }
       } catch {
-        statusBadge.textContent = '⚠️ API 不可用';
+        statusBadge.textContent = '⚠️ API 未连接 - 请启动后端服务';
+        statusBadge.style.borderColor = 'rgba(255, 200, 0, 0.3)';
+        statusBadge.style.color = '#facc15';
+        apiStatus.className = 'api-status disconnected';
       }
     }
     checkHealth();
