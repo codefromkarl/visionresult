@@ -9,7 +9,6 @@ import pytest
 from vision_insight.models.schemas import (
     EntityExtraction,
     EvidenceItem,
-    FusedConclusion,
     ImageMetadata,
     LocationGuess,
     OCRResult,

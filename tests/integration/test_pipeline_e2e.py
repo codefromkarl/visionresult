@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import io
-import sys
 import os
+import sys
 
 import pytest
 from PIL import Image
@@ -29,16 +29,15 @@ def _make_test_image(text: str = "Hello World", size: tuple = (200, 150)) -> byt
 from vision_insight.models.schemas import (
     DetectedObject,
     EntityExtraction,
+    LocationGuess,
     OCRResult,
+    PeopleInfo,
     SceneAnalysis,
     SearchResult,
-    LocationGuess,
     TimeGuess,
-    PeopleInfo,
 )
 from vision_insight.services import (
     EntityService,
-    EvidenceService,
     OCRService,
     SearchService,
     VLMService,
@@ -116,9 +115,9 @@ class MockSearchService(SearchService):
 @pytest.mark.asyncio
 async def test_pipeline_full_flow():
     """Test the complete pipeline from image bytes to report."""
+
     from vision_insight.models.schemas import AnalysisReport, AnalysisStatus
     from vision_insight.pipeline.runner import PipelineRunner
-    from unittest.mock import patch
 
     # Create runner and inject mock services
     runner = PipelineRunner()
@@ -234,10 +233,12 @@ async def test_pipeline_handles_vlm_failure():
 @pytest.mark.asyncio
 async def test_api_analyze_endpoint():
     """Test the /api/v1/analyze endpoint with mocked pipeline."""
+    from unittest.mock import AsyncMock, patch
+
     from fastapi.testclient import TestClient
+
     from vision_insight.main import app
     from vision_insight.models.schemas import AnalysisReport, AnalysisStatus
-    from unittest.mock import AsyncMock, patch
 
     # Create a mock runner that returns immediately
     mock_runner = AsyncMock()

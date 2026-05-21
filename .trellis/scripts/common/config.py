@@ -12,7 +12,6 @@ from pathlib import Path
 
 from .paths import DIR_WORKFLOW, get_repo_root
 
-
 # =============================================================================
 # YAML Simple Parser (no dependencies)
 # =============================================================================
@@ -167,7 +166,7 @@ def _load_config(repo_root: Path | None = None) -> dict:
     try:
         content = config_file.read_text(encoding="utf-8")
         return parse_simple_yaml(content)
-    except (OSError, IOError):
+    except OSError:
         return {}
 
 

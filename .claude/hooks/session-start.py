@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Session Start Hook - Inject structured context
 """
@@ -7,6 +6,7 @@ from __future__ import annotations
 
 # IMPORTANT: Suppress all warnings FIRST
 import warnings
+
 warnings.filterwarnings("ignore")
 
 import json
@@ -332,7 +332,12 @@ def _load_trellis_config(trellis_dir: Path, input_data: dict) -> tuple:
         sys.path.insert(0, str(scripts_dir))
 
     try:
-        from common.config import get_default_package, get_packages, get_spec_scope, is_monorepo  # type: ignore[import-not-found]
+        from common.config import (  # type: ignore[import-not-found]
+            get_default_package,
+            get_packages,
+            get_spec_scope,
+            is_monorepo,
+        )
         from common.paths import get_current_task  # type: ignore[import-not-found]
 
         repo_root = trellis_dir.parent

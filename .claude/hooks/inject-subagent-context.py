@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Multi-Platform Sub-Agent Context Injection Hook
 
@@ -23,6 +22,7 @@ from __future__ import annotations
 
 # IMPORTANT: Suppress all warnings FIRST
 import warnings
+
 warnings.filterwarnings("ignore")
 
 import json
@@ -135,7 +135,7 @@ def read_file_content(base_path: str, file_path: str) -> str | None:
     full_path = os.path.join(base_path, file_path)
     if os.path.exists(full_path) and os.path.isfile(full_path):
         try:
-            with open(full_path, "r", encoding="utf-8") as f:
+            with open(full_path, encoding="utf-8") as f:
                 return f.read()
         except Exception:
             return None
@@ -175,7 +175,7 @@ def read_directory_contents(
             file_full_path = os.path.join(full_path, filename)
             relative_path = os.path.join(dir_path, filename)
             try:
-                with open(file_full_path, "r", encoding="utf-8") as f:
+                with open(file_full_path, encoding="utf-8") as f:
                     content = f.read()
                     results.append((relative_path, content))
             except Exception:
@@ -215,7 +215,7 @@ def read_jsonl_entries(base_path: str, jsonl_path: str) -> list[tuple[str, str]]
     results = []
     saw_real_entry = False
     try:
-        with open(full_path, "r", encoding="utf-8") as f:
+        with open(full_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:

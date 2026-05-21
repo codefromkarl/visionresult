@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Git and Session Context utilities.
 
@@ -15,17 +14,15 @@ from __future__ import annotations
 import json
 
 from .git import run_git
+from .packages_context import (
+    get_context_packages_json,
+    get_context_packages_text,
+)
 from .session_context import (
-    get_context_json,
-    get_context_text,
     get_context_record_json,
     get_context_text_record,
     output_json,
     output_text,
-)
-from .packages_context import (
-    get_context_packages_text,
-    get_context_packages_json,
 )
 from .workflow_phase import (
     filter_platform,

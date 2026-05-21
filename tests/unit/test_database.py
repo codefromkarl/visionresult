@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-import pytest
-
 from vision_insight.core.database import AnalysisRecord
 
 

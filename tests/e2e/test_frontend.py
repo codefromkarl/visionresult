@@ -16,7 +16,7 @@ import pytest
 from PIL import Image
 
 pytest.importorskip("playwright")
-from playwright.sync_api import Page, expect, Route
+from playwright.sync_api import Page, Route, expect
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent.parent

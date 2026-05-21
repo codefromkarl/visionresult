@@ -19,7 +19,6 @@ from pathlib import Path
 
 from .paths import get_repo_root, get_tasks_dir
 
-
 # =============================================================================
 # Path Safety
 # =============================================================================
@@ -63,7 +62,7 @@ def is_safe_task_path(task_path: str, repo_root: Path | None = None) -> bool:
             if resolved == root_resolved:
                 print(f"Error: path resolves to repo root: {task_path}", file=sys.stderr)
                 return False
-        except (OSError, IOError):
+        except OSError:
             pass
 
     return True
@@ -126,7 +125,7 @@ def archive_task_dir(task_dir_abs: Path, repo_root: Path | None = None) -> Path 
     # Create archive directory
     try:
         month_dir.mkdir(parents=True, exist_ok=True)
-    except (OSError, IOError) as e:
+    except OSError as e:
         print(f"Error: Failed to create archive directory: {e}", file=sys.stderr)
         return None
 
@@ -136,7 +135,7 @@ def archive_task_dir(task_dir_abs: Path, repo_root: Path | None = None) -> Path 
 
     try:
         shutil.move(str(task_dir_abs), str(dest))
-    except (OSError, IOError, shutil.Error) as e:
+    except (OSError, shutil.Error) as e:
         print(f"Error: Failed to move task to archive: {e}", file=sys.stderr)
         return None
 

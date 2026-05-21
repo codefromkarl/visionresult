@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from vision_insight.models.schemas import (
     AnalysisReport,
     AnalysisStatus,
@@ -23,7 +21,6 @@ from vision_insight.models.schemas import (
     SearchResult,
     TimeGuess,
 )
-
 
 # ─── 基础工厂 ──────────────────────────────────────────────
 

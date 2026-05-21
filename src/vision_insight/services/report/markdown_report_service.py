@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from vision_insight.models.schemas import AnalysisReport, AnalysisStatus
+from vision_insight.models.schemas import AnalysisReport
 from vision_insight.services import ReportService
 
 logger = logging.getLogger(__name__)

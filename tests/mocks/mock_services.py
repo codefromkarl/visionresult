@@ -6,31 +6,27 @@
 
 from __future__ import annotations
 
+from tests.mocks.fixtures import (
+    create_mock_entity_extraction,
+    create_mock_fused_conclusion,
+    create_mock_ocr_result,
+    create_mock_scene_analysis,
+    create_mock_search_result,
+)
 from vision_insight.models.schemas import (
     DetectedObject,
     EntityExtraction,
-    ImageMetadata,
     OCRResult,
     SceneAnalysis,
     SearchResult,
-    LocationGuess,
-    TimeGuess,
-    PeopleInfo,
 )
 from vision_insight.services import (
+    EntityService,
     EvidenceService,
     OCRService,
     ReportService,
     SearchService,
     VLMService,
-    EntityService,
-)
-from tests.mocks.fixtures import (
-    create_mock_ocr_result,
-    create_mock_scene_analysis,
-    create_mock_entity_extraction,
-    create_mock_search_result,
-    create_mock_fused_conclusion,
 )
 
 

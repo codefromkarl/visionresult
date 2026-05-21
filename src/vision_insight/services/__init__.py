@@ -14,8 +14,8 @@ from vision_insight.models.schemas import (
     EntityExtraction,
     ImageMetadata,
     OCRResult,
-    SearchResult,
     SceneAnalysis,
+    SearchResult,
 )
 
 

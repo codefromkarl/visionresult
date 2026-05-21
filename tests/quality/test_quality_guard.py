@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -144,8 +143,8 @@ class TestFixturesCoverage:
         """工厂函数应生成有效的 Pydantic 模型。"""
         from tests.mocks.fixtures import (
             create_mock_analysis_report,
-            create_mock_scene_analysis,
             create_mock_ocr_result,
+            create_mock_scene_analysis,
         )
 
         report = create_mock_analysis_report()
@@ -284,12 +283,12 @@ class TestMockServicesCoverage:
 
     def test_all_mock_services_importable(self):
         from tests.mocks.mock_services import (
-            MockOCRService,
-            MockVLMService,
             MockEntityService,
-            MockSearchService,
             MockEvidenceService,
+            MockOCRService,
             MockReportService,
+            MockSearchService,
+            MockVLMService,
         )
         assert MockOCRService is not None
         assert MockVLMService is not None

@@ -15,12 +15,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from .paths import (
-    get_repo_root,
     get_developer,
+    get_repo_root,
     get_tasks_dir,
 )
 from .tasks import iter_active_tasks
-
 
 # =============================================================================
 # Internal helper

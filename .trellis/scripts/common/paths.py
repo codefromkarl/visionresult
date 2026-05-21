@@ -16,7 +16,6 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-
 # =============================================================================
 # Path Constants (change here to rename directories)
 # =============================================================================
@@ -88,7 +87,7 @@ def get_developer(repo_root: Path | None = None) -> str | None:
         for line in content.splitlines():
             if line.startswith("name="):
                 return line.split("=", 1)[1].strip()
-    except (OSError, IOError):
+    except OSError:
         pass
 
     return None
@@ -199,7 +198,7 @@ def count_lines(file_path: Path) -> int:
 
     try:
         return len(file_path.read_text(encoding="utf-8").splitlines())
-    except (OSError, IOError):
+    except OSError:
         return 0
 
 

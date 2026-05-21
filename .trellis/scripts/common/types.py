@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict
 
-
 # =============================================================================
 # task.json shape (TypedDict — used only for read-path type hints)
 # =============================================================================

@@ -25,7 +25,6 @@ from .log import Colors, colored
 from .paths import get_repo_root
 from .task_utils import resolve_task_dir
 
-
 # =============================================================================
 # Command: add-context
 # =============================================================================

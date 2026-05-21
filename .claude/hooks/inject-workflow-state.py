@@ -28,14 +28,12 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Optional
-
 
 # ---------------------------------------------------------------------------
 # CWD-robust Trellis root discovery (fixes hook-path-robustness for this hook)
 # ---------------------------------------------------------------------------
 
-def find_trellis_root(start: Path) -> Optional[Path]:
+def find_trellis_root(start: Path) -> Path | None:
     """Walk up from start to find directory containing .trellis/.
 
     Handles CWD drift: subdirectory launches, monorepo packages, etc.
@@ -98,7 +96,7 @@ def _resolve_active_task(root: Path, input_data: dict):
     return resolve_active_task(root, input_data, platform=_detect_platform(input_data))
 
 
-def get_active_task(root: Path, input_data: dict) -> Optional[tuple[str, str, str]]:
+def get_active_task(root: Path, input_data: dict) -> tuple[str, str, str] | None:
     """Return (task_id, status, source) from the current active task."""
     active = _resolve_active_task(root, input_data)
     if not active.task_path:
@@ -228,7 +226,7 @@ def load_breadcrumbs(root: Path) -> dict[str, str]:
 
 
 def build_breadcrumb(
-    task_id: Optional[str],
+    task_id: str | None,
     status: str,
     templates: dict[str, str],
     source: str | None = None,

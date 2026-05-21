@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
 from vision_insight.core.config import settings
 from vision_insight.models.schemas import AnalysisReport, AnalysisStatus
-from vision_insight.pipeline.graph import PipelineState, build_pipeline, ProgressCallback
+from vision_insight.pipeline.graph import PipelineState, ProgressCallback, build_pipeline
 from vision_insight.services import (
     EntityService,
     EvidenceService,

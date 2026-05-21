@@ -8,7 +8,6 @@ Pipeline stages:
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -18,9 +17,8 @@ from vision_insight.models.schemas import (
     AnalysisStatus,
     EntityExtraction,
     ImageMetadata,
-    OCRResult,
-    SearchResult,
     SceneAnalysis,
+    SearchResult,
 )
 from vision_insight.services import (
     EntityService,

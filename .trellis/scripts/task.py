@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Task Management Script.
 
@@ -26,16 +25,6 @@ from __future__ import annotations
 import argparse
 import sys
 
-from common.log import Colors, colored
-from common.paths import (
-    DIR_WORKFLOW,
-    DIR_TASKS,
-    FILE_TASK_JSON,
-    get_repo_root,
-    get_developer,
-    get_tasks_dir,
-    get_current_task,
-)
 from common.active_task import (
     clear_active_task,
     resolve_active_task,
@@ -43,25 +32,34 @@ from common.active_task import (
     set_active_task,
 )
 from common.io import read_json, write_json
-from common.task_utils import resolve_task_dir, run_task_hooks
-from common.tasks import iter_active_tasks, children_progress
-
-# Import command handlers from split modules (also re-exports for plan.py compatibility)
-from common.task_store import (
-    cmd_create,
-    cmd_archive,
-    cmd_set_branch,
-    cmd_set_base_branch,
-    cmd_set_scope,
-    cmd_add_subtask,
-    cmd_remove_subtask,
+from common.log import Colors, colored
+from common.paths import (
+    DIR_TASKS,
+    DIR_WORKFLOW,
+    FILE_TASK_JSON,
+    get_current_task,
+    get_developer,
+    get_repo_root,
+    get_tasks_dir,
 )
 from common.task_context import (
     cmd_add_context,
-    cmd_validate,
     cmd_list_context,
+    cmd_validate,
 )
 
+# Import command handlers from split modules (also re-exports for plan.py compatibility)
+from common.task_store import (
+    cmd_add_subtask,
+    cmd_archive,
+    cmd_create,
+    cmd_remove_subtask,
+    cmd_set_base_branch,
+    cmd_set_branch,
+    cmd_set_scope,
+)
+from common.task_utils import resolve_task_dir, run_task_hooks
+from common.tasks import children_progress, iter_active_tasks
 
 # =============================================================================
 # Command: start / finish

@@ -15,17 +15,18 @@ from tests.evaluation.assertions import (
     assert_report_structure,
     evaluate_report,
 )
-from tests.evaluation.golden_examples import GOLDEN_EXAMPLES, get_example_by_id, get_all_example_ids
+from tests.evaluation.golden_examples import GOLDEN_EXAMPLES, get_all_example_ids, get_example_by_id
 from tests.mocks.fixtures import (
     create_mock_analysis_report,
     create_mock_fused_conclusion,
     create_mock_ocr_result,
-    create_mock_scene_analysis,
-    create_mock_location_guess,
-    create_mock_entity_extraction,
 )
-from vision_insight.models.schemas import AnalysisReport, AnalysisStatus, FusedConclusion, EvidenceItem
-
+from vision_insight.models.schemas import (
+    AnalysisReport,
+    AnalysisStatus,
+    EvidenceItem,
+    FusedConclusion,
+)
 
 # ─── 结构化断言测试 ──────────────────────────────────────
 
@@ -178,7 +179,7 @@ class TestGoldenExamples:
 
     def test_all_examples_have_required_fields(self):
         for ex in GOLDEN_EXAMPLES:
-            assert ex.id, f"Example missing id"
+            assert ex.id, "Example missing id"
             assert ex.description, f"{ex.id} missing description"
             assert ex.ocr_texts is not None, f"{ex.id} missing ocr_texts"
 

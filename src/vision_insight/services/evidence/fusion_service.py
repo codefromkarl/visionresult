@@ -6,8 +6,8 @@ import logging
 from abc import ABC, abstractmethod
 
 from vision_insight.models.schemas import (
-    EvidenceItem,
     EntityExtraction,
+    EvidenceItem,
     FusedConclusion,
     ImageMetadata,
     OCRResult,

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Add a new session to journal file and update index.md.
 
@@ -28,25 +27,24 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from common.paths import (
-    FILE_JOURNAL_PREFIX,
-    get_repo_root,
-    get_current_task,
-    get_developer,
-    get_workspace_dir,
-)
-from common.developer import ensure_developer
-from common.git import run_git
-from common.tasks import load_task
 from common.config import (
+    get_max_journal_lines,
     get_packages,
     get_session_commit_message,
-    get_max_journal_lines,
     is_monorepo,
     resolve_package,
     validate_package,
 )
-
+from common.developer import ensure_developer
+from common.git import run_git
+from common.paths import (
+    FILE_JOURNAL_PREFIX,
+    get_current_task,
+    get_developer,
+    get_repo_root,
+    get_workspace_dir,
+)
+from common.tasks import load_task
 
 # =============================================================================
 # Helper Functions

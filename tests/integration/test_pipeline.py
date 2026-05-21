@@ -11,25 +11,20 @@ import pytest
 from tests.evaluation.assertions import evaluate_report
 from tests.evaluation.golden_examples import GOLDEN_EXAMPLES, get_example_by_id
 from tests.mocks.fixtures import (
-    create_mock_analysis_report,
     create_mock_entity_extraction,
-    create_mock_image_metadata,
     create_mock_location_guess,
     create_mock_ocr_result,
     create_mock_scene_analysis,
-    create_mock_search_result,
-    create_mock_fused_conclusion,
 )
 from tests.mocks.mock_services import (
-    MockOCRService,
-    MockVLMService,
     MockEntityService,
-    MockSearchService,
     MockEvidenceService,
+    MockOCRService,
     MockReportService,
+    MockSearchService,
+    MockVLMService,
 )
 from vision_insight.models.schemas import AnalysisReport, AnalysisStatus
-
 
 # ─── Pipeline 模拟 ──────────────────────────────────────
 

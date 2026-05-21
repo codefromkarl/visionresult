@@ -6,7 +6,6 @@ import pytest
 import respx
 from httpx import Response
 
-from vision_insight.models.schemas import SearchResult
 from vision_insight.services.search.http_search_service import HttpSearchService
 
 

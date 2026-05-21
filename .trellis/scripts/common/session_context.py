@@ -19,7 +19,6 @@ from pathlib import Path
 from .config import get_git_packages
 from .git import run_git
 from .packages_context import get_packages_section
-from .tasks import iter_active_tasks, load_task, get_all_statuses, children_progress
 from .paths import (
     DIR_SCRIPTS,
     DIR_SPEC,
@@ -34,7 +33,7 @@ from .paths import (
     get_repo_root,
     get_tasks_dir,
 )
-
+from .tasks import children_progress, get_all_statuses, iter_active_tasks, load_task
 
 # =============================================================================
 # Helpers
