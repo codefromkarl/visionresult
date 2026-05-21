@@ -1,0 +1,40 @@
+# Vision Result
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# Data
+data/uploads/*
+data/cache/*
+!data/uploads/.gitkeep
+!data/cache/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+.next/
+out/
+
+# Trellis runtime
+.trellis/.developer
+.trellis/.runtime/
+.trellis/workspace/*/journal-*.md
