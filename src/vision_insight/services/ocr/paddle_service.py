@@ -149,7 +149,6 @@ class PaddleOCRService(OCRService):
         """
         if lang not in SUPPORTED_LANGUAGES:
             raise ValueError(
-                f"Unsupported language '{lang}'. "
-                f"Supported: {list(SUPPORTED_LANGUAGES.keys())}"
+                f"Unsupported language '{lang}'. Supported: {list(SUPPORTED_LANGUAGES.keys())}"
             )
         return cls(lang=lang, **kwargs)

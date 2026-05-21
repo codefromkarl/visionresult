@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class AnalysisStatus(str, Enum):
+class AnalysisStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -17,23 +17,30 @@ class AnalysisStatus(str, Enum):
 
 # === Request Models ===
 
+
 class ImageUploadRequest(BaseModel):
     """Request for image upload analysis."""
+
     image_url: str | None = None
     analysis_depth: str = "standard"  # quick | standard | deep
 
 
 # === Pipeline Data Models ===
 
+
 class OCRResult(BaseModel):
     """Single OCR detection."""
+
     text: str
-    bbox: list[list[int]] = Field(description="Bounding box coordinates [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]")
+    bbox: list[list[int]] = Field(
+        description="Bounding box coordinates [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]"
+    )
     confidence: float = Field(ge=0.0, le=1.0)
 
 
 class ImageMetadata(BaseModel):
     """Image EXIF and basic metadata."""
+
     width: int
     height: int
     format: str
@@ -45,6 +52,7 @@ class ImageMetadata(BaseModel):
 
 class DetectedObject(BaseModel):
     """Object detected in image."""
+
     label: str
     confidence: float = Field(ge=0.0, le=1.0)
     bbox: list[int] | None = None  # [x1, y1, x2, y2]
@@ -53,6 +61,7 @@ class DetectedObject(BaseModel):
 
 class SceneAnalysis(BaseModel):
     """Scene-level understanding from VLM."""
+
     scene_type: str
     description: str
     location_guess: LocationGuess | None = None
@@ -64,6 +73,7 @@ class SceneAnalysis(BaseModel):
 
 class LocationGuess(BaseModel):
     """Location prediction with confidence."""
+
     location: str
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: list[str] = Field(default_factory=list)
@@ -71,6 +81,7 @@ class LocationGuess(BaseModel):
 
 class TimeGuess(BaseModel):
     """Time period prediction."""
+
     time_of_day: str = ""  # morning, afternoon, evening, night
     season: str = ""  # spring, summer, autumn, winter
     year_estimate: str = ""  # e.g., "2020s", "2024"
@@ -79,6 +90,7 @@ class TimeGuess(BaseModel):
 
 class PeopleInfo(BaseModel):
     """People detected in image."""
+
     count: int
     age_group: str = ""  # young, middle-aged, elderly
     activity: str = ""
@@ -86,6 +98,7 @@ class PeopleInfo(BaseModel):
 
 class EntityExtraction(BaseModel):
     """Structured entities extracted from analysis."""
+
     location_keywords: list[str] = Field(default_factory=list)
     brands: list[str] = Field(default_factory=list)
     landmarks: list[str] = Field(default_factory=list)
@@ -94,6 +107,7 @@ class EntityExtraction(BaseModel):
 
 class SearchResult(BaseModel):
     """Web search verification result."""
+
     query: str
     source: str  # google, bing, wikipedia, maps
     title: str
@@ -104,6 +118,7 @@ class SearchResult(BaseModel):
 
 class EvidenceItem(BaseModel):
     """Single piece of evidence in the chain."""
+
     source: str  # ocr, vlm, search, exif, scene
     content: str
     confidence: float = Field(ge=0.0, le=1.0)
@@ -112,6 +127,7 @@ class EvidenceItem(BaseModel):
 
 class FusedConclusion(BaseModel):
     """Evidence-fused conclusion."""
+
     statement: str
     probability: float = Field(ge=0.0, le=1.0)
     evidence: list[EvidenceItem] = Field(default_factory=list)
@@ -120,8 +136,10 @@ class FusedConclusion(BaseModel):
 
 # === Response Models ===
 
+
 class AnalysisReport(BaseModel):
     """Final analysis report."""
+
     id: str
     status: AnalysisStatus
     image_metadata: ImageMetadata | None = None
@@ -138,6 +156,7 @@ class AnalysisReport(BaseModel):
 
 class AnalysisTaskResponse(BaseModel):
     """Response when submitting an analysis task."""
+
     task_id: str
     status: AnalysisStatus
     message: str
@@ -145,12 +164,14 @@ class AnalysisTaskResponse(BaseModel):
 
 class QuestionRequest(BaseModel):
     """Request for asking a question about an analysis."""
+
     question: str
     analysis_id: str
 
 
 class QuestionResponse(BaseModel):
     """Response to a question about an analysis."""
+
     answer: str
     confidence: float = Field(ge=0.0, le=1.0, default=0.8)
     sources: list[str] = Field(default_factory=list)

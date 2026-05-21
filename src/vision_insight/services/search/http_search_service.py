@@ -86,9 +86,7 @@ class HttpSearchService(SearchService):
         }
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
-                resp = await client.get(
-                    "https://www.googleapis.com/customsearch/v1", params=params
-                )
+                resp = await client.get("https://www.googleapis.com/customsearch/v1", params=params)
                 resp.raise_for_status()
                 data = resp.json()
         except httpx.HTTPError as exc:

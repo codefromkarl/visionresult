@@ -24,6 +24,7 @@ class Base(DeclarativeBase):
 
 class AnalysisRecord(Base):
     """Persistent storage for analysis reports."""
+
     __tablename__ = "analyses"
 
     id = Column(String(16), primary_key=True)
@@ -175,9 +176,9 @@ def search_analyses(
 
         if keyword:
             query = query.filter(
-                AnalysisRecord.report_markdown.ilike(f"%{keyword}%") |
-                AnalysisRecord.scene_description.ilike(f"%{keyword}%") |
-                AnalysisRecord.image_filename.ilike(f"%{keyword}%")
+                AnalysisRecord.report_markdown.ilike(f"%{keyword}%")
+                | AnalysisRecord.scene_description.ilike(f"%{keyword}%")
+                | AnalysisRecord.image_filename.ilike(f"%{keyword}%")
             )
         if scene_type:
             query = query.filter(AnalysisRecord.scene_type == scene_type)

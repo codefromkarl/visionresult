@@ -77,7 +77,9 @@ class TestRecordConversion:
                 file_size=25000,
             ),
             ocr_results=[
-                OCRResult(text="Hello", bbox=[[0, 0], [100, 0], [100, 20], [0, 20]], confidence=0.95),
+                OCRResult(
+                    text="Hello", bbox=[[0, 0], [100, 0], [100, 20], [0, 20]], confidence=0.95
+                ),
             ],
             report_markdown="# Test",
         )

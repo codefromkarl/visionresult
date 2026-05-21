@@ -118,7 +118,10 @@ class FusionService(EvidenceService):
 
         # Gather supporting search evidence
         for sr in search_results:
-            if any(kw.lower() in sr.title.lower() for kw in entities.landmarks + entities.location_keywords):
+            if any(
+                kw.lower() in sr.title.lower()
+                for kw in entities.landmarks + entities.location_keywords
+            ):
                 evidence.append(
                     EvidenceItem(
                         source="search",
@@ -179,7 +182,9 @@ class FusionService(EvidenceService):
     # Time fusion
     # ------------------------------------------------------------------
 
-    def _fuse_time_from_exif(self, scene: SceneAnalysis, metadata: ImageMetadata) -> FusedConclusion:
+    def _fuse_time_from_exif(
+        self, scene: SceneAnalysis, metadata: ImageMetadata
+    ) -> FusedConclusion:
         evidence = [
             EvidenceItem(
                 source="exif",
@@ -252,7 +257,9 @@ class FusionService(EvidenceService):
                         )
                     )
 
-            conclusion = await self._synthesize_conclusion("identity", evidence, f"文本 '{ocr.text}'")
+            conclusion = await self._synthesize_conclusion(
+                "identity", evidence, f"文本 '{ocr.text}'"
+            )
             conclusions.append(conclusion)
         return conclusions
 

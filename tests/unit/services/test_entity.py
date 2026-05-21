@@ -33,12 +33,8 @@ VALID_ENTITIES_JSON = {
 SAMPLE_SCENE = SceneAnalysis(
     scene_type="restaurant",
     description="An Italian restaurant in Rome.",
-    location_guess=LocationGuess(
-        location="Rome, Italy", confidence=0.8, evidence=["Italian menu"]
-    ),
-    time_guess=TimeGuess(
-        time_of_day="evening", season="summer", year_estimate="2024"
-    ),
+    location_guess=LocationGuess(location="Rome, Italy", confidence=0.8, evidence=["Italian menu"]),
+    time_guess=TimeGuess(time_of_day="evening", season="summer", year_estimate="2024"),
     key_evidence=["wine glasses"],
     uncertainties=[],
 )
@@ -144,9 +140,7 @@ class TestLLMEntityService:
 
         def _capture(request):
             captured_request["body"] = request.content
-            return httpx.Response(
-                200, json=_openai_chat_response(json.dumps(VALID_ENTITIES_JSON))
-            )
+            return httpx.Response(200, json=_openai_chat_response(json.dumps(VALID_ENTITIES_JSON)))
 
         respx.post(OPENAI_CHAT_URL).mock(side_effect=_capture)
 

@@ -7,7 +7,6 @@ Implementations are in their respective subdirectories.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 
 from vision_insight.models.schemas import (
     DetectedObject,
@@ -48,9 +47,7 @@ class EntityService(ABC):
     """Entity extraction service."""
 
     @abstractmethod
-    async def extract(
-        self, scene: SceneAnalysis, ocr_results: list[OCRResult]
-    ) -> EntityExtraction:
+    async def extract(self, scene: SceneAnalysis, ocr_results: list[OCRResult]) -> EntityExtraction:
         """Extract structured entities from analysis results."""
         ...
 

@@ -23,9 +23,11 @@ from vision_insight.utils.image import (
 
 # === Helpers ===
 
+
 def _piexif_available() -> bool:
     try:
         import piexif  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -71,6 +73,7 @@ def _make_synthetic_jpeg_bytes(width: int = 100, height: int = 100) -> bytes:
 
 # === _convert_gps_to_degrees tests ===
 
+
 class TestConvertGPSToDegrees:
     def test_tokyo_coordinates(self):
         # 35°41'51.47"N  139°45'21.67"E
@@ -89,6 +92,7 @@ class TestConvertGPSToDegrees:
 
 
 # === _extract_gps tests ===
+
 
 class TestExtractGPS:
     def test_no_gps_info(self):
@@ -134,15 +138,14 @@ class TestExtractGPS:
 
 # === _extract_capture_time tests ===
 
+
 class TestExtractCaptureTime:
     def test_valid_datetime(self):
         result = _extract_capture_time({"DateTimeOriginal": "2024:03:15 14:30:00"})
         assert result == datetime(2024, 3, 15, 14, 30, 0)
 
     def test_fallback_to_digitized(self):
-        result = _extract_capture_time({
-            "DateTimeDigitized": "2023:01:01 00:00:00"
-        })
+        result = _extract_capture_time({"DateTimeDigitized": "2023:01:01 00:00:00"})
         assert result == datetime(2023, 1, 1, 0, 0, 0)
 
     def test_no_datetime(self):
@@ -155,6 +158,7 @@ class TestExtractCaptureTime:
 
 
 # === get_image_metadata tests ===
+
 
 class TestGetImageMetadata:
     def test_basic_metadata(self, sample_png_bytes):
@@ -169,9 +173,7 @@ class TestGetImageMetadata:
         meta = get_image_metadata(sample_jpeg_bytes)
         assert meta["format"] == "JPEG"
 
-    @pytest.mark.skipif(
-        not _piexif_available(), reason="piexif not installed"
-    )
+    @pytest.mark.skipif(not _piexif_available(), reason="piexif not installed")
     def test_gps_extraction(self):
         jpeg_bytes = _make_jpeg_with_exif(
             gps={
@@ -195,6 +197,7 @@ class TestGetImageMetadata:
 
 # === auto_rotate tests ===
 
+
 class TestAutoRotate:
     def test_no_orientation(self):
         img = Image.new("RGB", (100, 50), "red")
@@ -217,6 +220,7 @@ class TestAutoRotate:
 
 
 # === compress_image tests ===
+
 
 class TestCompressImage:
     def test_basic_compression(self, sample_png_bytes):
@@ -249,6 +253,7 @@ class TestCompressImage:
 
 # === assess_sharpness tests ===
 
+
 class TestAssessSharpness:
     def test_empty_bytes(self):
         assert assess_sharpness(b"") == 0.0
@@ -271,6 +276,7 @@ class TestAssessSharpness:
 
 
 # === is_blurry tests ===
+
 
 class TestIsBlurry:
     def test_empty_bytes(self):

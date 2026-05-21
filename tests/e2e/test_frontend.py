@@ -34,6 +34,7 @@ def _make_test_image() -> bytes:
 @pytest.fixture(scope="module")
 def local_server():
     """启动本地 HTTP 服务器提供前端页面。"""
+
     class FrontendHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(FRONTEND_DIR), **kwargs)
@@ -91,6 +92,7 @@ class TestUploadFlow:
 
         # 拦截 API 请求
         requests = []
+
         def capture_request(route: Route):
             requests.append(route.request)
             route.fulfill(
@@ -117,30 +119,49 @@ class TestUploadFlow:
         page.goto(local_server)
 
         # Mock API 响应
-        page.route("**/api/v1/analyze", lambda route: route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps({"task_id": "test-001", "status": "pending", "message": "ok"}),
-        ))
+        page.route(
+            "**/api/v1/analyze",
+            lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps({"task_id": "test-001", "status": "pending", "message": "ok"}),
+            ),
+        )
 
         # Mock 轮询响应
-        page.route("**/api/v1/report/test-001", lambda route: route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps({
-                "id": "test-001",
-                "status": "completed",
-                "scene_analysis": {
-                    "scene_type": "street",
-                    "description": "日本商业街夜景",
-                    "location_guess": {"location": "东京涩谷", "confidence": 0.85, "evidence": ["日文招牌"]},
-                    "time_guess": {"time_of_day": "夜晚", "season": "冬季"},
-                },
-                "ocr_results": [{"text": "Shibuya", "confidence": 0.95, "bbox": []}],
-                "conclusions": [{"statement": "拍摄地点: 东京涩谷", "probability": 0.85, "category": "location", "evidence": []}],
-                "report_markdown": "# 测试报告",
-            }),
-        ))
+        page.route(
+            "**/api/v1/report/test-001",
+            lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(
+                    {
+                        "id": "test-001",
+                        "status": "completed",
+                        "scene_analysis": {
+                            "scene_type": "street",
+                            "description": "日本商业街夜景",
+                            "location_guess": {
+                                "location": "东京涩谷",
+                                "confidence": 0.85,
+                                "evidence": ["日文招牌"],
+                            },
+                            "time_guess": {"time_of_day": "夜晚", "season": "冬季"},
+                        },
+                        "ocr_results": [{"text": "Shibuya", "confidence": 0.95, "bbox": []}],
+                        "conclusions": [
+                            {
+                                "statement": "拍摄地点: 东京涩谷",
+                                "probability": 0.85,
+                                "category": "location",
+                                "evidence": [],
+                            }
+                        ],
+                        "report_markdown": "# 测试报告",
+                    }
+                ),
+            ),
+        )
 
         # 上传
         file_input = page.locator("#fileInput")
@@ -160,11 +181,14 @@ class TestUploadFlow:
         page.goto(local_server)
 
         # Mock API 返回错误
-        page.route("**/api/v1/analyze", lambda route: route.fulfill(
-            status=500,
-            content_type="application/json",
-            body=json.dumps({"detail": "Internal Server Error"}),
-        ))
+        page.route(
+            "**/api/v1/analyze",
+            lambda route: route.fulfill(
+                status=500,
+                content_type="application/json",
+                body=json.dumps({"detail": "Internal Server Error"}),
+            ),
+        )
 
         file_input = page.locator("#fileInput")
         file_input.set_input_files(str(test_image))
@@ -179,10 +203,13 @@ class TestUploadFlow:
         page.goto(local_server)
 
         api_called = []
-        page.route("**/api/v1/analyze", lambda route: (
-            api_called.append(True),
-            route.fulfill(status=200, content_type="application/json", body='{"task_id":"x"}'),
-        ))
+        page.route(
+            "**/api/v1/analyze",
+            lambda route: (
+                api_called.append(True),
+                route.fulfill(status=200, content_type="application/json", body='{"task_id":"x"}'),
+            ),
+        )
 
         # 不选择文件，直接等待
         page.wait_for_timeout(1000)

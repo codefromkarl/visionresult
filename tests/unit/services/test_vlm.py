@@ -105,9 +105,7 @@ class TestOpenAIVLMService:
         """Should raise ValueError when no API key is configured."""
         monkeypatch.delenv("VIA_OPENAI_API_KEY", raising=False)
         # Also patch the settings object to ensure it's empty
-        monkeypatch.setattr(
-            "vision_insight.services.vlm.api_service.settings.openai_api_key", ""
-        )
+        monkeypatch.setattr("vision_insight.services.vlm.api_service.settings.openai_api_key", "")
         with pytest.raises(ValueError, match="OpenAI API key"):
             OpenAIVLMService(api_key=None)
 
@@ -288,9 +286,7 @@ class TestGeminiVLMService:
 
     def test_init_requires_api_key(self, monkeypatch):
         """Should raise ValueError when no API key is configured."""
-        monkeypatch.setattr(
-            "vision_insight.services.vlm.api_service.settings.gemini_api_key", ""
-        )
+        monkeypatch.setattr("vision_insight.services.vlm.api_service.settings.gemini_api_key", "")
         with pytest.raises(ValueError, match="Gemini API key"):
             GeminiVLMService(api_key=None)
 
@@ -299,9 +295,7 @@ class TestGeminiVLMService:
     async def test_analyze_returns_scene_analysis(self):
         """Should parse valid Gemini response into SceneAnalysis."""
         respx.post(url__regex=GEMINI_URL_PATTERN).mock(
-            return_value=httpx.Response(
-                200, json=_gemini_response(json.dumps(VALID_SCENE_JSON))
-            )
+            return_value=httpx.Response(200, json=_gemini_response(json.dumps(VALID_SCENE_JSON)))
         )
         svc = GeminiVLMService(api_key="test-key")
         result = await svc.analyze(SAMPLE_IMAGE)
@@ -318,9 +312,7 @@ class TestGeminiVLMService:
 
         def _capture(request):
             captured_request["body"] = request.content
-            return httpx.Response(
-                200, json=_gemini_response(json.dumps(VALID_SCENE_JSON))
-            )
+            return httpx.Response(200, json=_gemini_response(json.dumps(VALID_SCENE_JSON)))
 
         respx.post(url__regex=GEMINI_URL_PATTERN).mock(side_effect=_capture)
 
@@ -363,11 +355,7 @@ class TestGeminiVLMService:
         respx.post(url__regex=GEMINI_URL_PATTERN).mock(
             return_value=httpx.Response(
                 200,
-                json={
-                    "candidates": [
-                        {"content": {"parts": [{"functionCall": {"name": "foo"}}]}}
-                    ]
-                },
+                json={"candidates": [{"content": {"parts": [{"functionCall": {"name": "foo"}}]}}]},
             )
         )
         svc = GeminiVLMService(api_key="test-key")
@@ -379,9 +367,7 @@ class TestGeminiVLMService:
     async def test_detect_objects_returns_list(self):
         """Should parse Gemini object detection response."""
         respx.post(url__regex=GEMINI_URL_PATTERN).mock(
-            return_value=httpx.Response(
-                200, json=_gemini_response(json.dumps(VALID_OBJECTS_JSON))
-            )
+            return_value=httpx.Response(200, json=_gemini_response(json.dumps(VALID_OBJECTS_JSON)))
         )
         svc = GeminiVLMService(api_key="test-key")
         result = await svc.detect_objects(SAMPLE_IMAGE)

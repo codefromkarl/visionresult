@@ -23,7 +23,9 @@ def _make_scene(**kwargs) -> SceneAnalysis:
     defaults = {
         "scene_type": "commercial_street",
         "description": "A busy commercial street at night",
-        "location_guess": LocationGuess(location="Tokyo Shibuya", confidence=0.7, evidence=["Japanese signs"]),
+        "location_guess": LocationGuess(
+            location="Tokyo Shibuya", confidence=0.7, evidence=["Japanese signs"]
+        ),
         "time_guess": TimeGuess(time_of_day="night", season="winter"),
         "people": [],
         "key_evidence": ["Japanese text"],
@@ -121,9 +123,7 @@ async def test_llm_failure_falls_back():
     mock_llm.infer.side_effect = Exception("API error")
 
     service = FusionService(llm=mock_llm)
-    scene = _make_scene(
-        location_guess=LocationGuess(location="Tokyo", confidence=0.6, evidence=[])
-    )
+    scene = _make_scene(location_guess=LocationGuess(location="Tokyo", confidence=0.6, evidence=[]))
 
     results = await service.fuse(scene, [], _make_entities(), [], None)
     location = [c for c in results if c.category == "location"][0]
@@ -138,8 +138,12 @@ async def test_exif_time_high_confidence():
     """EXIF time should have high confidence."""
     service = FusionService()
     from datetime import datetime
+
     metadata = ImageMetadata(
-        width=1920, height=1080, format="JPEG", file_size=100000,
+        width=1920,
+        height=1080,
+        format="JPEG",
+        file_size=100000,
         capture_time=datetime(2024, 1, 15, 20, 30),
     )
     scene = _make_scene()

@@ -68,9 +68,7 @@ class MockPipeline:
             search_results = await self.search.verify_location(entities.location_keywords)
 
         # Stage 5: Evidence Fusion
-        conclusions = await self.evidence.fuse(
-            scene, ocr_results, entities, search_results, None
-        )
+        conclusions = await self.evidence.fuse(scene, ocr_results, entities, search_results, None)
 
         # Stage 6: Report Generation
         report = AnalysisReport(
@@ -116,7 +114,7 @@ class TestPipelineIntegration:
         vlm = MockVLMService()
 
         pipeline = MockPipeline(ocr=ocr, vlm=vlm)
-        report = await pipeline.execute(b"\x89PNG" + b"\x00" * 100)
+        await pipeline.execute(b"\x89PNG" + b"\x00" * 100)
 
         # VLM should have been called
         assert vlm.analyze_count == 1
@@ -124,23 +122,19 @@ class TestPipelineIntegration:
     @pytest.mark.asyncio
     async def test_pipeline_passes_entities_to_search(self):
         """实体应传递给搜索服务。"""
-        entities = create_mock_entity_extraction(
-            location_keywords=["Tokyo", "Shibuya"]
-        )
+        entities = create_mock_entity_extraction(location_keywords=["Tokyo", "Shibuya"])
         entity = MockEntityService(entities=entities)
         search = MockSearchService()
 
         pipeline = MockPipeline(entity=entity, search=search)
-        report = await pipeline.execute(b"\x89PNG" + b"\x00" * 100)
+        await pipeline.execute(b"\x89PNG" + b"\x00" * 100)
 
         assert search.call_count == 1
 
     @pytest.mark.asyncio
     async def test_pipeline_with_no_entities_still_works(self):
         """无实体时 pipeline 仍应正常工作。"""
-        entities = create_mock_entity_extraction(
-            location_keywords=[], brands=[], landmarks=[]
-        )
+        entities = create_mock_entity_extraction(location_keywords=[], brands=[], landmarks=[])
         entity = MockEntityService(entities=entities)
         search = MockSearchService()
 
@@ -169,10 +163,14 @@ class TestPipelineIntegration:
         report_svc = MockReportService()
 
         pipeline = MockPipeline(
-            ocr=ocr, vlm=vlm, entity=entity,
-            search=search, evidence=evidence, report=report_svc,
+            ocr=ocr,
+            vlm=vlm,
+            entity=entity,
+            search=search,
+            evidence=evidence,
+            report=report_svc,
         )
-        report = await pipeline.execute(b"\x89PNG" + b"\x00" * 100)
+        await pipeline.execute(b"\x89PNG" + b"\x00" * 100)
 
         assert ocr.call_count == 1
         assert vlm.analyze_count == 1
@@ -206,7 +204,9 @@ class TestGoldenDatasetIntegration:
             location_guess=create_mock_location_guess(
                 ex.expected_location or "未知",
                 ex.min_location_confidence + 0.1,  # 保证在范围内
-            ) if ex.expected_location else create_mock_location_guess("未知", 0.1, []),
+            )
+            if ex.expected_location
+            else create_mock_location_guess("未知", 0.1, []),
         )
         entities = create_mock_entity_extraction(
             location_keywords=ex.expected_location_keywords,

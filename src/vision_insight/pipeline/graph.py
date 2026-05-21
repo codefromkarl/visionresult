@@ -49,6 +49,7 @@ STAGE_PROGRESS = {
 
 class PipelineState(TypedDict):
     """State passed between pipeline nodes."""
+
     report: AnalysisReport
     image_bytes: bytes
     progress_callback: ProgressCallback
@@ -72,6 +73,7 @@ def _notify_progress(state: PipelineState, stage: str) -> None:
 
 def make_preprocess_node():
     """Stage 1: Image preprocessing - metadata, EXIF, resize."""
+
     def preprocess_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         _notify_progress(state, "preprocess")
@@ -116,6 +118,7 @@ def make_preprocess_node():
 
 def make_ocr_node(ocr_service: OCRService):
     """Stage 2: OCR text extraction using PaddleOCR."""
+
     async def ocr_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         _notify_progress(state, "ocr")
@@ -133,6 +136,7 @@ def make_ocr_node(ocr_service: OCRService):
 
 def make_vlm_node(vlm_service: VLMService):
     """Stage 3: VLM scene understanding using Qwen2-VL or API."""
+
     async def vlm_analysis_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         _notify_progress(state, "vlm_analysis")
@@ -153,6 +157,7 @@ def make_vlm_node(vlm_service: VLMService):
 
 def make_entity_node(entity_service: EntityService):
     """Stage 4: Extract structured entities from VLM + OCR results."""
+
     async def entity_extraction_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         _notify_progress(state, "entity_extraction")
@@ -176,6 +181,7 @@ def make_entity_node(entity_service: EntityService):
 
 def make_search_node(search_service: SearchService):
     """Stage 5: Search the web to verify/expand findings."""
+
     async def web_search_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         _notify_progress(state, "web_search")
@@ -210,6 +216,7 @@ def make_search_node(search_service: SearchService):
 
 def make_fusion_node(evidence_service: EvidenceService):
     """Stage 6: Fuse all evidence into weighted conclusions."""
+
     async def evidence_fusion_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         _notify_progress(state, "evidence_fusion")

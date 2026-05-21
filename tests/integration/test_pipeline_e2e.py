@@ -6,27 +6,14 @@ import asyncio
 import io
 import os
 import sys
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from PIL import Image
 
-# Ensure project root is on path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
-
-def _make_test_image(text: str = "Hello World", size: tuple = (200, 150)) -> bytes:
-    """Create a simple test image with text."""
-    img = Image.new("RGB", size, color="white")
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=90)
-    return buf.getvalue()
-
-
-# ---------------------------------------------------------------------------
-# Mock services that return realistic data
-# ---------------------------------------------------------------------------
-
 from vision_insight.models.schemas import (
+    AnalysisReport,
+    AnalysisStatus,
     DetectedObject,
     EntityExtraction,
     LocationGuess,
@@ -43,12 +30,27 @@ from vision_insight.services import (
     VLMService,
 )
 
+# Ensure project root is on path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def _make_test_image(text: str = "Hello World", size: tuple = (200, 150)) -> bytes:
+    """Create a simple test image with text."""
+    img = Image.new("RGB", size, color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=90)
+    return buf.getvalue()
+
 
 class MockOCRService(OCRService):
     async def extract(self, image_bytes: bytes):
         return [
-            OCRResult(text="涩谷109", bbox=[[10, 10], [100, 10], [100, 30], [10, 30]], confidence=0.95),
-            OCRResult(text="SHIBUYA", bbox=[[10, 40], [100, 40], [100, 60], [10, 60]], confidence=0.92),
+            OCRResult(
+                text="涩谷109", bbox=[[10, 10], [100, 10], [100, 30], [10, 30]], confidence=0.95
+            ),
+            OCRResult(
+                text="SHIBUYA", bbox=[[10, 40], [100, 40], [100, 60], [10, 60]], confidence=0.92
+            ),
         ]
 
 
@@ -128,10 +130,12 @@ async def test_pipeline_full_flow():
 
     # Evidence fusion needs a real FusionService
     from vision_insight.services.evidence.fusion_service import FusionService
+
     runner._evidence = FusionService(llm=None)
 
     # Build pipeline with mock services
     from vision_insight.pipeline.graph import build_pipeline
+
     runner._pipeline = build_pipeline(
         ocr_service=runner._ocr,
         vlm_service=runner._vlm,
@@ -193,7 +197,6 @@ async def test_pipeline_full_flow():
 @pytest.mark.asyncio
 async def test_pipeline_handles_vlm_failure():
     """Test that pipeline gracefully handles VLM failure."""
-    from vision_insight.models.schemas import AnalysisReport, AnalysisStatus
     from vision_insight.pipeline.runner import PipelineRunner
     from vision_insight.services.evidence.fusion_service import FusionService
 
@@ -212,6 +215,7 @@ async def test_pipeline_handles_vlm_failure():
     runner._evidence = FusionService(llm=None)
 
     from vision_insight.pipeline.graph import build_pipeline
+
     runner._pipeline = build_pipeline(
         ocr_service=runner._ocr,
         vlm_service=runner._vlm,
@@ -226,14 +230,15 @@ async def test_pipeline_handles_vlm_failure():
     # Should still complete (with degraded results)
     assert result.status == AnalysisStatus.COMPLETED
     assert result.scene_analysis is not None
-    assert "失败" in result.scene_analysis.description or result.scene_analysis.scene_type == "unknown"
+    assert (
+        "失败" in result.scene_analysis.description or result.scene_analysis.scene_type == "unknown"
+    )
     print("\n✅ Pipeline VLM failure graceful degradation PASSED")
 
 
 @pytest.mark.asyncio
 async def test_api_analyze_endpoint():
     """Test the /api/v1/analyze endpoint with mocked pipeline."""
-    from unittest.mock import AsyncMock, patch
 
     from fastapi.testclient import TestClient
 

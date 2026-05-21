@@ -40,28 +40,35 @@ class PipelineRunner:
 
         # OCR
         from vision_insight.services.ocr.paddle_service import PaddleOCRService
+
         self._ocr = PaddleOCRService(lang=settings.ocr_lang, use_gpu=False)
 
         # VLM — select based on config
         vlm_provider = settings.vlm_provider.lower()
         if vlm_provider == "openai":
             from vision_insight.services.vlm.api_service import OpenAIVLMService
+
             self._vlm = OpenAIVLMService()
         elif vlm_provider == "gemini":
             from vision_insight.services.vlm.api_service import GeminiVLMService
+
             self._vlm = GeminiVLMService()
         else:
             # Default: try OpenAI if key available, else Gemini
             if settings.openai_api_key:
                 from vision_insight.services.vlm.api_service import OpenAIVLMService
+
                 self._vlm = OpenAIVLMService()
                 logger.info("VLM: using OpenAI GPT-4o")
             elif settings.gemini_api_key:
                 from vision_insight.services.vlm.api_service import GeminiVLMService
+
                 self._vlm = GeminiVLMService()
                 logger.info("VLM: using Gemini")
             else:
-                raise ValueError("No VLM API key configured. Set VIA_OPENAI_API_KEY or VIA_GEMINI_API_KEY")
+                raise ValueError(
+                    "No VLM API key configured. Set VIA_OPENAI_API_KEY or VIA_GEMINI_API_KEY"
+                )
 
         # Entity extraction — use the same provider as VLM
         if settings.openai_api_key:
@@ -82,6 +89,7 @@ class PipelineRunner:
         # Evidence fusion — reuse VLM as LLM port for medium-confidence reasoning
         class _VLMPortAdapter:
             """Adapt VLM service to the LLMPort interface used by FusionService."""
+
             def __init__(self, vlm: VLMService):
                 self._vlm = vlm
 

@@ -27,15 +27,12 @@ def _make_report(**kwargs) -> AnalysisReport:
     defaults = {
         "id": "test-001",
         "status": AnalysisStatus.COMPLETED,
-        "image_metadata": ImageMetadata(
-            width=1920, height=1080, format="JPEG", file_size=204800
-        ),
+        "image_metadata": ImageMetadata(width=1920, height=1080, format="JPEG", file_size=204800),
         "scene_analysis": SceneAnalysis(
             scene_type="commercial_street",
             description="日本商业街夜景",
             location_guess=LocationGuess(
-                location="东京涩谷", confidence=0.82,
-                evidence=["日文招牌", "涩谷109", "JR标识"]
+                location="东京涩谷", confidence=0.82, evidence=["日文招牌", "涩谷109", "JR标识"]
             ),
             time_guess=TimeGuess(time_of_day="夜晚", season="冬季"),
             people=[PeopleInfo(count=3, age_group="年轻成年人", activity="聚餐")],
@@ -43,8 +40,8 @@ def _make_report(**kwargs) -> AnalysisReport:
             uncertainties=["具体街道不确定"],
         ),
         "ocr_results": [
-            OCRResult(text="Shibuya", bbox=[[0,0],[100,0],[100,30],[0,30]], confidence=0.98),
-            OCRResult(text="109", bbox=[[0,40],[50,40],[50,70],[0,70]], confidence=0.95),
+            OCRResult(text="Shibuya", bbox=[[0, 0], [100, 0], [100, 30], [0, 30]], confidence=0.98),
+            OCRResult(text="109", bbox=[[0, 40], [50, 40], [50, 70], [0, 70]], confidence=0.95),
         ],
         "conclusions": [
             FusedConclusion(

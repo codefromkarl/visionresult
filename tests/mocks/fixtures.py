@@ -268,8 +268,6 @@ def create_unknown_scenario() -> dict:
             key_evidence=[],
             uncertainties=["无法识别具体场景", "无文字信息"],
         ),
-        "entities": create_mock_entity_extraction(
-            location_keywords=[], brands=[], landmarks=[]
-        ),
+        "entities": create_mock_entity_extraction(location_keywords=[], brands=[], landmarks=[]),
         "search_results": [],
     }

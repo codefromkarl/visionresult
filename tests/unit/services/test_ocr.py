@@ -14,6 +14,7 @@ from vision_insight.services.ocr.paddle_service import (
 
 # === Mock PaddleOCR fixtures ===
 
+
 def _make_paddle_result(texts: list[tuple[str, float, list]]) -> list:
     """Build a fake PaddleOCR result structure.
 
@@ -42,6 +43,7 @@ def mock_paddle_ocr():
 
 # === Initialization tests ===
 
+
 class TestPaddleOCRServiceInit:
     def test_default_init(self):
         svc = PaddleOCRService()
@@ -69,13 +71,16 @@ class TestPaddleOCRServiceInit:
 
 # === Extract tests ===
 
+
 class TestPaddleOCRExtract:
     @pytest.mark.asyncio
     async def test_extract_normal(self, mock_paddle_ocr, sample_png_bytes):
-        fake_result = _make_paddle_result([
-            ("你好世界", 0.98, [[10, 10], [100, 10], [100, 40], [10, 40]]),
-            ("Hello", 0.95, [[10, 50], [80, 50], [80, 80], [10, 80]]),
-        ])
+        fake_result = _make_paddle_result(
+            [
+                ("你好世界", 0.98, [[10, 10], [100, 10], [100, 40], [10, 40]]),
+                ("Hello", 0.95, [[10, 50], [80, 50], [80, 80], [10, 80]]),
+            ]
+        )
         mock_paddle_ocr.ocr.return_value = fake_result
 
         svc = PaddleOCRService()
@@ -116,9 +121,11 @@ class TestPaddleOCRExtract:
 
     @pytest.mark.asyncio
     async def test_extract_japanese_text(self, mock_paddle_ocr, sample_png_bytes):
-        fake_result = _make_paddle_result([
-            ("東京タワー", 0.92, [[5, 5], [120, 5], [120, 35], [5, 35]]),
-        ])
+        fake_result = _make_paddle_result(
+            [
+                ("東京タワー", 0.92, [[5, 5], [120, 5], [120, 35], [5, 35]]),
+            ]
+        )
         mock_paddle_ocr.ocr.return_value = fake_result
 
         svc = PaddleOCRService(lang="japan")
@@ -155,9 +162,11 @@ class TestPaddleOCRExtract:
     @pytest.mark.asyncio
     async def test_extract_confidence_clamped(self, mock_paddle_ocr, sample_png_bytes):
         """Confidence should be rounded to 4 decimal places."""
-        fake_result = _make_paddle_result([
-            ("test", 0.123456789, [[0, 0], [10, 0], [10, 10], [0, 10]]),
-        ])
+        fake_result = _make_paddle_result(
+            [
+                ("test", 0.123456789, [[0, 0], [10, 0], [10, 10], [0, 10]]),
+            ]
+        )
         mock_paddle_ocr.ocr.return_value = fake_result
 
         svc = PaddleOCRService()
@@ -179,9 +188,11 @@ class TestPaddleOCRExtract:
     @pytest.mark.asyncio
     async def test_extract_bbox_as_int(self, mock_paddle_ocr, sample_png_bytes):
         """Bbox coordinates should be converted to int."""
-        fake_result = _make_paddle_result([
-            ("test", 0.9, [[10.5, 20.7], [100.1, 20.7], [100.1, 50.3], [10.5, 50.3]]),
-        ])
+        fake_result = _make_paddle_result(
+            [
+                ("test", 0.9, [[10.5, 20.7], [100.1, 20.7], [100.1, 50.3], [10.5, 50.3]]),
+            ]
+        )
         mock_paddle_ocr.ocr.return_value = fake_result
 
         svc = PaddleOCRService()

@@ -114,7 +114,10 @@ def _report_to_record(report: AnalysisReport, filename: str = None) -> AnalysisR
     if report.entities:
         record.entities_json = report.entities.model_dump_json()
     record.conclusions_json = json.dumps(
-        [{"statement": c.statement, "probability": c.probability, "category": c.category} for c in report.conclusions],
+        [
+            {"statement": c.statement, "probability": c.probability, "category": c.category}
+            for c in report.conclusions
+        ],
         ensure_ascii=False,
     )
     record.search_results_json = json.dumps(
@@ -161,7 +164,9 @@ async def _run_analysis(task_id: str, image_bytes: bytes, filename: str = None) 
         _progress[task_id].append(("done", 100))
 
 
-@router.post("/analyze", response_model=AnalysisTaskResponse, tags=["analysis"], summary="上传图片分析")
+@router.post(
+    "/analyze", response_model=AnalysisTaskResponse, tags=["analysis"], summary="上传图片分析"
+)
 async def create_analysis(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -195,7 +200,9 @@ async def create_analysis(
     )
 
 
-@router.post("/analyze/url", response_model=AnalysisTaskResponse, tags=["analysis"], summary="URL图片分析")
+@router.post(
+    "/analyze/url", response_model=AnalysisTaskResponse, tags=["analysis"], summary="URL图片分析"
+)
 async def create_analysis_from_url(
     background_tasks: BackgroundTasks,
     request: ImageUploadRequest,
@@ -246,8 +253,11 @@ async def get_report(task_id: str, format: str = "json"):
     if format == "html":
         report = _record_to_report(record)
         if report.status != AnalysisStatus.COMPLETED:
-            raise HTTPException(status_code=400, detail=f"Report not ready (status: {report.status.value})")
+            raise HTTPException(
+                status_code=400, detail=f"Report not ready (status: {report.status.value})"
+            )
         from vision_insight.services.report.markdown_report_service import MarkdownReportService
+
         service = MarkdownReportService()
         html = await service.generate_html_report(report)
         return HTMLResponse(content=html)
@@ -340,7 +350,8 @@ async def stream_progress(task_id: str):
             # Check database for completion
             rec = get_analysis(task_id)
             if rec and rec.status in ("completed", "failed"):
-                yield f"data: {json.dumps({'stage': 'done', 'progress': 100, 'status': rec.status})}\n\n"
+                data = {"stage": "done", "progress": 100, "status": rec.status}
+                yield f"data: {json.dumps(data)}\n\n"
                 break
 
             # Check in-memory progress
@@ -398,7 +409,9 @@ async def ask_question(request: QuestionRequest):
     if record.scene_description:
         context_parts.append(f"场景描述: {record.scene_description}")
     if record.location_guess:
-        context_parts.append(f"地点推测: {record.location_guess} (置信度: {record.location_confidence})")
+        context_parts.append(
+            f"地点推测: {record.location_guess} (置信度: {record.location_confidence})"
+        )
     if record.time_guess:
         context_parts.append(f"时间推测: {record.time_guess}")
     if record.ocr_results_json:
@@ -415,7 +428,7 @@ async def ask_question(request: QuestionRequest):
     if record.report_markdown:
         context_parts.append(f"完整报告:\n{record.report_markdown[:1000]}")
 
-    context = "\n".join(context_parts)
+    "\n".join(context_parts)
 
     # Simple rule-based QA (could be enhanced with LLM)
     question = request.question.lower()

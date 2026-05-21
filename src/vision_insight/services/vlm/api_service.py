@@ -37,22 +37,30 @@ async def _retry_with_backoff(coro_factory, max_retries: int = MAX_RETRIES):
             return await coro_factory()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code in RETRYABLE_STATUS_CODES and attempt < max_retries - 1:
-                delay = RETRY_BASE_DELAY * (2 ** attempt)
-                logger.warning("Retryable HTTP %d, attempt %d/%d, waiting %.1fs",
-                              exc.response.status_code, attempt + 1, max_retries, delay)
+                delay = RETRY_BASE_DELAY * (2**attempt)
+                logger.warning(
+                    "Retryable HTTP %d, attempt %d/%d, waiting %.1fs",
+                    exc.response.status_code,
+                    attempt + 1,
+                    max_retries,
+                    delay,
+                )
                 await asyncio.sleep(delay)
                 last_exc = exc
             else:
                 raise
         except (httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
             if attempt < max_retries - 1:
-                delay = RETRY_BASE_DELAY * (2 ** attempt)
-                logger.warning("Timeout, attempt %d/%d, waiting %.1fs", attempt + 1, max_retries, delay)
+                delay = RETRY_BASE_DELAY * (2**attempt)
+                logger.warning(
+                    "Timeout, attempt %d/%d, waiting %.1fs", attempt + 1, max_retries, delay
+                )
                 await asyncio.sleep(delay)
                 last_exc = exc
             else:
                 raise
     raise last_exc
+
 
 # ---------------------------------------------------------------------------
 # Structured prompt template for scene analysis

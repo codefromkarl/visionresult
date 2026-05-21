@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class JudgeResult:
     """LLM 评估结果"""
+
     dimension: str
     score: float  # 0-1
     reason: str
@@ -41,7 +42,10 @@ async def _call_llm(prompt: str, api_key: str | None = None) -> str:
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "你是一个图片分析质量评审专家。只返回 JSON 格式的评分结果。"},
+                    {
+                        "role": "system",
+                        "content": "你是一个图片分析质量评审专家。只返回 JSON 格式的评分结果。",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 "temperature": 0.1,

@@ -30,12 +30,23 @@ def service_no_keys() -> HttpSearchService:
 @respx.mock
 async def test_search_google_success(service: HttpSearchService):
     respx.get("https://www.googleapis.com/customsearch/v1").mock(
-        return_value=Response(200, json={
-            "items": [
-                {"title": "Tokyo Tower", "snippet": "Famous landmark in Tokyo", "link": "https://example.com"},
-                {"title": "Shibuya 109", "snippet": "Shopping mall in Shibuya", "link": "https://example.com/2"},
-            ]
-        })
+        return_value=Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "title": "Tokyo Tower",
+                        "snippet": "Famous landmark in Tokyo",
+                        "link": "https://example.com",
+                    },
+                    {
+                        "title": "Shibuya 109",
+                        "snippet": "Shopping mall in Shibuya",
+                        "link": "https://example.com/2",
+                    },
+                ]
+            },
+        )
     )
     results = await service.search("Tokyo Tower", source="google")
     assert len(results) == 2
@@ -47,9 +58,7 @@ async def test_search_google_success(service: HttpSearchService):
 @pytest.mark.asyncio
 @respx.mock
 async def test_search_google_http_error(service: HttpSearchService):
-    respx.get("https://www.googleapis.com/customsearch/v1").mock(
-        return_value=Response(500)
-    )
+    respx.get("https://www.googleapis.com/customsearch/v1").mock(return_value=Response(500))
     results = await service.search("test", source="google")
     assert results == []
 
@@ -67,13 +76,20 @@ async def test_search_google_no_keys(service_no_keys: HttpSearchService):
 @respx.mock
 async def test_search_bing_success(service: HttpSearchService):
     respx.get("https://api.bing.microsoft.com/v7.0/search").mock(
-        return_value=Response(200, json={
-            "webPages": {
-                "value": [
-                    {"name": "Result 1", "snippet": "Snippet 1", "url": "https://example.com/1"},
-                ]
-            }
-        })
+        return_value=Response(
+            200,
+            json={
+                "webPages": {
+                    "value": [
+                        {
+                            "name": "Result 1",
+                            "snippet": "Snippet 1",
+                            "url": "https://example.com/1",
+                        },
+                    ]
+                }
+            },
+        )
     )
     results = await service.search("test", source="bing")
     assert len(results) == 1
@@ -93,13 +109,16 @@ async def test_search_bing_no_key(service_no_keys: HttpSearchService):
 @respx.mock
 async def test_search_wikipedia_success(service: HttpSearchService):
     respx.get("https://zh.wikipedia.org/w/api.php").mock(
-        return_value=Response(200, json={
-            "query": {
-                "search": [
-                    {"title": "涩谷109", "snippet": "<p>涩谷109是<b>东京</b>的商场</p>"},
-                ]
-            }
-        })
+        return_value=Response(
+            200,
+            json={
+                "query": {
+                    "search": [
+                        {"title": "涩谷109", "snippet": "<p>涩谷109是<b>东京</b>的商场</p>"},
+                    ]
+                }
+            },
+        )
     )
     results = await service.search("涩谷109", source="wikipedia")
     assert len(results) == 1
@@ -114,10 +133,15 @@ async def test_search_wikipedia_success(service: HttpSearchService):
 @respx.mock
 async def test_verify_location_merges_sources(service: HttpSearchService):
     respx.get("https://www.googleapis.com/customsearch/v1").mock(
-        return_value=Response(200, json={"items": [{"title": "G", "snippet": "g", "link": "https://g.com"}]})
+        return_value=Response(
+            200, json={"items": [{"title": "G", "snippet": "g", "link": "https://g.com"}]}
+        )
     )
     respx.get("https://api.bing.microsoft.com/v7.0/search").mock(
-        return_value=Response(200, json={"webPages": {"value": [{"name": "B", "snippet": "b", "url": "https://b.com"}]}})
+        return_value=Response(
+            200,
+            json={"webPages": {"value": [{"name": "B", "snippet": "b", "url": "https://b.com"}]}},
+        )
     )
     respx.get("https://zh.wikipedia.org/w/api.php").mock(
         return_value=Response(200, json={"query": {"search": [{"title": "W", "snippet": "w"}]}})

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 @dataclass
 class GoldenExample:
     """黄金测试场景"""
+
     id: str
     description: str
     # 输入特征（模拟 OCR + VLM 输出）
@@ -44,7 +45,6 @@ GOLDEN_EXAMPLES: list[GoldenExample] = [
         expected_landmarks=["涩谷109"],
         min_location_confidence=0.7,
     ),
-
     # === 场景 2: 中国城市街景 ===
     GoldenExample(
         id="beijing-street",
@@ -57,7 +57,6 @@ GOLDEN_EXAMPLES: list[GoldenExample] = [
         expected_landmarks=["王府井百货大楼"],
         min_location_confidence=0.6,
     ),
-
     # === 场景 3: 室内场景（低置信度） ===
     GoldenExample(
         id="indoor-unknown",
@@ -70,7 +69,6 @@ GOLDEN_EXAMPLES: list[GoldenExample] = [
         expected_landmarks=[],
         max_location_confidence=0.3,
     ),
-
     # === 场景 4: 自然风景 ===
     GoldenExample(
         id="mountain-landscape",
@@ -82,7 +80,6 @@ GOLDEN_EXAMPLES: list[GoldenExample] = [
         min_location_confidence=0.0,
         max_location_confidence=0.4,
     ),
-
     # === 场景 5: UI 截图 ===
     GoldenExample(
         id="ui-screenshot",
@@ -94,7 +91,6 @@ GOLDEN_EXAMPLES: list[GoldenExample] = [
         expected_location_keywords=[],
         max_location_confidence=0.1,
     ),
-
     # === 场景 6: 餐厅场景 ===
     GoldenExample(
         id="restaurant-scene",
@@ -106,7 +102,6 @@ GOLDEN_EXAMPLES: list[GoldenExample] = [
         expected_location_keywords=[],
         min_location_confidence=0.0,
     ),
-
     # === 场景 7: 交通枢纽 ===
     GoldenExample(
         id="train-station",
@@ -118,7 +113,6 @@ GOLDEN_EXAMPLES: list[GoldenExample] = [
         expected_landmarks=["上海虹桥站"],
         min_location_confidence=0.7,
     ),
-
     # === 场景 8: 游戏截图 ===
     GoldenExample(
         id="game-screenshot",

@@ -110,6 +110,7 @@ class TestFixturesCoverage:
     def test_fixtures_importable(self):
         """Fixtures 模块应可正常导入。"""
         from tests.mocks import fixtures
+
         assert hasattr(fixtures, "create_mock_analysis_report")
 
     def test_all_create_mock_functions_exist(self):
@@ -136,6 +137,7 @@ class TestFixturesCoverage:
     def test_scenario_factories_exist(self):
         """场景工厂应存在。"""
         from tests.mocks import fixtures
+
         assert hasattr(fixtures, "create_shibuya_scenario")
         assert hasattr(fixtures, "create_unknown_scenario")
 
@@ -184,19 +186,31 @@ class TestNamingConvention:
 
 # E2E 测试中必须有的用户操作关键字
 BEHAVIOR_ACTION_KEYWORDS = [
-    "set_input_files", "click(", "fill(", "select_option",
-    "dispatch_event", "type(", "press(", "check(",
+    "set_input_files",
+    "click(",
+    "fill(",
+    "select_option",
+    "dispatch_event",
+    "type(",
+    "press(",
+    "check(",
 ]
 
 # E2E 测试中必须有的行为断言关键字
 BEHAVIOR_ASSERT_KEYWORDS = [
-    "to_contain_class", "to_contain_text", "requests",
-    "wait_for_request", "wait_for_selector", "wait_for_timeout",
+    "to_contain_class",
+    "to_contain_text",
+    "requests",
+    "wait_for_request",
+    "wait_for_selector",
+    "wait_for_timeout",
 ]
 
 # 只有结构检查的关键字（不允许单独存在）
 STRUCTURE_ONLY_KEYWORDS = [
-    "to_be_attached", "to_be_visible", "to_have_count",
+    "to_be_attached",
+    "to_be_visible",
+    "to_have_count",
 ]
 
 
@@ -219,7 +233,9 @@ class TestE2EQuality:
 
     @pytest.mark.parametrize(
         "e2e_file",
-        [f.name for f in (TEST_DIR / "e2e").glob("test_*.py")] if (TEST_DIR / "e2e").exists() else [],
+        [f.name for f in (TEST_DIR / "e2e").glob("test_*.py")]
+        if (TEST_DIR / "e2e").exists()
+        else [],
     )
     def test_e2e_has_user_action_simulation(self, e2e_file: str):
         """E2E 测试必须有用户操作模拟。"""
@@ -235,7 +251,9 @@ class TestE2EQuality:
 
     @pytest.mark.parametrize(
         "e2e_file",
-        [f.name for f in (TEST_DIR / "e2e").glob("test_*.py")] if (TEST_DIR / "e2e").exists() else [],
+        [f.name for f in (TEST_DIR / "e2e").glob("test_*.py")]
+        if (TEST_DIR / "e2e").exists()
+        else [],
     )
     def test_e2e_has_behavior_assertion(self, e2e_file: str):
         """E2E 测试必须有行为断言。"""
@@ -251,7 +269,9 @@ class TestE2EQuality:
 
     @pytest.mark.parametrize(
         "e2e_file",
-        [f.name for f in (TEST_DIR / "e2e").glob("test_*.py")] if (TEST_DIR / "e2e").exists() else [],
+        [f.name for f in (TEST_DIR / "e2e").glob("test_*.py")]
+        if (TEST_DIR / "e2e").exists()
+        else [],
     )
     def test_e2e_not_structure_only(self, e2e_file: str):
         """E2E 测试不能只有结构检查。"""
@@ -290,6 +310,7 @@ class TestMockServicesCoverage:
             MockSearchService,
             MockVLMService,
         )
+
         assert MockOCRService is not None
         assert MockVLMService is not None
         assert MockEntityService is not None

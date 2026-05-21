@@ -63,9 +63,7 @@ class LLMEntityService(EntityService):
     # Public API
     # ------------------------------------------------------------------
 
-    async def extract(
-        self, scene: SceneAnalysis, ocr_results: list[OCRResult]
-    ) -> EntityExtraction:
+    async def extract(self, scene: SceneAnalysis, ocr_results: list[OCRResult]) -> EntityExtraction:
         """Extract structured entities from scene analysis and OCR results."""
         scene_json = scene.model_dump_json(indent=2)
         ocr_texts = [r.text for r in ocr_results]

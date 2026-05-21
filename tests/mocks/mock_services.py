@@ -73,9 +73,7 @@ class MockEntityService(EntityService):
         self._entities = entities or create_mock_entity_extraction()
         self.call_count = 0
 
-    async def extract(
-        self, scene: SceneAnalysis, ocr_results: list[OCRResult]
-    ) -> EntityExtraction:
+    async def extract(self, scene: SceneAnalysis, ocr_results: list[OCRResult]) -> EntityExtraction:
         self.call_count += 1
         return self._entities
 
