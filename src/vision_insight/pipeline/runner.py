@@ -8,7 +8,7 @@ from typing import Any
 
 from vision_insight.core.config import settings
 from vision_insight.models.schemas import AnalysisReport, AnalysisStatus
-from vision_insight.pipeline.graph import PipelineState, build_pipeline
+from vision_insight.pipeline.graph import PipelineState, build_pipeline, ProgressCallback
 from vision_insight.services import (
     EntityService,
     EvidenceService,
@@ -64,8 +64,18 @@ class PipelineRunner:
             else:
                 raise ValueError("No VLM API key configured. Set VIA_OPENAI_API_KEY or VIA_GEMINI_API_KEY")
 
-        # Entity extraction (uses same LLM as VLM)
-        self._entity = LLMEntityService()
+        # Entity extraction — use the same provider as VLM
+        if settings.openai_api_key:
+            self._entity = LLMEntityService()
+        elif settings.gemini_api_key:
+            # Use Gemini via OpenAI-compatible endpoint
+            self._entity = LLMEntityService(
+                api_key=settings.gemini_api_key,
+                model="gemini-2.0-flash",
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+            )
+        else:
+            raise ValueError("No API key for entity extraction")
 
         # Search
         self._search = HttpSearchService()
@@ -93,12 +103,18 @@ class PipelineRunner:
         )
         logger.info("Pipeline services initialized")
 
-    async def execute(self, report: AnalysisReport, image_bytes: bytes) -> AnalysisReport:
+    async def execute(
+        self,
+        report: AnalysisReport,
+        image_bytes: bytes,
+        progress_callback: ProgressCallback = None,
+    ) -> AnalysisReport:
         """Execute the full analysis pipeline.
 
         Args:
             report: The AnalysisReport to populate (must have id and PENDING status).
             image_bytes: Raw image file bytes.
+            progress_callback: Optional callback for progress updates.
 
         Returns:
             The populated AnalysisReport with status COMPLETED or FAILED.
@@ -111,6 +127,7 @@ class PipelineRunner:
         state = PipelineState(
             report=report,
             image_bytes=image_bytes,
+            progress_callback=progress_callback,
         )
 
         try:

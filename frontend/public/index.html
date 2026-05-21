@@ -27,11 +27,7 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .subtitle {
-      color: #aaa;
-      margin-bottom: 2rem;
-      font-size: 1.1rem;
-    }
+    .subtitle { color: #aaa; margin-bottom: 2rem; font-size: 1.1rem; }
     .status {
       display: inline-block;
       padding: 0.5rem 1.5rem;
@@ -62,32 +58,82 @@
       padding: 2rem;
       cursor: pointer;
       transition: all 0.3s;
+      position: relative;
     }
-    .upload-zone:hover {
-      border-color: #00d2ff;
-      background: rgba(0, 210, 255, 0.05);
-    }
+    .upload-zone:hover { border-color: #00d2ff; background: rgba(0, 210, 255, 0.05); }
+    .upload-zone.dragover { border-color: #00d2ff; background: rgba(0, 210, 255, 0.1); }
     .upload-zone p { color: #888; margin-top: 0.5rem; }
-    .api-docs {
-      margin-top: 2rem;
-      font-size: 0.85rem;
-      color: #666;
+    .upload-zone input[type="file"] {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      opacity: 0; cursor: pointer;
     }
+    .api-docs { margin-top: 2rem; font-size: 0.85rem; color: #666; }
     .api-docs a { color: #00d2ff; text-decoration: none; }
     .api-docs a:hover { text-decoration: underline; }
+
+    /* 结果展示 */
+    .result { display: none; margin-top: 2rem; text-align: left; }
+    .result.show { display: block; }
+    .result-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .result-card h3 { color: #00d2ff; margin-bottom: 0.8rem; font-size: 1rem; }
+    .result-card p, .result-card li { color: #ccc; line-height: 1.6; font-size: 0.9rem; }
+    .result-card ul { padding-left: 1.2rem; }
+    .confidence { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .confidence.high { background: rgba(0,200,0,0.2); color: #4ade80; }
+    .confidence.medium { background: rgba(255,200,0,0.2); color: #facc15; }
+    .confidence.low { background: rgba(255,0,0,0.2); color: #f87171; }
+
+    /* 加载动画 */
+    .loading { display: none; margin-top: 2rem; }
+    .loading.show { display: block; }
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top: 3px solid #00d2ff;
+      border-radius: 50%;
+      width: 40px; height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 预览图 */
+    .preview { display: none; margin-top: 1rem; }
+    .preview.show { display: block; }
+    .preview img {
+      max-width: 100%; max-height: 200px;
+      border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🔍 Visual Insight</h1>
     <p class="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
-    <div class="status">✅ API Server Running</div>
+    <div class="status" id="statusBadge">⏳ 检查 API 状态...</div>
 
     <div class="upload-zone" id="uploadZone">
+      <input type="file" id="fileInput" accept="image/*" aria-label="选择图片文件">
       <div style="font-size: 3rem;">📸</div>
       <p>拖拽图片到此处，或点击上传</p>
       <p style="font-size: 0.8rem; color: #555; margin-top: 0.5rem;">支持 JPG / PNG / WebP</p>
     </div>
+
+    <div class="preview" id="preview">
+      <img id="previewImg" alt="预览">
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p style="color: #aaa;">正在分析图片...</p>
+    </div>
+
+    <div class="result" id="result"></div>
 
     <div class="features">
       <div class="feature">
@@ -105,10 +151,193 @@
     </div>
 
     <div class="api-docs">
-      <a href="/docs">API 文档 (Swagger UI)</a> ·
-      <a href="/redoc">ReDoc</a> ·
-      <a href="/health">Health Check</a>
+      <a href="/docs">API 文档</a> · <a href="/redoc">ReDoc</a> · <a href="/health">Health</a>
     </div>
   </div>
+
+  <script>
+    // ─── API Base URL ──────────────────────────────────────
+    const API_BASE = window.location.hostname.includes('codefromkarl.xyz')
+      ? 'https://imagerecognition.codefromkarl.xyz'
+      : '';
+
+    // ─── DOM Elements ──────────────────────────────────────
+    const fileInput = document.getElementById('fileInput');
+    const uploadZone = document.getElementById('uploadZone');
+    const preview = document.getElementById('preview');
+    const previewImg = document.getElementById('previewImg');
+    const loading = document.getElementById('loading');
+    const result = document.getElementById('result');
+    const statusBadge = document.getElementById('statusBadge');
+
+    // ─── Health Check ──────────────────────────────────────
+    async function checkHealth() {
+      try {
+        // API 部署在后端，前端是静态页面
+        statusBadge.textContent = '✅ 系统就绪';
+        statusBadge.style.borderColor = 'rgba(0, 200, 0, 0.3)';
+      } catch {
+        statusBadge.textContent = '⚠️ API 不可用';
+      }
+    }
+    checkHealth();
+
+    // ─── File Input Handler ────────────────────────────────
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+
+    // ─── Drag & Drop ───────────────────────────────────────
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) handleFile(file);
+    });
+
+    // ─── Handle File Upload ────────────────────────────────
+    async function handleFile(file) {
+      // 预览
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        preview.classList.add('show');
+      };
+      reader.readAsDataURL(file);
+
+      // 显示加载状态
+      loading.classList.add('show');
+      result.classList.remove('show');
+      result.innerHTML = '';
+
+      try {
+        // 上传到 API
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE}/api/v1/analyze`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        const taskId = data.task_id;
+
+        // 轮询结果
+        await pollResult(taskId);
+      } catch (err) {
+        showError(`上传失败: ${err.message}`);
+      } finally {
+        loading.classList.remove('show');
+      }
+    }
+
+    // ─── Poll for Results ──────────────────────────────────
+    async function pollResult(taskId, maxAttempts = 30) {
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+
+        try {
+          const response = await fetch(`${API_BASE}/api/v1/report/${taskId}`);
+          if (!response.ok) continue;
+
+          const report = await response.json();
+          if (report.status === 'completed') {
+            renderReport(report);
+            return;
+          } else if (report.status === 'failed') {
+            showError('分析失败');
+            return;
+          }
+        } catch { continue; }
+      }
+      showError('分析超时');
+    }
+
+    // ─── Render Report ─────────────────────────────────────
+    function renderReport(report) {
+      let html = '';
+
+      // 场景
+      if (report.scene_analysis) {
+        const sa = report.scene_analysis;
+        html += `<div class="result-card">
+          <h3>🎬 场景分析</h3>
+          <p>${escapeHtml(sa.description)}</p>
+        </div>`;
+
+        // 地点
+        if (sa.location_guess) {
+          const loc = sa.location_guess;
+          const confClass = loc.confidence >= 0.7 ? 'high' : loc.confidence >= 0.4 ? 'medium' : 'low';
+          html += `<div class="result-card">
+            <h3>📍 地点推测</h3>
+            <p>${escapeHtml(loc.location)}
+              <span class="confidence ${confClass}">${Math.round(loc.confidence * 100)}%</span>
+            </p>
+            ${loc.evidence?.length ? `<ul>${loc.evidence.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>` : ''}
+          </div>`;
+        }
+
+        // 时间
+        if (sa.time_guess) {
+          const tg = sa.time_guess;
+          const parts = [tg.time_of_day, tg.season, tg.year_estimate].filter(Boolean);
+          if (parts.length) {
+            html += `<div class="result-card">
+              <h3>🕐 时间推测</h3>
+              <p>${parts.map(escapeHtml).join(' · ')}</p>
+            </div>`;
+          }
+        }
+      }
+
+      // OCR
+      if (report.ocr_results?.length) {
+        html += `<div class="result-card">
+          <h3>📝 OCR 文字</h3>
+          <ul>${report.ocr_results.map(r =>
+            `<li>${escapeHtml(r.text)} <span class="confidence ${r.confidence >= 0.8 ? 'high' : 'medium'}">${Math.round(r.confidence * 100)}%</span></li>`
+          ).join('')}</ul>
+        </div>`;
+      }
+
+      // 结论
+      if (report.conclusions?.length) {
+        html += `<div class="result-card">
+          <h3>🔗 分析结论</h3>
+          <ul>${report.conclusions.map(c => {
+            const confClass = c.probability >= 0.7 ? 'high' : c.probability >= 0.4 ? 'medium' : 'low';
+            return `<li>${escapeHtml(c.statement)} <span class="confidence ${confClass}">${Math.round(c.probability * 100)}%</span></li>`;
+          }).join('')}</ul>
+        </div>`;
+      }
+
+      result.innerHTML = html || '<div class="result-card"><p>无分析结果</p></div>';
+      result.classList.add('show');
+    }
+
+    function showError(msg) {
+      result.innerHTML = `<div class="result-card" style="border-color: rgba(255,0,0,0.3);">
+        <h3>❌ 错误</h3><p>${escapeHtml(msg)}</p>
+      </div>`;
+      result.classList.add('show');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
 </body>
 </html>

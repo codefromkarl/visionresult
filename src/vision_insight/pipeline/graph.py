@@ -34,11 +34,26 @@ from vision_insight.utils.image import compress_image, get_image_metadata
 
 logger = logging.getLogger(__name__)
 
+# Progress callback type: (stage_name, progress_percent)
+ProgressCallback = Any  # Callable[[str, int], None] | None
+
+# Stage progress mapping
+STAGE_PROGRESS = {
+    "preprocess": 10,
+    "ocr": 25,
+    "vlm_analysis": 45,
+    "entity_extraction": 60,
+    "web_search": 75,
+    "evidence_fusion": 85,
+    "report_generation": 95,
+}
+
 
 class PipelineState(TypedDict):
     """State passed between pipeline nodes."""
     report: AnalysisReport
     image_bytes: bytes
+    progress_callback: ProgressCallback
 
 
 # ---------------------------------------------------------------------------
@@ -46,10 +61,22 @@ class PipelineState(TypedDict):
 # ---------------------------------------------------------------------------
 
 
+def _notify_progress(state: PipelineState, stage: str) -> None:
+    """Send progress notification if callback is provided."""
+    callback = state.get("progress_callback")
+    if callback:
+        progress = STAGE_PROGRESS.get(stage, 0)
+        try:
+            callback(stage, progress)
+        except Exception:
+            pass  # Don't let callback errors break the pipeline
+
+
 def make_preprocess_node():
     """Stage 1: Image preprocessing - metadata, EXIF, resize."""
     def preprocess_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
+        _notify_progress(state, "preprocess")
         try:
             raw_bytes: bytes = state["image_bytes"]
             # Compress if too large (>4MB)
@@ -93,6 +120,7 @@ def make_ocr_node(ocr_service: OCRService):
     """Stage 2: OCR text extraction using PaddleOCR."""
     async def ocr_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
+        _notify_progress(state, "ocr")
         try:
             results = await ocr_service.extract(state["image_bytes"])
             report.ocr_results = results
@@ -109,6 +137,7 @@ def make_vlm_node(vlm_service: VLMService):
     """Stage 3: VLM scene understanding using Qwen2-VL or API."""
     async def vlm_analysis_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
+        _notify_progress(state, "vlm_analysis")
         try:
             scene = await vlm_service.analyze(state["image_bytes"], report.ocr_results)
             report.scene_analysis = scene
@@ -128,6 +157,7 @@ def make_entity_node(entity_service: EntityService):
     """Stage 4: Extract structured entities from VLM + OCR results."""
     async def entity_extraction_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
+        _notify_progress(state, "entity_extraction")
         if not report.scene_analysis:
             return {"report": report}
         try:
@@ -150,6 +180,7 @@ def make_search_node(search_service: SearchService):
     """Stage 5: Search the web to verify/expand findings."""
     async def web_search_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
+        _notify_progress(state, "web_search")
         if not report.entities:
             return {"report": report}
 
@@ -183,6 +214,7 @@ def make_fusion_node(evidence_service: EvidenceService):
     """Stage 6: Fuse all evidence into weighted conclusions."""
     async def evidence_fusion_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
+        _notify_progress(state, "evidence_fusion")
         if not report.scene_analysis:
             return {"report": report}
         try:
@@ -209,6 +241,7 @@ def make_report_node():
 
     async def report_generation_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
+        _notify_progress(state, "report_generation")
         report.report_markdown = await report_service.generate_user_report(report)
         report.status = AnalysisStatus.COMPLETED
         logger.info("Report generation done")

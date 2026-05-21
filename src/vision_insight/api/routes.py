@@ -1,11 +1,14 @@
 """API routes for Visual Insight Agent."""
 
 import asyncio
+import json
 import logging
 import uuid
 from datetime import datetime
+from typing import AsyncGenerator
 
 from fastapi import APIRouter, BackgroundTasks, File, UploadFile, HTTPException
+from fastapi.responses import StreamingResponse
 
 from vision_insight.models.schemas import (
     AnalysisReport,
@@ -21,19 +24,29 @@ router = APIRouter()
 
 # In-memory task store (replace with DB in production)
 _tasks: dict[str, AnalysisReport] = {}
+# In-memory progress store for SSE
+_progress: dict[str, list[tuple[str, int]]] = {}
 
 
 async def _run_analysis(task_id: str, image_bytes: bytes) -> None:
-    """Background task: run the analysis pipeline."""
+    """Background task: run the analysis pipeline with progress tracking."""
     runner = get_pipeline_runner()
     report = _tasks[task_id]
+    _progress[task_id] = []
+
+    def progress_callback(stage: str, percent: int):
+        _progress[task_id].append((stage, percent))
+
     try:
-        updated = await runner.execute(report, image_bytes)
+        updated = await runner.execute(report, image_bytes, progress_callback)
         _tasks[task_id] = updated
     except Exception as exc:
         logger.exception("Background analysis failed for %s", task_id)
         report.status = AnalysisStatus.FAILED
         report.report_markdown = f"# 分析失败\n\n错误: {exc}"
+    finally:
+        # Mark as done
+        _progress[task_id].append(("done", 100))
 
 
 @router.post("/analyze", response_model=AnalysisTaskResponse)
@@ -122,3 +135,43 @@ async def list_reports(limit: int = 20, offset: int = 0):
     reports = list(_tasks.values())
     reports.sort(key=lambda r: r.created_at, reverse=True)
     return reports[offset : offset + limit]
+
+
+@router.get("/analyze/{task_id}/stream")
+async def stream_progress(task_id: str):
+    """Stream analysis progress via SSE.
+
+    Returns Server-Sent Events with progress updates.
+    Event format: data: {"stage": "ocr", "progress": 25}
+    """
+    if task_id not in _tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        last_idx = 0
+        while True:
+            # Check if task is done
+            report = _tasks.get(task_id)
+            if report and report.status in (AnalysisStatus.COMPLETED, AnalysisStatus.FAILED):
+                # Send final event
+                yield f"data: {json.dumps({'stage': 'done', 'progress': 100, 'status': report.status.value})}\n\n"
+                break
+
+            # Check for new progress updates
+            progress_list = _progress.get(task_id, [])
+            while last_idx < len(progress_list):
+                stage, percent = progress_list[last_idx]
+                yield f"data: {json.dumps({'stage': stage, 'progress': percent})}\n\n"
+                last_idx += 1
+
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
