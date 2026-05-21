@@ -105,6 +105,57 @@ class MarkdownReportService(ReportService):
 
         return "\n".join(sections)
 
+    async def generate_html_report(self, report: AnalysisReport) -> str:
+        """Generate a styled HTML report."""
+        md = await self.generate_user_report(report)
+        # Simple markdown-to-HTML conversion
+        html_lines = [
+            "<!DOCTYPE html>",
+            "<html lang=\"zh\">",
+            "<head>",
+            "<meta charset=\"utf-8\">",
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+            "<title>图片分析报告</title>",
+            "<style>",
+            "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }",
+            ".report { background: white; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }",
+            "h1 { color: #1a1a1a; border-bottom: 2px solid #4f46e5; padding-bottom: 12px; }",
+            "h2 { color: #374151; margin-top: 24px; }",
+            ".tag { display: inline-block; background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 16px; font-size: 14px; margin: 4px; }",
+            ".confidence { color: #059669; font-weight: 600; }",
+            ".evidence { color: #6b7280; font-size: 14px; margin-left: 16px; }",
+            ".metadata { background: #f9fafb; padding: 16px; border-radius: 8px; margin-top: 16px; }",
+            "</style>",
+            "</head>",
+            "<body>",
+            "<div class=\"report\">",
+        ]
+
+        # Convert markdown to HTML
+        for line in md.split("\n"):
+            if line.startswith("# "):
+                html_lines.append(f"<h1>{line[2:]}</h1>")
+            elif line.startswith("## "):
+                html_lines.append(f"<h2>{line[3:]}</h2>")
+            elif line.startswith("### "):
+                html_lines.append(f"<h3>{line[4:]}</h3>")
+            elif line.startswith("- "):
+                html_lines.append(f"<li>{line[2:]}</li>")
+            elif line.startswith("  - "):
+                html_lines.append(f"<li class=\"evidence\">{line[4:]}</li>")
+            elif line == "---":
+                html_lines.append("<hr>")
+            elif line.strip():
+                html_lines.append(f"<p>{line}</p>")
+
+        html_lines.extend([
+            "</div>",
+            "</body>",
+            "</html>",
+        ])
+
+        return "\n".join(html_lines)
+
     async def generate_structured_report(self, report: AnalysisReport) -> dict:
         """Generate a structured JSON report."""
         result: dict = {

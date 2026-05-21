@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -21,6 +22,37 @@ from vision_insight.models.schemas import (
 from vision_insight.services import VLMService
 
 logger = logging.getLogger(__name__)
+
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0  # seconds
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+async def _retry_with_backoff(coro_factory, max_retries: int = MAX_RETRIES):
+    """Retry an async operation with exponential backoff."""
+    last_exc = None
+    for attempt in range(max_retries):
+        try:
+            return await coro_factory()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in RETRYABLE_STATUS_CODES and attempt < max_retries - 1:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning("Retryable HTTP %d, attempt %d/%d, waiting %.1fs",
+                              exc.response.status_code, attempt + 1, max_retries, delay)
+                await asyncio.sleep(delay)
+                last_exc = exc
+            else:
+                raise
+        except (httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
+            if attempt < max_retries - 1:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning("Timeout, attempt %d/%d, waiting %.1fs", attempt + 1, max_retries, delay)
+                await asyncio.sleep(delay)
+                last_exc = exc
+            else:
+                raise
+    raise last_exc
 
 # ---------------------------------------------------------------------------
 # Structured prompt template for scene analysis
@@ -121,7 +153,7 @@ class OpenAIVLMService(VLMService):
     # ------------------------------------------------------------------
 
     async def _vision_chat(self, prompt: str, image_bytes: bytes) -> str:
-        """Make a vision chat completion request."""
+        """Make a vision chat completion request with retry."""
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
         payload = {
             "model": self._model,
@@ -146,15 +178,18 @@ class OpenAIVLMService(VLMService):
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base_url}/chat/completions",
-                json=payload,
-                headers=headers,
-            )
-            resp.raise_for_status()
-            body = resp.json()
 
+        async def _do_request():
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.post(
+                    f"{self._base_url}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                return resp.json()
+
+        body = await _retry_with_backoff(_do_request)
         return body["choices"][0]["message"]["content"]
 
     @staticmethod
@@ -268,7 +303,7 @@ class GeminiVLMService(VLMService):
     # ------------------------------------------------------------------
 
     async def _generate(self, prompt: str, image_bytes: bytes) -> str:
-        """Make a Gemini generateContent request with inline image."""
+        """Make a Gemini generateContent request with retry."""
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
         payload = {
             "contents": [
@@ -290,10 +325,14 @@ class GeminiVLMService(VLMService):
             },
         }
         url = f"{self._base_url}/models/{self._model}:generateContent?key={self._api_key}"
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(url, json=payload)
-            resp.raise_for_status()
-            body = resp.json()
+
+        async def _do_request():
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.post(url, json=payload)
+                resp.raise_for_status()
+                return resp.json()
+
+        body = await _retry_with_backoff(_do_request)
 
         # Extract text from Gemini response structure
         candidates = body.get("candidates", [])

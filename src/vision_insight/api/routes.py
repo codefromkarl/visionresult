@@ -8,8 +8,15 @@ from datetime import datetime
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, BackgroundTasks, File, UploadFile, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
+from vision_insight.core.database import (
+    AnalysisRecord,
+    delete_analysis,
+    get_analysis,
+    list_analyses,
+    save_analysis,
+)
 from vision_insight.models.schemas import (
     AnalysisReport,
     AnalysisStatus,
@@ -22,16 +29,109 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# In-memory task store (replace with DB in production)
-_tasks: dict[str, AnalysisReport] = {}
-# In-memory progress store for SSE
+# In-memory progress store for SSE (not persisted)
 _progress: dict[str, list[tuple[str, int]]] = {}
 
 
-async def _run_analysis(task_id: str, image_bytes: bytes) -> None:
+def _record_to_report(record: AnalysisRecord) -> AnalysisReport:
+    """Convert database record to AnalysisReport."""
+    from vision_insight.models.schemas import (
+        EntityExtraction,
+        FusedConclusion,
+        ImageMetadata,
+        OCRResult,
+        SearchResult,
+    )
+
+    # Parse JSON fields
+    ocr_results = [OCRResult(**r) for r in json.loads(record.ocr_results_json or "[]")]
+    entities_data = json.loads(record.entities_json or "{}")
+    entities = EntityExtraction(**entities_data) if entities_data else None
+    conclusions_data = json.loads(record.conclusions_json or "[]")
+    conclusions = [FusedConclusion(**c) for c in conclusions_data]
+    search_data = json.loads(record.search_results_json or "[]")
+    search_results = [SearchResult(**s) for s in search_data]
+
+    # Build image metadata
+    image_metadata = None
+    if record.image_width:
+        image_metadata = ImageMetadata(
+            width=record.image_width,
+            height=record.image_height,
+            format=record.image_format or "unknown",
+            file_size=record.image_file_size or 0,
+        )
+
+    return AnalysisReport(
+        id=record.id,
+        status=AnalysisStatus(record.status),
+        created_at=record.created_at or datetime.now(),
+        processing_time_ms=record.processing_time_ms or 0,
+        image_metadata=image_metadata,
+        ocr_results=ocr_results,
+        entities=entities,
+        conclusions=conclusions,
+        search_results=search_results,
+        report_markdown=record.report_markdown or "",
+    )
+
+
+def _report_to_record(report: AnalysisReport, filename: str = None) -> AnalysisRecord:
+    """Convert AnalysisReport to database record."""
+    record = AnalysisRecord(
+        id=report.id,
+        status=report.status.value,
+        created_at=report.created_at,
+        completed_at=datetime.now() if report.status == AnalysisStatus.COMPLETED else None,
+        processing_time_ms=report.processing_time_ms,
+        image_filename=filename,
+        report_markdown=report.report_markdown,
+    )
+
+    if report.image_metadata:
+        record.image_width = report.image_metadata.width
+        record.image_height = report.image_metadata.height
+        record.image_format = report.image_metadata.format
+        record.image_file_size = report.image_metadata.file_size
+
+    if report.scene_analysis:
+        record.scene_type = report.scene_analysis.scene_type
+        record.scene_description = report.scene_analysis.description
+        if report.scene_analysis.location_guess:
+            record.location_guess = report.scene_analysis.location_guess.location
+            record.location_confidence = report.scene_analysis.location_guess.confidence
+        if report.scene_analysis.time_guess:
+            tg = report.scene_analysis.time_guess
+            record.time_guess = f"{tg.time_of_day} {tg.season} {tg.year_estimate}".strip()
+
+    record.ocr_results_json = json.dumps(
+        [{"text": r.text, "confidence": r.confidence} for r in report.ocr_results],
+        ensure_ascii=False,
+    )
+    if report.entities:
+        record.entities_json = report.entities.model_dump_json()
+    record.conclusions_json = json.dumps(
+        [{"statement": c.statement, "probability": c.probability, "category": c.category} for c in report.conclusions],
+        ensure_ascii=False,
+    )
+    record.search_results_json = json.dumps(
+        [{"title": s.title, "source": s.source, "url": s.url} for s in report.search_results],
+        ensure_ascii=False,
+    )
+
+    return record
+
+
+async def _run_analysis(task_id: str, image_bytes: bytes, filename: str = None) -> None:
     """Background task: run the analysis pipeline with progress tracking."""
     runner = get_pipeline_runner()
-    report = _tasks[task_id]
+
+    # Create in-memory report for pipeline
+    report = AnalysisReport(
+        id=task_id,
+        status=AnalysisStatus.PENDING,
+        created_at=datetime.now(),
+    )
     _progress[task_id] = []
 
     def progress_callback(stage: str, percent: int):
@@ -39,13 +139,22 @@ async def _run_analysis(task_id: str, image_bytes: bytes) -> None:
 
     try:
         updated = await runner.execute(report, image_bytes, progress_callback)
-        _tasks[task_id] = updated
+
+        # Save to database
+        record = _report_to_record(updated, filename)
+        save_analysis(record)
+
     except Exception as exc:
         logger.exception("Background analysis failed for %s", task_id)
-        report.status = AnalysisStatus.FAILED
-        report.report_markdown = f"# 分析失败\n\n错误: {exc}"
+        # Save failure to database
+        record = AnalysisRecord(
+            id=task_id,
+            status="failed",
+            created_at=datetime.now(),
+            report_markdown=f"# 分析失败\n\n错误: {exc}",
+        )
+        save_analysis(record)
     finally:
-        # Mark as done
         _progress[task_id].append(("done", 100))
 
 
@@ -55,11 +164,7 @@ async def create_analysis(
     file: UploadFile = File(...),
     analysis_depth: str = "standard",
 ):
-    """Submit an image for analysis.
-
-    Accepts image upload and starts the analysis pipeline.
-    Returns a task ID for tracking progress.
-    """
+    """Submit an image for analysis."""
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
@@ -68,15 +173,17 @@ async def create_analysis(
         raise HTTPException(status_code=400, detail="Empty file")
 
     task_id = str(uuid.uuid4())[:8]
-    report = AnalysisReport(
-        id=task_id,
-        status=AnalysisStatus.PENDING,
-        created_at=datetime.now(),
-    )
-    _tasks[task_id] = report
 
-    # Trigger async pipeline execution
-    background_tasks.add_task(_run_analysis, task_id, image_bytes)
+    # Create pending record in DB
+    record = AnalysisRecord(
+        id=task_id,
+        status="pending",
+        created_at=datetime.now(),
+        image_filename=file.filename,
+    )
+    save_analysis(record)
+
+    background_tasks.add_task(_run_analysis, task_id, image_bytes, file.filename)
 
     return AnalysisTaskResponse(
         task_id=task_id,
@@ -105,12 +212,13 @@ async def create_analysis_from_url(
         raise HTTPException(status_code=400, detail=f"Failed to download image: {exc}")
 
     task_id = str(uuid.uuid4())[:8]
-    report = AnalysisReport(
+    record = AnalysisRecord(
         id=task_id,
-        status=AnalysisStatus.PENDING,
+        status="pending",
         created_at=datetime.now(),
+        image_filename=request.image_url.split("/")[-1][:100],
     )
-    _tasks[task_id] = report
+    save_analysis(record)
 
     background_tasks.add_task(_run_analysis, task_id, image_bytes)
 
@@ -121,43 +229,97 @@ async def create_analysis_from_url(
     )
 
 
-@router.get("/report/{task_id}", response_model=AnalysisReport)
-async def get_report(task_id: str):
-    """Get analysis report by task ID."""
-    if task_id not in _tasks:
+@router.get("/report/{task_id}")
+async def get_report(task_id: str, format: str = "json"):
+    """Get analysis report by task ID.
+
+    Args:
+        format: Response format - 'json' (default) or 'html'
+    """
+    record = get_analysis(task_id)
+    if not record:
         raise HTTPException(status_code=404, detail="Task not found")
-    return _tasks[task_id]
+
+    if format == "html":
+        report = _record_to_report(record)
+        if report.status != AnalysisStatus.COMPLETED:
+            raise HTTPException(status_code=400, detail=f"Report not ready (status: {report.status.value})")
+        from vision_insight.services.report.markdown_report_service import MarkdownReportService
+        service = MarkdownReportService()
+        html = await service.generate_html_report(report)
+        return HTMLResponse(content=html)
+
+    return record.to_dict()
 
 
-@router.get("/reports", response_model=list[AnalysisReport])
+@router.get("/reports")
 async def list_reports(limit: int = 20, offset: int = 0):
     """List recent analysis reports."""
-    reports = list(_tasks.values())
-    reports.sort(key=lambda r: r.created_at, reverse=True)
-    return reports[offset : offset + limit]
+    records = list_analyses(limit=limit, offset=offset)
+    return [r.to_dict() for r in records]
+
+
+@router.delete("/report/{task_id}")
+async def delete_report(task_id: str):
+    """Delete an analysis report."""
+    if not delete_analysis(task_id):
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"message": "Deleted", "task_id": task_id}
+
+
+@router.post("/analyze/batch")
+async def create_batch_analysis(
+    background_tasks: BackgroundTasks,
+    files: list[UploadFile] = File(...),
+):
+    """Submit multiple images for batch analysis."""
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+    if len(files) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 files per batch")
+
+    results = []
+    for file in files:
+        if not file.content_type or not file.content_type.startswith("image/"):
+            results.append({"filename": file.filename, "error": "Not an image file"})
+            continue
+
+        image_bytes = await file.read()
+        if not image_bytes:
+            results.append({"filename": file.filename, "error": "Empty file"})
+            continue
+
+        task_id = str(uuid.uuid4())[:8]
+        record = AnalysisRecord(
+            id=task_id,
+            status="pending",
+            created_at=datetime.now(),
+            image_filename=file.filename,
+        )
+        save_analysis(record)
+        background_tasks.add_task(_run_analysis, task_id, image_bytes, file.filename)
+        results.append({"filename": file.filename, "task_id": task_id, "status": "pending"})
+
+    return {"tasks": results}
 
 
 @router.get("/analyze/{task_id}/stream")
 async def stream_progress(task_id: str):
-    """Stream analysis progress via SSE.
-
-    Returns Server-Sent Events with progress updates.
-    Event format: data: {"stage": "ocr", "progress": 25}
-    """
-    if task_id not in _tasks:
+    """Stream analysis progress via SSE."""
+    record = get_analysis(task_id)
+    if not record:
         raise HTTPException(status_code=404, detail="Task not found")
 
     async def event_generator() -> AsyncGenerator[str, None]:
         last_idx = 0
         while True:
-            # Check if task is done
-            report = _tasks.get(task_id)
-            if report and report.status in (AnalysisStatus.COMPLETED, AnalysisStatus.FAILED):
-                # Send final event
-                yield f"data: {json.dumps({'stage': 'done', 'progress': 100, 'status': report.status.value})}\n\n"
+            # Check database for completion
+            rec = get_analysis(task_id)
+            if rec and rec.status in ("completed", "failed"):
+                yield f"data: {json.dumps({'stage': 'done', 'progress': 100, 'status': rec.status})}\n\n"
                 break
 
-            # Check for new progress updates
+            # Check in-memory progress
             progress_list = _progress.get(task_id, [])
             while last_idx < len(progress_list):
                 stage, percent = progress_list[last_idx]
@@ -175,3 +337,20 @@ async def stream_progress(task_id: str):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/stats")
+async def get_stats():
+    """Get database statistics."""
+    records = list_analyses(limit=1000)
+    total = len(records)
+    completed = sum(1 for r in records if r.status == "completed")
+    failed = sum(1 for r in records if r.status == "failed")
+    pending = sum(1 for r in records if r.status in ("pending", "processing"))
+
+    return {
+        "total_analyses": total,
+        "completed": completed,
+        "failed": failed,
+        "pending": pending,
+    }

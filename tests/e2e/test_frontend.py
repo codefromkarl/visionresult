@@ -1,112 +1,221 @@
 """前端 E2E 测试 — Playwright
 
-对比 TravelAgent 的 web/__tests__/interaction.spec.ts。
-测试前端页面结构、交互、上传功能。
+测试原则：验证用户真实行为，不只是 DOM 结构。
+file:// 协议不支持 set_input_files，需要本地 HTTP 服务器。
 """
 
 from __future__ import annotations
 
+import http.server
+import io
+import json
+import threading
+from pathlib import Path
+
 import pytest
+from PIL import Image
 
-# Skip if playwright not installed
 pytest.importorskip("playwright")
+from playwright.sync_api import Page, expect, Route
 
-from playwright.sync_api import sync_playwright, expect
+# 项目根目录
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+FRONTEND_DIR = PROJECT_ROOT / "frontend" / "public"
+
+
+def _make_test_image() -> bytes:
+    """创建测试图片。"""
+    img = Image.new("RGB", (100, 100), color="red")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 @pytest.fixture(scope="module")
-def browser():
-    """Launch browser for all tests."""
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        yield browser
-        browser.close()
+def local_server():
+    """启动本地 HTTP 服务器提供前端页面。"""
+    class FrontendHandler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(FRONTEND_DIR), **kwargs)
+
+    httpd = http.server.HTTPServer(("127.0.0.1", 0), FrontendHandler)
+    port = httpd.server_address[1]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{port}"
+    httpd.shutdown()
 
 
 @pytest.fixture
 def page(browser):
-    """Create a new page for each test."""
+    """每个测试用独立页面。"""
     page = browser.new_page()
     yield page
     page.close()
 
 
-# ─── 页面结构测试 ──────────────────────────────────────────
+@pytest.fixture
+def test_image(tmp_path) -> Path:
+    """创建测试图片文件。"""
+    img_path = tmp_path / "test.png"
+    img_path.write_bytes(_make_test_image())
+    return img_path
+
+
+# ─── 真正的 E2E 测试：模拟用户行为 ────────────────────────
+
+
+class TestUploadFlow:
+    """上传流程测试 — 模拟真实用户操作。"""
+
+    def test_selecting_file_shows_preview(self, page: Page, test_image: Path, local_server: str):
+        """选择文件后应显示预览图。"""
+        page.goto(local_server)
+
+        # 预览默认隐藏
+        preview = page.locator("#preview")
+        expect(preview).not_to_contain_class("show")
+
+        # 模拟用户选择文件
+        file_input = page.locator("#fileInput")
+        file_input.set_input_files(str(test_image))
+
+        # 验证预览显示
+        expect(preview).to_contain_class("show")
+        preview_img = page.locator("#previewImg")
+        expect(preview_img).to_be_visible()
+
+    def test_upload_calls_api(self, page: Page, test_image: Path, local_server: str):
+        """上传应调用 API。"""
+        page.goto(local_server)
+
+        # 拦截 API 请求
+        requests = []
+        def capture_request(route: Route):
+            requests.append(route.request)
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps({"task_id": "test-123", "status": "pending", "message": "ok"}),
+            )
+
+        page.route("**/api/v1/analyze", capture_request)
+
+        # 模拟上传
+        file_input = page.locator("#fileInput")
+        file_input.set_input_files(str(test_image))
+
+        # 等待 API 调用
+        page.wait_for_timeout(2000)
+
+        # 验证 API 被调用
+        assert len(requests) == 1, f"Expected 1 API call, got {len(requests)}"
+        assert requests[0].method == "POST"
+
+    def test_upload_shows_result_on_success(self, page: Page, test_image: Path, local_server: str):
+        """上传成功后应显示分析结果。"""
+        page.goto(local_server)
+
+        # Mock API 响应
+        page.route("**/api/v1/analyze", lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"task_id": "test-001", "status": "pending", "message": "ok"}),
+        ))
+
+        # Mock 轮询响应
+        page.route("**/api/v1/report/test-001", lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({
+                "id": "test-001",
+                "status": "completed",
+                "scene_analysis": {
+                    "scene_type": "street",
+                    "description": "日本商业街夜景",
+                    "location_guess": {"location": "东京涩谷", "confidence": 0.85, "evidence": ["日文招牌"]},
+                    "time_guess": {"time_of_day": "夜晚", "season": "冬季"},
+                },
+                "ocr_results": [{"text": "Shibuya", "confidence": 0.95, "bbox": []}],
+                "conclusions": [{"statement": "拍摄地点: 东京涩谷", "probability": 0.85, "category": "location", "evidence": []}],
+                "report_markdown": "# 测试报告",
+            }),
+        ))
+
+        # 上传
+        file_input = page.locator("#fileInput")
+        file_input.set_input_files(str(test_image))
+
+        # 等待结果显示
+        result = page.locator("#result")
+        expect(result).to_contain_class("show", timeout=10000)
+
+        # 验证结果内容
+        expect(result).to_contain_text("日本商业街夜景")
+        expect(result).to_contain_text("东京涩谷")
+        expect(result).to_contain_text("Shibuya")
+
+    def test_upload_shows_error_on_failure(self, page: Page, test_image: Path, local_server: str):
+        """API 失败时应显示错误信息。"""
+        page.goto(local_server)
+
+        # Mock API 返回错误
+        page.route("**/api/v1/analyze", lambda route: route.fulfill(
+            status=500,
+            content_type="application/json",
+            body=json.dumps({"detail": "Internal Server Error"}),
+        ))
+
+        file_input = page.locator("#fileInput")
+        file_input.set_input_files(str(test_image))
+
+        # 等待错误显示
+        result = page.locator("#result")
+        expect(result).to_contain_class("show", timeout=5000)
+        expect(result).to_contain_text("错误")
+
+    def test_upload_no_file_does_nothing(self, page: Page, local_server: str):
+        """不选择文件时不应调用 API。"""
+        page.goto(local_server)
+
+        api_called = []
+        page.route("**/api/v1/analyze", lambda route: (
+            api_called.append(True),
+            route.fulfill(status=200, content_type="application/json", body='{"task_id":"x"}'),
+        ))
+
+        # 不选择文件，直接等待
+        page.wait_for_timeout(1000)
+
+        assert len(api_called) == 0, "API should not be called without file selection"
+
+
+# ─── 结构测试（辅助） ────────────────────────────────────
 
 
 class TestPageStructure:
-    """页面基础结构检查。"""
+    """页面结构检查。"""
 
-    def test_page_loads(self, page):
-        """页面应正常加载。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
+    def test_page_loads(self, page: Page, local_server: str):
+        page.goto(local_server)
         expect(page).to_have_title("Visual Insight Agent")
 
-    def test_has_heading(self, page):
-        """应有标题。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
-        heading = page.locator("h1")
-        expect(heading).to_contain_text("Visual Insight")
+    def test_has_upload_input(self, page: Page, local_server: str):
+        page.goto(local_server)
+        inp = page.locator("#fileInput")
+        expect(inp).to_be_attached()
+        expect(inp).to_have_attribute("type", "file")
+        expect(inp).to_have_attribute("accept", "image/*")
 
-    def test_has_upload_zone(self, page):
-        """应有上传区域。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
-        upload = page.locator("#uploadZone")
-        expect(upload).to_be_visible()
+    def test_has_result_container(self, page: Page, local_server: str):
+        page.goto(local_server)
+        expect(page.locator("#result")).to_be_attached()
 
-    def test_has_features(self, page):
-        """应有功能卡片。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
+    def test_has_loading_indicator(self, page: Page, local_server: str):
+        page.goto(local_server)
+        expect(page.locator("#loading")).to_be_attached()
+
+    def test_features_displayed(self, page: Page, local_server: str):
+        page.goto(local_server)
         features = page.locator(".feature")
         expect(features).to_have_count(3)
-
-    def test_has_file_input(self, page):
-        """上传区域应有隐藏的 file input。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
-        file_input = page.locator("#fileInput")
-        expect(file_input).to_be_attached()
-
-
-# ─── 交互测试 ──────────────────────────────────────────────
-
-
-class TestUploadInteraction:
-    """上传交互测试。"""
-
-    def test_file_input_accepts_images(self, page):
-        """file input 应只接受图片。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
-        file_input = page.locator("#fileInput")
-        expect(file_input).to_have_attribute("accept", "image/*")
-
-    def test_upload_zone_has_cursor_pointer(self, page):
-        """上传区域应有 pointer cursor。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
-        upload = page.locator("#uploadZone")
-        expect(upload).to_have_css("cursor", "pointer")
-
-    def test_upload_zone_has_file_input_overlay(self, page):
-        """file input 应覆盖整个上传区域。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
-        file_input = page.locator("#fileInput")
-        # File input should be positioned absolute to cover the zone
-        expect(file_input).to_have_css("position", "absolute")
-
-
-# ─── API 文档链接测试 ──────────────────────────────────────
-
-
-class TestAPILinks:
-    """API 文档链接测试。"""
-
-    def test_has_swagger_link(self, page):
-        """应有 Swagger UI 链接。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
-        link = page.locator('a[href="/docs"]')
-        expect(link).to_be_visible()
-
-    def test_has_health_link(self, page):
-        """应有 Health Check 链接。"""
-        page.goto("file:///home/yuanzhi/Develop/ai-research/visionresult/frontend/public/index.html")
-        link = page.locator('a[href="/health"]')
-        expect(link).to_be_visible()
