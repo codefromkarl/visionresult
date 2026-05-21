@@ -1,0 +1,306 @@
+"""OpenAI GPT-4V and Gemini Pro Vision implementation of VLMService."""
+
+from __future__ import annotations
+
+import base64
+import json
+import logging
+from typing import Any
+
+import httpx
+
+from vision_insight.core.config import settings
+from vision_insight.models.schemas import (
+    DetectedObject,
+    LocationGuess,
+    OCRResult,
+    PeopleInfo,
+    SceneAnalysis,
+    TimeGuess,
+)
+from vision_insight.services import VLMService
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Structured prompt template for scene analysis
+# ---------------------------------------------------------------------------
+
+SCENE_ANALYSIS_PROMPT = """\
+You are a visual scene analyst. Analyze this image and return a JSON object with exactly \
+the following structure (no markdown, no extra text, pure JSON only):
+
+{{
+  "scene_type": "<one of: indoor, outdoor, street, restaurant, "
+    "office, home, transport, event, nature, unknown>",
+  "description": "<2-4 sentence natural-language description of the scene>",
+  "location_guess": {{
+    "location": "<best guess of geographic location or venue type>",
+    "confidence": <0.0-1.0>,
+    "evidence": ["<visual clue 1>", "<visual clue 2>"]
+  }},
+  "time_guess": {{
+    "time_of_day": "<morning|afternoon|evening|night>",
+    "season": "<spring|summer|autumn|winter>",
+    "year_estimate": "<e.g. 2020s, 2024>",
+    "evidence": ["<time clue 1>"]
+  }},
+  "people": [
+    {{
+      "count": <int>,
+      "age_group": "<young|middle-aged|elderly>",
+      "activity": "<what they are doing>"
+    }}
+  ],
+  "key_evidence": ["<important visual detail 1>", "<important visual detail 2>"],
+  "uncertainties": ["<what you are unsure about>"]
+}}
+
+{ocr_context}"""
+
+OBJECT_DETECTION_PROMPT = """\
+Detect all notable objects in this image. Return a JSON array (no markdown, pure JSON):
+
+[
+  {
+    "label": "<object name>",
+    "confidence": <0.0-1.0>,
+    "bbox": [x1, y1, x2, y2],
+    "category": "<person|building|food|logo|vehicle|text|sign|other>"
+  }
+]
+
+If no objects are detectable, return an empty array []."""
+
+
+class OpenAIVLMService(VLMService):
+    """VLM service using OpenAI GPT-4 Vision API via httpx."""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "gpt-4o",
+        base_url: str = "https://api.openai.com/v1",
+        timeout: float = 60.0,
+    ) -> None:
+        self._api_key = api_key or settings.openai_api_key
+        self._model = model
+        self._base_url = base_url.rstrip("/")
+        self._timeout = timeout
+        if not self._api_key:
+            raise ValueError("OpenAI API key is required (set VIA_OPENAI_API_KEY)")
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def analyze(
+        self, image_bytes: bytes, ocr_results: list[OCRResult] | None = None
+    ) -> SceneAnalysis:
+        """Send image to GPT-4V and parse structured SceneAnalysis."""
+        ocr_context = ""
+        if ocr_results:
+            texts = [r.text for r in ocr_results]
+            ocr_context = f"\nOCR detected these texts in the image: {texts}\n"
+
+        prompt = SCENE_ANALYSIS_PROMPT.format(ocr_context=ocr_context)
+        response_text = await self._vision_chat(prompt, image_bytes)
+        data = self._parse_json_response(response_text)
+        return self._build_scene_analysis(data)
+
+    async def detect_objects(self, image_bytes: bytes) -> list[DetectedObject]:
+        """Send image to GPT-4V for object detection."""
+        response_text = await self._vision_chat(OBJECT_DETECTION_PROMPT, image_bytes)
+        items = self._parse_json_response(response_text)
+        if not isinstance(items, list):
+            items = []
+        return [self._build_detected_object(item) for item in items]
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    async def _vision_chat(self, prompt: str, image_bytes: bytes) -> str:
+        """Make a vision chat completion request."""
+        b64_image = base64.b64encode(image_bytes).decode("utf-8")
+        payload = {
+            "model": self._model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{b64_image}",
+                            },
+                        },
+                    ],
+                }
+            ],
+            "max_tokens": 2048,
+            "temperature": 0.2,
+        }
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(
+                f"{self._base_url}/chat/completions",
+                json=payload,
+                headers=headers,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+
+        return body["choices"][0]["message"]["content"]
+
+    @staticmethod
+    def _parse_json_response(text: str) -> Any:
+        """Extract JSON from model response, handling markdown fences."""
+        text = text.strip()
+        # Strip ```json ... ``` wrappers
+        if text.startswith("```"):
+            lines = text.split("\n")
+            # Remove first and last lines (the fences)
+            lines = [ln for ln in lines if not ln.strip().startswith("```")]
+            text = "\n".join(lines)
+        return json.loads(text)
+
+    @staticmethod
+    def _build_scene_analysis(data: dict) -> SceneAnalysis:
+        """Build SceneAnalysis from parsed JSON dict."""
+        location = None
+        if lg := data.get("location_guess"):
+            location = LocationGuess(
+                location=lg.get("location", ""),
+                confidence=float(lg.get("confidence", 0.0)),
+                evidence=lg.get("evidence", []),
+            )
+
+        time = None
+        if tg := data.get("time_guess"):
+            time = TimeGuess(
+                time_of_day=tg.get("time_of_day", ""),
+                season=tg.get("season", ""),
+                year_estimate=tg.get("year_estimate", ""),
+                evidence=tg.get("evidence", []),
+            )
+
+        people = []
+        for p in data.get("people", []):
+            people.append(
+                PeopleInfo(
+                    count=int(p.get("count", 0)),
+                    age_group=p.get("age_group", ""),
+                    activity=p.get("activity", ""),
+                )
+            )
+
+        return SceneAnalysis(
+            scene_type=data.get("scene_type", "unknown"),
+            description=data.get("description", ""),
+            location_guess=location,
+            time_guess=time,
+            people=people,
+            key_evidence=data.get("key_evidence", []),
+            uncertainties=data.get("uncertainties", []),
+        )
+
+    @staticmethod
+    def _build_detected_object(item: dict) -> DetectedObject:
+        """Build DetectedObject from parsed JSON dict."""
+        return DetectedObject(
+            label=item.get("label", ""),
+            confidence=float(item.get("confidence", 0.0)),
+            bbox=item.get("bbox"),
+            category=item.get("category", ""),
+        )
+
+
+class GeminiVLMService(VLMService):
+    """VLM service using Google Gemini Pro Vision API via httpx."""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "gemini-2.0-flash",
+        base_url: str = "https://generativelanguage.googleapis.com/v1beta",
+        timeout: float = 60.0,
+    ) -> None:
+        self._api_key = api_key or settings.gemini_api_key
+        self._model = model
+        self._base_url = base_url.rstrip("/")
+        self._timeout = timeout
+        if not self._api_key:
+            raise ValueError("Gemini API key is required (set VIA_GEMINI_API_KEY)")
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def analyze(
+        self, image_bytes: bytes, ocr_results: list[OCRResult] | None = None
+    ) -> SceneAnalysis:
+        """Send image to Gemini and parse structured SceneAnalysis."""
+        ocr_context = ""
+        if ocr_results:
+            texts = [r.text for r in ocr_results]
+            ocr_context = f"\nOCR detected these texts in the image: {texts}\n"
+
+        prompt = SCENE_ANALYSIS_PROMPT.format(ocr_context=ocr_context)
+        response_text = await self._generate(prompt, image_bytes)
+        data = OpenAIVLMService._parse_json_response(response_text)
+        return OpenAIVLMService._build_scene_analysis(data)
+
+    async def detect_objects(self, image_bytes: bytes) -> list[DetectedObject]:
+        """Send image to Gemini for object detection."""
+        response_text = await self._generate(OBJECT_DETECTION_PROMPT, image_bytes)
+        items = OpenAIVLMService._parse_json_response(response_text)
+        if not isinstance(items, list):
+            items = []
+        return [OpenAIVLMService._build_detected_object(item) for item in items]
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    async def _generate(self, prompt: str, image_bytes: bytes) -> str:
+        """Make a Gemini generateContent request with inline image."""
+        b64_image = base64.b64encode(image_bytes).decode("utf-8")
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt},
+                        {
+                            "inline_data": {
+                                "mime_type": "image/jpeg",
+                                "data": b64_image,
+                            }
+                        },
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 2048,
+            },
+        }
+        url = f"{self._base_url}/models/{self._model}:generateContent?key={self._api_key}"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            body = resp.json()
+
+        # Extract text from Gemini response structure
+        candidates = body.get("candidates", [])
+        if not candidates:
+            raise ValueError("Gemini returned no candidates")
+        parts = candidates[0].get("content", {}).get("parts", [])
+        for part in parts:
+            if "text" in part:
+                return part["text"]
+        raise ValueError("Gemini returned no text content")
