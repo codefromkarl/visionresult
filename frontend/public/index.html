@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visual Insight Agent</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      text-align: center;
+      max-width: 600px;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      color: #aaa;
+      margin-bottom: 2rem;
+      font-size: 1.1rem;
+    }
+    .status {
+      display: inline-block;
+      padding: 0.5rem 1.5rem;
+      background: rgba(0, 210, 255, 0.1);
+      border: 1px solid rgba(0, 210, 255, 0.3);
+      border-radius: 2rem;
+      color: #00d2ff;
+      margin-bottom: 2rem;
+    }
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .feature {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 1.5rem 1rem;
+    }
+    .feature-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+    .feature-title { font-size: 0.9rem; color: #ccc; }
+    .upload-zone {
+      margin-top: 2rem;
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 2rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .upload-zone:hover {
+      border-color: #00d2ff;
+      background: rgba(0, 210, 255, 0.05);
+    }
+    .upload-zone p { color: #888; margin-top: 0.5rem; }
+    .api-docs {
+      margin-top: 2rem;
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .api-docs a { color: #00d2ff; text-decoration: none; }
+    .api-docs a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Visual Insight</h1>
+    <p class="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+    <div class="status">✅ API Server Running</div>
+
+    <div class="upload-zone" id="uploadZone">
+      <div style="font-size: 3rem;">📸</div>
+      <p>拖拽图片到此处，或点击上传</p>
+      <p style="font-size: 0.8rem; color: #555; margin-top: 0.5rem;">支持 JPG / PNG / WebP</p>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🏷️</div>
+        <div class="feature-title">OCR 文字识别</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📍</div>
+        <div class="feature-title">地点推测</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔗</div>
+        <div class="feature-title">证据链推理</div>
+      </div>
+    </div>
+
+    <div class="api-docs">
+      <a href="/docs">API 文档 (Swagger UI)</a> ·
+      <a href="/redoc">ReDoc</a> ·
+      <a href="/health">Health Check</a>
+    </div>
+  </div>
+</body>
+</html>
