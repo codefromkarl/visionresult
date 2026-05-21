@@ -22,15 +22,26 @@ max_journal_lines: 2000
 # Each hook receives TASK_JSON_PATH environment variable pointing to task.json.
 # Hook failures print a warning but do not block the main operation.
 #
-# hooks:
-#   after_create:
-#     - "echo 'Task created'"
-#   after_start:
-#     - "echo 'Task started'"
-#   after_finish:
-#     - "echo 'Task finished'"
-#   after_archive:
-#     - "echo 'Task archived'"
+hooks:
+  after_finish:
+    - 'bash -c "python3 .trellis/scripts/task.py archive $(basename $(dirname $TASK_JSON_PATH))"'
+  after_archive:
+    - "echo 'Task archived'"
+
+#-------------------------------------------------------------------------------
+# Monorepo / Packages
+#-------------------------------------------------------------------------------
+
+packages:
+  backend:
+    path: src
+    description: "Python backend (FastAPI, LangGraph, AI services)"
+  frontend:
+    path: frontend
+    description: "Next.js frontend (planned)"
+
+# Default package used when --package is not specified.
+default_package: backend
 
 #-------------------------------------------------------------------------------
 # Monorepo / Packages
