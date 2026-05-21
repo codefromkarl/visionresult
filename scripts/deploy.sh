@@ -16,6 +16,13 @@ fi
 # 代理环境绕过
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
 
+# 加载 .env 文件
+if [[ -f .env ]]; then
+  set +a
+  source .env
+  set -a
+fi
+
 export CLOUDFLARE_API_TOKEN="${VIA_DEPLOY_TOKEN:-${CLOUDFRAME_API_KEY:-}}"
 if [[ -z "$CLOUDFLARE_API_TOKEN" ]]; then
   echo "❌ 请设置 VIA_DEPLOY_TOKEN 或 CLOUDFRAME_API_KEY 环境变量"
