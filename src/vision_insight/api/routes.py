@@ -1,9 +1,11 @@
 """API routes for Visual Insight Agent."""
 
+import asyncio
+import logging
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, BackgroundTasks, File, UploadFile, HTTPException
 
 from vision_insight.models.schemas import (
     AnalysisReport,
@@ -11,6 +13,9 @@ from vision_insight.models.schemas import (
     AnalysisTaskResponse,
     ImageUploadRequest,
 )
+from vision_insight.pipeline.runner import get_pipeline_runner
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -18,8 +23,22 @@ router = APIRouter()
 _tasks: dict[str, AnalysisReport] = {}
 
 
+async def _run_analysis(task_id: str, image_bytes: bytes) -> None:
+    """Background task: run the analysis pipeline."""
+    runner = get_pipeline_runner()
+    report = _tasks[task_id]
+    try:
+        updated = await runner.execute(report, image_bytes)
+        _tasks[task_id] = updated
+    except Exception as exc:
+        logger.exception("Background analysis failed for %s", task_id)
+        report.status = AnalysisStatus.FAILED
+        report.report_markdown = f"# 分析失败\n\n错误: {exc}"
+
+
 @router.post("/analyze", response_model=AnalysisTaskResponse)
 async def create_analysis(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     analysis_depth: str = "standard",
 ):
@@ -31,8 +50,11 @@ async def create_analysis(
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
-    task_id = str(uuid.uuid4())[:8]
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Empty file")
 
+    task_id = str(uuid.uuid4())[:8]
     report = AnalysisReport(
         id=task_id,
         status=AnalysisStatus.PENDING,
@@ -40,25 +62,36 @@ async def create_analysis(
     )
     _tasks[task_id] = report
 
-    # TODO: Trigger async pipeline execution
-    # pipeline = InsightPipeline()
-    # await pipeline.execute(task_id, file, analysis_depth)
+    # Trigger async pipeline execution
+    background_tasks.add_task(_run_analysis, task_id, image_bytes)
 
     return AnalysisTaskResponse(
         task_id=task_id,
         status=AnalysisStatus.PENDING,
-        message="Analysis task created. Poll /api/v1/report/{task_id} for results.",
+        message="Analysis started. Poll /api/v1/report/{task_id} for results.",
     )
 
 
 @router.post("/analyze/url", response_model=AnalysisTaskResponse)
-async def create_analysis_from_url(request: ImageUploadRequest):
+async def create_analysis_from_url(
+    background_tasks: BackgroundTasks,
+    request: ImageUploadRequest,
+):
     """Submit an image URL for analysis."""
     if not request.image_url:
         raise HTTPException(status_code=400, detail="image_url is required")
 
-    task_id = str(uuid.uuid4())[:8]
+    import httpx
 
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(request.image_url)
+            resp.raise_for_status()
+            image_bytes = resp.content
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to download image: {exc}")
+
+    task_id = str(uuid.uuid4())[:8]
     report = AnalysisReport(
         id=task_id,
         status=AnalysisStatus.PENDING,
@@ -66,11 +99,12 @@ async def create_analysis_from_url(request: ImageUploadRequest):
     )
     _tasks[task_id] = report
 
-    # TODO: Trigger async pipeline execution
+    background_tasks.add_task(_run_analysis, task_id, image_bytes)
+
     return AnalysisTaskResponse(
         task_id=task_id,
         status=AnalysisStatus.PENDING,
-        message="Analysis task created.",
+        message="Analysis started.",
     )
 
 
