@@ -22,6 +22,8 @@ from vision_insight.models.schemas import (
     AnalysisStatus,
     AnalysisTaskResponse,
     ImageUploadRequest,
+    QuestionRequest,
+    QuestionResponse,
 )
 from vision_insight.pipeline.runner import get_pipeline_runner
 

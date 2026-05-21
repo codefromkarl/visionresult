@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Visual Insight Agent</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 24px;
+        }
+        .upload-zone {
+            border: 3px dashed #e0e0e0;
+            border-radius: 12px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+        .upload-zone h3 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .upload-zone p {
+            color: #666;
+            font-size: 14px;
+        }
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        #fileInput { display: none; }
+        .btn {
+            display: inline-block;
+            padding: 12px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .preview-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .preview-img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .progress-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        .progress-text {
+            font-size: 14px;
+            color: #666;
+        }
+        .result-container {
+            display: none;
+        }
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .report-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        .btn-outline {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        .report-content {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 24px;
+            white-space: pre-wrap;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .history-section {
+            margin-top: 32px;
+        }
+        .history-item {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .history-item:hover {
+            background: #f5f5f5;
+        }
+        .history-thumb {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+            margin-right: 16px;
+            background: #e0e0e0;
+        }
+        .history-info {
+            flex: 1;
+        }
+        .history-info h4 {
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .history-info p {
+            color: #666;
+            font-size: 14px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-completed { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-failed { background: #fee2e2; color: #991b1b; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 4px;
+        }
+        @media (max-width: 600px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Visual Insight Agent</h1>
+        <p class="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-number" id="statTotal">-</div>
+                <div class="stat-label">总分析数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="statCompleted">-</div>
+                <div class="stat-label">已完成</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="statPending">-</div>
+                <div class="stat-label">进行中</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="statFailed">-</div>
+                <div class="stat-label">失败</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📸</div>
+                <h3>拖拽图片到此处或点击上传</h3>
+                <p>支持 JPG、PNG、GIF、WebP 格式</p>
+            </div>
+            <input type="file" id="fileInput" accept="image/*">
+
+            <div class="preview-container" id="previewContainer">
+                <img id="previewImg" class="preview-img" alt="预览">
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn" id="analyzeBtn" disabled>开始分析</button>
+            </div>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">准备中...</div>
+            </div>
+        </div>
+
+        <div class="card result-container" id="resultContainer">
+            <div class="report-header">
+                <h2>📊 分析报告</h2>
+                <div class="report-actions">
+                    <button class="btn btn-sm btn-outline" onclick="downloadMarkdown()">📄 Markdown</button>
+                    <button class="btn btn-sm btn-outline" onclick="downloadHTML()">🌐 HTML</button>
+                </div>
+            </div>
+            <div class="report-content" id="reportContent"></div>
+        </div>
+
+        <div class="card history-section">
+            <h2 style="margin-bottom: 16px;">📋 历史记录</h2>
+            <div id="historyList">
+                <p style="color: #666; text-align: center; padding: 20px;">暂无历史记录</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+        let currentTaskId = null;
+
+        // DOM elements
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImg = document.getElementById('previewImg');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const resultContainer = document.getElementById('resultContainer');
+        const reportContent = document.getElementById('reportContent');
+
+        // Load stats and history on page load
+        loadStats();
+        loadHistory();
+
+        // Upload zone events
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        analyzeBtn.addEventListener('click', startAnalysis);
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('请选择图片文件');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                previewContainer.style.display = 'block';
+                analyzeBtn.disabled = false;
+                analyzeBtn.dataset.file = file.name;
+                window.selectedFile = file;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function startAnalysis() {
+            const file = window.selectedFile;
+            if (!file) return;
+
+            analyzeBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            resultContainer.style.display = 'none';
+            progressFill.style.width = '0%';
+            progressText.textContent = '上传中...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const resp = await fetch(`${API_BASE}/analyze`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await resp.json();
+                currentTaskId = data.task_id;
+
+                // Start SSE progress stream
+                streamProgress(currentTaskId);
+            } catch (err) {
+                progressText.textContent = '上传失败: ' + err.message;
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        function streamProgress(taskId) {
+            const eventSource = new EventSource(`${API_BASE}/analyze/${taskId}/stream`);
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                progressFill.style.width = data.progress + '%';
+
+                const stageNames = {
+                    'preprocess': '预处理',
+                    'ocr': '文字识别',
+                    'vlm_analysis': '场景分析',
+                    'entity_extraction': '实体抽取',
+                    'web_search': '联网验证',
+                    'evidence_fusion': '证据融合',
+                    'report_generation': '生成报告',
+                    'done': '完成',
+                };
+                progressText.textContent = stageNames[data.stage] || data.stage;
+
+                if (data.stage === 'done') {
+                    eventSource.close();
+                    loadReport(taskId);
+                }
+            };
+
+            eventSource.onerror = () => {
+                eventSource.close();
+                // Fallback to polling
+                setTimeout(() => loadReport(taskId), 1000);
+            };
+        }
+
+        async function loadReport(taskId) {
+            try {
+                const resp = await fetch(`${API_BASE}/report/${taskId}`);
+                const data = await resp.json();
+
+                if (data.status === 'completed') {
+                    reportContent.textContent = data.report_markdown;
+                    resultContainer.style.display = 'block';
+                    progressText.textContent = '分析完成！';
+                } else if (data.status === 'failed') {
+                    reportContent.textContent = data.report_markdown || '分析失败';
+                    resultContainer.style.display = 'block';
+                    progressText.textContent = '分析失败';
+                } else {
+                    // Still processing
+                    setTimeout(() => loadReport(taskId), 2000);
+                    return;
+                }
+
+                analyzeBtn.disabled = false;
+                loadStats();
+                loadHistory();
+            } catch (err) {
+                progressText.textContent = '加载报告失败: ' + err.message;
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const resp = await fetch(`${API_BASE}/stats`);
+                const data = await resp.json();
+                document.getElementById('statTotal').textContent = data.total_analyses;
+                document.getElementById('statCompleted').textContent = data.completed;
+                document.getElementById('statPending').textContent = data.pending;
+                document.getElementById('statFailed').textContent = data.failed;
+            } catch (err) {
+                console.error('Failed to load stats:', err);
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const resp = await fetch(`${API_BASE}/reports?limit=10`);
+                const data = await resp.json();
+                const container = document.getElementById('historyList');
+
+                if (!data.length) {
+                    container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">暂无历史记录</p>';
+                    return;
+                }
+
+                container.innerHTML = data.map(item => `
+                    <div class="history-item" onclick="viewReport('${item.id}')">
+                        <div class="history-thumb">📷</div>
+                        <div class="history-info">
+                            <h4>${item.image?.filename || '未知文件'}</h4>
+                            <p>${item.scene?.description?.substring(0, 50) || '暂无描述'}...</p>
+                        </div>
+                        <span class="status-badge status-${item.status}">${item.status}</span>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load history:', err);
+            }
+        }
+
+        async function viewReport(taskId) {
+            try {
+                const resp = await fetch(`${API_BASE}/report/${taskId}`);
+                const data = await resp.json();
+                reportContent.textContent = data.report_markdown;
+                resultContainer.style.display = 'block';
+                resultContainer.scrollIntoView({ behavior: 'smooth' });
+            } catch (err) {
+                alert('加载报告失败');
+            }
+        }
+
+        function downloadMarkdown() {
+            const content = reportContent.textContent;
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `report-${currentTaskId || 'unknown'}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function downloadHTML() {
+            if (!currentTaskId) return;
+            try {
+                const resp = await fetch(`${API_BASE}/report/${currentTaskId}?format=html`);
+                const html = await resp.text();
+                const blob = new Blob([html], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `report-${currentTaskId}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('下载失败');
+            }
+        }
+    </script>
+</body>
+</html>

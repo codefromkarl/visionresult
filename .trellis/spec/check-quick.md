@@ -38,3 +38,11 @@ pytest                      # 测试
 - [ ] 修改了 schema → 检查引用该 model 的所有 service 和 route
 - [ ] 修改了 service 接口 → 检查所有实现类
 - [ ] 新增 pipeline 节点 → 检查 graph.py 中的注册
+
+### 5. 前端功能检查（关键）
+
+- [ ] 前端有交互功能 → 必须有 E2E 测试
+- [ ] E2E 测试必须模拟用户操作（set_input_files / click / fill）
+- [ ] E2E 测试必须验证行为（状态变化 / API 调用 / 内容渲染）
+- [ ] 禁止只检查 DOM 结构（to_be_attached / to_be_visible）
+- [ ] 运行 `pytest tests/quality/test_quality_guard.py -k E2E` 验证

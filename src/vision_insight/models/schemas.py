@@ -142,3 +142,16 @@ class AnalysisTaskResponse(BaseModel):
     task_id: str
     status: AnalysisStatus
     message: str
+
+
+class QuestionRequest(BaseModel):
+    """Request for asking a question about an analysis."""
+    question: str
+    analysis_id: str
+
+
+class QuestionResponse(BaseModel):
+    """Response to a question about an analysis."""
+    answer: str
+    confidence: float = Field(ge=0.0, le=1.0, default=0.8)
+    sources: list[str] = Field(default_factory=list)

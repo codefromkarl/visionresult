@@ -26,7 +26,8 @@ class MarkdownReportService(ReportService):
             if sa.location_guess:
                 loc = sa.location_guess
                 pct = int(loc.confidence * 100)
-                sections.append(f"## 地点推测\n{loc.location}（{pct}%）\n")
+                bar = self._confidence_bar(loc.confidence)
+                sections.append(f"## 地点推测\n{loc.location} {bar}\n")
                 if loc.evidence:
                     sections.append("### 依据")
                     for e in loc.evidence:
@@ -74,18 +75,47 @@ class MarkdownReportService(ReportService):
             sections.append("## OCR 文字")
             for r in report.ocr_results:
                 pct = int(r.confidence * 100)
-                sections.append(f"- {r.text} ({pct}%)")
+                bar = self._confidence_bar(r.confidence)
+                sections.append(f"- {r.text} {bar}")
             sections.append("")
 
-        # Conclusions
+        # Entities
+        if report.entities:
+            ent = report.entities
+            if any([ent.location_keywords, ent.brands, ent.landmarks, ent.text_entities]):
+                sections.append("## 识别实体")
+                if ent.location_keywords:
+                    sections.append(f"- **地点关键词**: {', '.join(ent.location_keywords)}")
+                if ent.brands:
+                    sections.append(f"- **品牌**: {', '.join(ent.brands)}")
+                if ent.landmarks:
+                    sections.append(f"- **地标**: {', '.join(ent.landmarks)}")
+                if ent.text_entities:
+                    sections.append(f"- **文本实体**: {', '.join(ent.text_entities)}")
+                sections.append("")
+
+        # Conclusions with evidence chain
         if report.conclusions:
-            sections.append("## 结论")
-            for c in report.conclusions:
+            sections.append("## 结论与证据链")
+            for i, c in enumerate(report.conclusions, 1):
                 pct = int(c.probability * 100)
-                sections.append(f"- {c.statement}（{pct}%）")
+                bar = self._confidence_bar(c.probability)
+                sections.append(f"### {i}. {c.statement} {bar}")
                 if c.evidence:
-                    for e in c.evidence[:3]:  # Top 3 evidence per conclusion
-                        sections.append(f"  - [{e.source}] {e.content}")
+                    sections.append("")
+                    sections.append("**证据来源:**")
+                    for e in c.evidence:
+                        icon = self._evidence_icon(e.source)
+                        conf = int(e.confidence * 100)
+                        supporting = "✅" if e.supporting else "❌"
+                        sections.append(f"- {icon} [{e.source}] {e.content} (置信度: {conf}%) {supporting}")
+                sections.append("")
+
+        # Search results
+        if report.search_results:
+            sections.append("## 联网验证")
+            for sr in report.search_results[:5]:
+                sections.append(f"- [{sr.title}]({sr.url}) ({sr.source})")
             sections.append("")
 
         # Metadata
@@ -101,9 +131,34 @@ class MarkdownReportService(ReportService):
 
         # Footer
         sections.append("---")
-        sections.append("*由 Visual Insight Agent 生成*")
+        sections.append(f"*由 Visual Insight Agent 生成 | 耗时: {report.processing_time_ms}ms*")
 
         return "\n".join(sections)
+
+    @staticmethod
+    def _confidence_bar(confidence: float) -> str:
+        """Generate a visual confidence bar."""
+        filled = int(confidence * 10)
+        empty = 10 - filled
+        if confidence >= 0.8:
+            color = "🟢"
+        elif confidence >= 0.5:
+            color = "🟡"
+        else:
+            color = "🔴"
+        return f"{color} {'█' * filled}{'░' * empty} {int(confidence * 100)}%"
+
+    @staticmethod
+    def _evidence_icon(source: str) -> str:
+        """Get icon for evidence source."""
+        icons = {
+            "ocr": "📝",
+            "vlm": "👁️",
+            "search": "🔍",
+            "exif": "📷",
+            "scene": "🎬",
+        }
+        return icons.get(source, "📌")
 
     async def generate_html_report(self, report: AnalysisReport) -> str:
         """Generate a styled HTML report."""

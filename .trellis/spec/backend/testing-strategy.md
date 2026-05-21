@@ -4,6 +4,15 @@
 
 ---
 
+## 核心原则
+
+> **结构检查 ≠ 功能测试**
+> 
+> 测试必须验证**用户行为**，不只是**元素存在**。
+> 如果测试只检查 DOM 结构，功能完全不能用也会通过。
+
+---
+
 ## Mock 路由规则
 
 ### 何时用什么 Mock
@@ -14,6 +23,7 @@
 | **pipeline 节点测试** | mock service 依赖 | 测试单个 pipeline 节点的输入输出 |
 | **API 测试** | TestClient + mock service | 测试 FastAPI 路由、请求/响应格式 |
 | **integration 测试** | mock VLM + 真实 pipeline | 测试完整分析流程 |
+| **E2E 测试** | Playwright + mock API | **浏览器端测试用户行为** |
 
 ### 决策树
 
@@ -52,6 +62,44 @@
 - Pipeline 端到端（mock VLM/OCR）
 - 数据库操作
 
+### E2E（端到端测试）
+
+**位置**: `tests/e2e/`
+**原则**: **模拟真实用户行为，不只是检查 DOM 结构**
+
+**必须满足的条件：**
+1. ✅ 使用 `set_input_files()` / `click()` / `fill()` 模拟用户操作
+2. ✅ Mock API 响应，验证请求被发送
+3. ✅ 验证操作后的**状态变化**（预览显示、结果渲染、错误提示）
+4. ❌ 禁止只检查元素存在 (`to_be_attached` / `to_be_visible`)
+
+**E2E 测试模板：**
+
+```python
+class TestFeatureFlow:
+    """功能流程测试 — 必须模拟用户行为。"""
+
+    def test_user_action_triggers_expected_behavior(self, page, test_data):
+        """用户操作应触发预期行为。"""
+        page.goto(local_server)
+
+        # 1. Mock API（如果需要）
+        requests = []
+        page.route("**/api/endpoint", lambda route: (
+            requests.append(route.request),
+            route.fulfill(status=200, body='{"result":"ok"}'),
+        ))
+
+        # 2. 模拟用户操作
+        element = page.locator("#target")
+        element.click()  # 或 set_input_files / fill / select_option
+
+        # 3. 验证行为（不只是结构）
+        assert len(requests) == 1  # API 被调用
+        expect(page.locator("#result")).to_contain_class("show")  # 状态变化
+        expect(page.locator("#result")).to_contain_text("预期内容")  # 内容正确
+```
+
 ---
 
 ## 新模块测试 Checklist
@@ -75,3 +123,65 @@
 - [ ] `tests/test_api.py` 添加测试用例
 - [ ] 使用 FastAPI TestClient
 - [ ] 测试请求验证、错误响应、边界情况
+
+### 新前端功能（关键）
+
+- [ ] `tests/e2e/test_<feature>.py` 创建
+- [ ] **必须模拟用户操作**（click / set_input_files / fill）
+- [ ] **必须验证行为**（状态变化 / API 调用 / 内容渲染）
+- [ ] **禁止只检查 DOM 结构**
+- [ ] Mock API 响应，验证请求/响应流程
+- [ ] 测试成功路径 + 失败路径
+
+---
+
+## E2E 测试质量守卫
+
+### 自动检查规则
+
+在 `tests/quality/test_quality_guard.py` 中添加：
+
+```python
+class TestE2EQuality:
+    """E2E 测试质量检查 — 防止空壳测试。"""
+
+    def test_e2e_tests_have_behavior_assertions(self):
+        """E2E 测试必须有行为断言，不能只检查结构。"""
+        e2e_files = list(Path("tests/e2e").glob("test_*.py"))
+        for f in e2e_files:
+            content = f.read_text()
+            # 必须有用户操作模拟
+            has_action = any(kw in content for kw in [
+                "set_input_files", "click()", "fill(", "select_option",
+                "dispatch_event", "type("
+            ])
+            # 必须有行为断言
+            has_behavior = any(kw in content for kw in [
+                "to_contain_class", "to_contain_text", "assert.*requests",
+                "wait_for_request", "wait_for_selector"
+            ])
+            # 禁止只有结构检查
+            only_structure = all(kw in content for kw in [
+                "to_be_attached", "to_be_visible"
+            ]) and not has_action
+
+            assert has_action, f"{f.name}: 缺少用户操作模拟 (set_input_files/click/fill)"
+            assert has_behavior, f"{f.name}: 缺少行为断言 (状态变化/API调用)"
+            assert not only_structure, f"{f.name}: 只有结构检查，没有功能测试"
+```
+
+---
+
+## 测试失败时的排查顺序
+
+```
+测试失败
+├── 是 E2E 测试吗？
+│   ├── 是 → 检查是否有真实用户操作，不是只检查 DOM
+│   └── 否 → 继续
+├── 是集成测试吗？
+│   ├── 是 → 检查 mock 是否正确设置
+│   └── 否 → 继续
+└── 是单元测试吗？
+    └── 检查输入/输出是否符合预期
+```
