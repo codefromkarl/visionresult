@@ -64,6 +64,13 @@ uvicorn vision_insight.main:app --reload --port 8000
 # 上传图片分析
 curl -X POST http://localhost:8000/api/v1/analyze \
   -F "file=@test.jpg"
+
+# 启用 verbose 模式（包含推理链路）
+curl -X POST http://localhost:8000/api/v1/analyze?verbose=true \
+  -F "file=@test.jpg"
+
+# 获取报告（包含推理链路）
+curl http://localhost:8000/api/v1/report/{task_id}?include_trace=true
 ```
 
 ## 技术栈
@@ -79,6 +86,71 @@ curl -X POST http://localhost:8000/api/v1/analyze \
 1. **宁可不确定，也不要瞎猜** — 诚实表达不确定性
 2. **证据链优先** — 每个推断必须有依据
 3. **规则 + LLM 混合** — 不让 LLM 直接决定一切
+
+## 推理链路功能
+
+系统支持 **Verbose 模式**，可以记录并展示完整的推理过程：
+
+### 功能特性
+
+1. **Pipeline 执行详情** — 记录每个阶段的输入/输出、耗时、关键发现
+2. **思考链条** — 展示证据融合的推理过程（规则匹配 / LLM推理）
+3. **调用证据链** — 可视化证据如何被加权和融合
+
+### 使用方法
+
+```bash
+# API 调用时启用 verbose 模式
+curl -X POST http://localhost:8000/api/v1/analyze?verbose=true \
+  -F "file=@test.jpg"
+
+# 获取包含推理链路的报告
+curl http://localhost:8000/api/v1/report/{task_id}?include_trace=true
+```
+
+### 前端可视化
+
+前端界面支持：
+- 勾选「启用详细推理链路」复选框
+- 点击「🔍 推理链路」按钮查看完整推理过程
+- 时间线展示每个 Pipeline 阶段
+- 卡片式展示每个结论的推理策略和证据
+
+### 返回数据结构
+
+```json
+{
+  "pipeline_trace": {
+    "steps": [
+      {
+        "stage_name": "ocr",
+        "status": "success",
+        "duration_ms": 150,
+        "input_summary": "Image 1920x1080",
+        "output_summary": "5 text regions detected",
+        "key_findings": ["Text: 'Shibuya'", "Text: '109'"]
+      }
+    ],
+    "reasoning_traces": [
+      {
+        "conclusion_category": "location",
+        "conclusion_statement": "拍摄地点: 东京涩谷",
+        "final_probability": 0.85,
+        "strategy_used": "rule",
+        "steps": [
+          {
+            "action": "rule_match",
+            "description": "High confidence match (>0.8)",
+            "confidence_before": 0.95,
+            "confidence_after": 0.85
+          }
+        ]
+      }
+    ],
+    "total_duration_ms": 500
+  }
+}
+```
 
 ## 项目结构
 

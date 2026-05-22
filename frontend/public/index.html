@@ -13,94 +13,33 @@
       min-height: 100vh;
     }
     .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem 2rem;
-      background: rgba(0,0,0,0.3);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1rem 2rem; background: rgba(0,0,0,0.3);
     }
-    .logo {
-      font-size: 1.5rem;
-      background: linear-gradient(90deg, #00d2ff, #3a7bd5);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .nav { display: flex; gap: 1rem; align-items: center; }
-    .nav-btn {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fff;
-      padding: 0.4rem 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      transition: all 0.2s;
-    }
+    .logo { font-size: 1.5rem; background: linear-gradient(90deg, #00d2ff, #3a7bd5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .nav { display: flex; gap: 0.8rem; align-items: center; }
+    .nav-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 0.4rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
     .nav-btn:hover { background: rgba(255,255,255,0.2); }
     .nav-btn.active { background: rgba(0,210,255,0.3); border-color: #00d2ff; }
-    .lang-btn {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fff;
-      padding: 0.3rem 0.6rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.8rem;
-    }
+    .lang-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
     .lang-btn.active { background: rgba(0,210,255,0.3); border-color: #00d2ff; }
     .main { max-width: 800px; margin: 0 auto; padding: 2rem; }
     .page { display: none; }
     .page.active { display: block; }
-    h1 {
-      font-size: 2rem;
-      text-align: center;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(90deg, #00d2ff, #3a7bd5);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
+    h1 { font-size: 2rem; text-align: center; margin-bottom: 0.5rem; background: linear-gradient(90deg, #00d2ff, #3a7bd5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .subtitle { color: #aaa; text-align: center; margin-bottom: 2rem; }
-    .features {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-      margin-top: 2rem;
-    }
-    .feature {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 1.5rem 1rem;
-      text-align: center;
-    }
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2rem; }
+    .feature { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.5rem 1rem; text-align: center; }
     .feature-icon { font-size: 2rem; margin-bottom: 0.5rem; }
     .feature-title { font-size: 0.9rem; color: #ccc; }
-    .upload-zone {
-      margin-top: 2rem;
-      border: 2px dashed rgba(255,255,255,0.2);
-      border-radius: 16px;
-      padding: 2rem;
-      cursor: pointer;
-      transition: all 0.3s;
-      position: relative;
-      text-align: center;
-    }
+    .upload-zone { margin-top: 2rem; border: 2px dashed rgba(255,255,255,0.2); border-radius: 16px; padding: 2rem; cursor: pointer; position: relative; text-align: center; }
     .upload-zone:hover { border-color: #00d2ff; background: rgba(0,210,255,0.05); }
     .upload-zone.dragover { border-color: #00d2ff; background: rgba(0,210,255,0.1); }
     .upload-zone p { color: #888; margin-top: 0.5rem; }
-    .upload-zone input[type="file"] {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      opacity: 0; cursor: pointer;
-    }
+    .upload-zone input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
     .result { display: none; margin-top: 2rem; }
     .result.show { display: block; }
-    .result-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
-    }
+    .result-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
     .result-card h3 { color: #00d2ff; margin-bottom: 0.8rem; font-size: 1rem; }
     .result-card p, .result-card li { color: #ccc; line-height: 1.6; font-size: 0.9rem; }
     .result-card ul { padding-left: 1.2rem; }
@@ -110,59 +49,27 @@
     .confidence.low { background: rgba(255,0,0,0.2); color: #f87171; }
     .loading { display: none; margin-top: 2rem; text-align: center; }
     .loading.show { display: block; }
-    .spinner {
-      border: 3px solid rgba(255,255,255,0.1);
-      border-top: 3px solid #00d2ff;
-      border-radius: 50%;
-      width: 40px; height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
-    }
+    .spinner { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #00d2ff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .preview { display: none; margin-top: 1rem; text-align: center; }
     .preview.show { display: block; }
-    .preview img {
-      max-width: 100%; max-height: 200px;
-      border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
-    }
-    /* History */
+    .preview img { max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
     .history-list { margin-top: 1rem; }
-    .history-item {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 1rem 1.5rem;
-      margin-bottom: 0.8rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+    .history-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1rem; margin-bottom: 0.8rem; cursor: pointer; display: flex; gap: 1rem; align-items: center; }
     .history-item:hover { background: rgba(255,255,255,0.1); border-color: #00d2ff; }
-    .history-info { flex: 1; }
-    .history-filename { color: #fff; font-weight: 500; }
-    .history-time { color: #888; font-size: 0.8rem; margin-top: 0.3rem; }
-    .history-status {
-      padding: 0.2rem 0.6rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-    }
+    .history-thumb { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; background: rgba(255,255,255,0.1); }
+    .history-info { flex: 1; min-width: 0; }
+    .history-filename { color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-time { color: #888; font-size: 0.8rem; margin-top: 0.2rem; }
+    .history-meta { display: flex; gap: 0.5rem; margin-top: 0.3rem; }
+    .history-tag { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px; background: rgba(0,210,255,0.2); color: #00d2ff; }
+    .history-actions { display: flex; gap: 0.5rem; }
+    .history-status { padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; }
     .history-status.completed { background: rgba(0,200,0,0.2); color: #4ade80; }
     .history-status.processing { background: rgba(255,200,0,0.2); color: #facc15; }
-    .history-status.failed { background: rgba(255,0,0,0.2); color: #f87171; }
-    .history-delete {
-      background: rgba(255,0,0,0.1);
-      border: 1px solid rgba(255,0,0,0.2);
-      color: #f87171;
-      padding: 0.3rem 0.6rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.75rem;
-      margin-left: 0.5rem;
-    }
-    .history-delete:hover { background: rgba(255,0,0,0.2); }
+    .history-delete { background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.2); color: #f87171; padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
     .empty-state { text-align: center; padding: 3rem; color: #888; }
+    .result-image { max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 1rem; }
     .footer { text-align: center; margin-top: 2rem; font-size: 0.75rem; color: #555; padding: 1rem; }
   </style>
 </head>
@@ -172,275 +79,110 @@
     <div class="nav">
       <button class="nav-btn active" onclick="showPage('upload')" data-i18n="navUpload">上传分析</button>
       <button class="nav-btn" onclick="showPage('history')" data-i18n="navHistory">历史记录</button>
-      <button class="lang-btn" onclick="setLang('zh')">中文</button>
+      <button class="lang-btn active" onclick="setLang('zh')">中文</button>
       <button class="lang-btn" onclick="setLang('en')">EN</button>
     </div>
   </div>
 
   <div class="main">
-    <!-- 上传页面 -->
     <div id="page-upload" class="page active">
       <h1>🔍 Visual Insight</h1>
-      <p class="subtitle" data-i18n="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
-
+      <p class="subtitle" data-i18n="subtitle">多模态图片分析系统</p>
       <div class="upload-zone" id="uploadZone">
         <input type="file" id="fileInput" accept="image/*">
-        <div style="font-size: 3rem;">📸</div>
+        <div style="font-size:3rem">📸</div>
         <p data-i18n="uploadHint">拖拽图片到此处，或点击上传</p>
-        <p style="font-size: 0.8rem; color: #555; margin-top: 0.5rem;" data-i18n="uploadSupport">支持 JPG / PNG / WebP</p>
+        <p style="font-size:0.8rem;color:#555;margin-top:0.5rem" data-i18n="uploadSupport">支持 JPG / PNG / WebP</p>
       </div>
-
-      <div class="preview" id="preview">
-        <img id="previewImg" alt="preview">
-      </div>
-
-      <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <p style="color: #aaa;" data-i18n="analyzing">正在分析图片...</p>
-      </div>
-
+      <div class="preview" id="preview"><img id="previewImg" alt=""></div>
+      <div class="loading" id="loading"><div class="spinner"></div><p style="color:#aaa" data-i18n="analyzing">正在分析...</p></div>
       <div class="result" id="result"></div>
-
       <div class="features">
-        <div class="feature">
-          <div class="feature-icon">🏷️</div>
-          <div class="feature-title" data-i18n="featureOcr">OCR 文字识别</div>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">📍</div>
-          <div class="feature-title" data-i18n="featureLocation">地点推测</div>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🔗</div>
-          <div class="feature-title" data-i18n="featureEvidence">证据链推理</div>
-        </div>
+        <div class="feature"><div class="feature-icon">🏷️</div><div class="feature-title" data-i18n="f1">OCR 文字</div></div>
+        <div class="feature"><div class="feature-icon">📍</div><div class="feature-title" data-i18n="f2">地点推测</div></div>
+        <div class="feature"><div class="feature-icon">🔗</div><div class="feature-title" data-i18n="f3">证据链</div></div>
       </div>
     </div>
 
-    <!-- 历史记录页面 -->
     <div id="page-history" class="page">
       <h1>📋 <span data-i18n="historyTitle">历史记录</span></h1>
-      <p class="subtitle" data-i18n="historySubtitle">查看过往分析结果</p>
+      <p class="subtitle" data-i18n="historySub">点击查看详情</p>
       <div id="historyList" class="history-list"></div>
     </div>
-
     <div class="footer">Powered by Cloudflare Workers AI</div>
   </div>
 
-  <script>
-    // === i18n ===
-    const I18N = {
-      zh: {
-        navUpload: '上传分析',
-        navHistory: '历史记录',
-        subtitle: '多模态图片分析系统 — 视觉分析 + 证据链推理',
-        uploadHint: '拖拽图片到此处，或点击上传',
-        uploadSupport: '支持 JPG / PNG / WebP',
-        analyzing: '正在分析图片...',
-        featureOcr: 'OCR 文字识别',
-        featureLocation: '地点推测',
-        featureEvidence: '证据链推理',
-        historyTitle: '历史记录',
-        historySubtitle: '查看过往分析结果',
-        sceneAnalysis: '场景分析',
-        locationGuess: '地点推测',
-        timeGuess: '时间推测',
-        detectedText: '检测到的文字',
-        keyEvidence: '关键证据',
-        sceneType: '场景类型',
-        taskInfo: '任务信息',
-        elapsed: '耗时',
-        seconds: '秒',
-        uploadFailed: '上传失败',
-        analysisFailed: '分析失败',
-        unknownError: '未知错误',
-        timeout: '分析超时',
-        noResult: '分析完成，但无详细结果',
-        emptyHistory: '暂无历史记录',
-        deleteConfirm: '确定删除这条记录吗？',
-        back: '返回',
-      },
-      en: {
-        navUpload: 'Upload',
-        navHistory: 'History',
-        subtitle: 'Multimodal Image Analysis — Visual Analysis + Evidence Chain',
-        uploadHint: 'Drag & drop image here, or click to upload',
-        uploadSupport: 'Supports JPG / PNG / WebP',
-        analyzing: 'Analyzing image...',
-        featureOcr: 'OCR Text Recognition',
-        featureLocation: 'Location Guess',
-        featureEvidence: 'Evidence Chain',
-        historyTitle: 'History',
-        historySubtitle: 'View past analysis results',
-        sceneAnalysis: 'Scene Analysis',
-        locationGuess: 'Location Guess',
-        timeGuess: 'Time Guess',
-        detectedText: 'Detected Text',
-        keyEvidence: 'Key Evidence',
-        sceneType: 'Scene Type',
-        taskInfo: 'Task Info',
-        elapsed: 'Elapsed',
-        seconds: 's',
-        uploadFailed: 'Upload failed',
-        analysisFailed: 'Analysis failed',
-        unknownError: 'Unknown error',
-        timeout: 'Analysis timeout',
-        noResult: 'Completed, but no detailed results',
-        emptyHistory: 'No history yet',
-        deleteConfirm: 'Delete this record?',
-        back: 'Back',
-      }
-    };
+<script>
+const API='https://vision-insight-api.1069123094.workers.dev';
+const I18N={zh:{navUpload:'上传分析',navHistory:'历史记录',subtitle:'多模态图片分析系统 — 视觉分析 + 证据链推理',uploadHint:'拖拽图片到此处，或点击上传',uploadSupport:'支持 JPG / PNG / WebP',analyzing:'正在分析图片...',f1:'OCR 文字识别',f2:'地点推测',f3:'证据链推理',historyTitle:'历史记录',historySub:'点击查看详情',scene:'场景分析',loc:'地点推测',time:'时间推测',text:'检测文字',evidence:'关键证据',type:'场景类型',info:'任务信息',sec:'秒',fail:'上传失败',empty:'暂无记录',del:'确定删除？'},en:{navUpload:'Upload',navHistory:'History',subtitle:'Multimodal Image Analysis',uploadHint:'Drag & drop or click',uploadSupport:'JPG / PNG / WebP',analyzing:'Analyzing...',f1:'OCR Text',f2:'Location',f3:'Evidence',historyTitle:'History',historySub:'Click to view',scene:'Scene',loc:'Location',time:'Time',text:'Text',evidence:'Evidence',type:'Type',info:'Info',sec:'s',fail:'Upload failed',empty:'No records',del:'Delete?'}};
+let L=localStorage.getItem('lang')||'zh';
+function t(k){return I18N[L]?.[k]||I18N.zh[k]||k}
+function setLang(l){L=l;localStorage.setItem('lang',l);document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.textContent===(l==='zh'?'中文':'EN')));document.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n))}
+setLang(L);
 
-    let currentLang = localStorage.getItem('lang') || 'zh';
-    function t(key) { return I18N[currentLang]?.[key] || I18N.zh[key] || key; }
-    function setLang(lang) {
-      currentLang = lang;
-      localStorage.setItem('lang', lang);
-      document.querySelectorAll('.lang-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent === (lang === 'zh' ? '中文' : 'EN'));
-      });
-      document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
-      document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
-    }
-    setLang(currentLang);
+function showPage(p){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');document.querySelector(`.nav-btn[onclick="showPage('${p}')"]`).classList.add('active');if(p==='history')loadHistory()}
 
-    // === Navigation ===
-    function showPage(page) {
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(`page-${page}`).classList.add('active');
-      document.querySelector(`.nav-btn[onclick="showPage('${page}')"]`).classList.add('active');
-      if (page === 'history') loadHistory();
-    }
+const fi=document.getElementById('fileInput'),uz=document.getElementById('uploadZone'),pv=document.getElementById('preview'),pi=document.getElementById('previewImg'),ld=document.getElementById('loading'),rs=document.getElementById('result');
+fi.addEventListener('change',e=>{const f=e.target.files[0];if(f)handleFile(f)});
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('dragover')});
+uz.addEventListener('dragleave',()=>uz.classList.remove('dragover'));
+uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f?.type.startsWith('image/'))handleFile(f)});
 
-    // === API ===
-    const API_BASE = 'https://vision-insight-api.1069123094.workers.dev';
+async function handleFile(file){
+  const r=new FileReader();r.onload=e=>{pi.src=e.target.result;pv.classList.add('show')};r.readAsDataURL(file);
+  ld.classList.add('show');rs.classList.remove('show');rs.innerHTML='';
+  try{const fd=new FormData();fd.append('file',file);const resp=await fetch(API+'/api/analyze',{method:'POST',body:fd});if(!resp.ok)throw new Error('HTTP '+resp.status);const d=await resp.json();await poll(d.task_id)}catch(e){showErr(t('fail')+': '+e.message)}finally{ld.classList.remove('show')}
+}
 
-    const fileInput = document.getElementById('fileInput');
-    const uploadZone = document.getElementById('uploadZone');
-    const preview = document.getElementById('preview');
-    const previewImg = document.getElementById('previewImg');
-    const loading = document.getElementById('loading');
-    const result = document.getElementById('result');
+async function poll(id,max=30){
+  for(let i=0;i<max;i++){await new Promise(r=>setTimeout(r,2000));try{const resp=await fetch(API+'/api/report/'+id);if(!resp.ok)continue;const rpt=await resp.json();if(rpt.status==='completed'){render(rpt);return}if(rpt.status==='failed'){showErr('Failed');return}}catch{}}
+  showErr('Timeout')
+}
 
-    fileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleFile(f); });
-    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
-    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
-    uploadZone.addEventListener('drop', (e) => {
-      e.preventDefault(); uploadZone.classList.remove('dragover');
-      const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) handleFile(f);
-    });
+function render(rpt){
+  let h='';const a=rpt.analysis||{};
+  if(rpt.image_url)h+=`<img src="${API}${rpt.image_url}" class="result-image" alt="">`;
+  if(a.description)h+=`<div class="result-card"><h3>🎬 ${t('scene')}</h3><p>${esc(a.description)}</p></div>`;
+  if(a.location_guess){const c=a.location_guess.confidence||0,cls=c>=.7?'high':c>=.4?'medium':'low';h+=`<div class="result-card"><h3>📍 ${t('loc')}</h3><p>${esc(a.location_guess.location)} <span class="confidence ${cls}">${Math.round(c*100)}%</span></p></div>`}
+  if(a.time_guess){const p=[a.time_guess.time_of_day,a.time_guess.season].filter(Boolean);if(p.length)h+=`<div class="result-card"><h3>🕐 ${t('time')}</h3><p>${p.map(esc).join(' · ')}</p></div>`}
+  if(a.detected_text?.length)h+=`<div class="result-card"><h3>📝 ${t('text')}</h3><ul>${a.detected_text.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
+  if(a.key_evidence?.length)h+=`<div class="result-card"><h3>🔗 ${t('evidence')}</h3><ul>${a.key_evidence.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
+  if(a.scene_type)h+=`<div class="result-card"><h3>🏷️ ${t('type')}</h3><p>${esc(a.scene_type)}</p></div>`;
+  const el=Math.round((new Date(rpt.completed_at)-new Date(rpt.created_at))/1000);
+  h+=`<div class="result-card"><h3>ℹ️ ${t('info')}</h3><p>ID: ${rpt.id} · ${el}${t('sec')}</p></div>`;
+  rs.innerHTML=h;rs.classList.add('show')
+}
 
-    async function handleFile(file) {
-      const reader = new FileReader();
-      reader.onload = (e) => { previewImg.src = e.target.result; preview.classList.add('show'); };
-      reader.readAsDataURL(file);
-      loading.classList.add('show'); result.classList.remove('show'); result.innerHTML = '';
-      try {
-        const fd = new FormData(); fd.append('file', file);
-        const resp = await fetch(`${API_BASE}/api/analyze`, { method: 'POST', body: fd });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
-        await pollResult(data.task_id);
-      } catch (err) { showError(`${t('uploadFailed')}: ${err.message}`); }
-      finally { loading.classList.remove('show'); }
-    }
+function showErr(m){rs.innerHTML=`<div class="result-card" style="border-color:rgba(255,0,0,0.3)"><h3>❌</h3><p>${esc(m)}</p></div>`;rs.classList.add('show')}
 
-    async function pollResult(taskId, max = 30) {
-      for (let i = 0; i < max; i++) {
-        await new Promise(r => setTimeout(r, 2000));
-        try {
-          const resp = await fetch(`${API_BASE}/api/report/${taskId}`);
-          if (!resp.ok) continue;
-          const rpt = await resp.json();
-          if (rpt.status === 'completed') { renderReport(rpt); return; }
-          if (rpt.status === 'failed') { showError(`${t('analysisFailed')}: ${rpt.error || t('unknownError')}`); return; }
-        } catch { continue; }
-      }
-      showError(t('timeout'));
-    }
+async function loadHistory(){
+  const list=document.getElementById('historyList');list.innerHTML='<div style="text-align:center;color:#888">Loading...</div>';
+  try{const resp=await fetch(API+'/api/history?limit=20');const d=await resp.json();
+  if(!d.items?.length){list.innerHTML=`<div class="empty-state">${t('empty')}</div>`;return}
+  list.innerHTML=d.items.map(i=>{
+    const time=new Date(i.created_at).toLocaleString(L==='zh'?'zh-CN':'en-US');
+    const thumb=i.image_key?`${API}/images/${i.image_key}`:'';
+    const analysis=i.result?JSON.parse(i.result):null;
+    const tags=analysis?[analysis.scene_type,analysis.location_guess?.location].filter(Boolean):[];
+    return `<div class="history-item" onclick="viewReport('${i.id}')">
+      ${thumb?`<img src="${thumb}" class="history-thumb" onerror="this.style.display='none'">`:''}
+      <div class="history-info">
+        <div class="history-filename">${esc(i.filename||'unknown')}</div>
+        <div class="history-time">${time}</div>
+        <div class="history-meta">${tags.map(t=>`<span class="history-tag">${esc(t)}</span>`).join('')}</div>
+      </div>
+      <div class="history-actions">
+        <span class="history-status ${i.status}">${i.status==='completed'?'✓':'⏳'}</span>
+        <button class="history-delete" onclick="event.stopPropagation();del('${i.id}')">×</button>
+      </div>
+    </div>`}).join('')}catch(e){list.innerHTML=`<div class="empty-state">Error: ${e.message}</div>`}
+}
 
-    function renderReport(report) {
-      let html = '';
-      const a = report.analysis || {};
-      if (a.description) html += `<div class="result-card"><h3>🎬 ${t('sceneAnalysis')}</h3><p>${esc(a.description)}</p></div>`;
-      if (a.location_guess) {
-        const c = a.location_guess.confidence || 0;
-        const cls = c >= 0.7 ? 'high' : c >= 0.4 ? 'medium' : 'low';
-        html += `<div class="result-card"><h3>📍 ${t('locationGuess')}</h3><p>${esc(a.location_guess.location)} <span class="confidence ${cls}">${Math.round(c*100)}%</span></p></div>`;
-      }
-      if (a.time_guess) {
-        const p = [a.time_guess.time_of_day, a.time_guess.season].filter(Boolean);
-        if (p.length) html += `<div class="result-card"><h3>🕐 ${t('timeGuess')}</h3><p>${p.map(esc).join(' · ')}</p></div>`;
-      }
-      if (a.detected_text?.length) html += `<div class="result-card"><h3>📝 ${t('detectedText')}</h3><ul>${a.detected_text.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
-      if (a.key_evidence?.length) html += `<div class="result-card"><h3>🔗 ${t('keyEvidence')}</h3><ul>${a.key_evidence.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
-      if (a.scene_type) html += `<div class="result-card"><h3>🏷️ ${t('sceneType')}</h3><p>${esc(a.scene_type)}</p></div>`;
-      const el = Math.round((new Date(report.completed_at) - new Date(report.created_at)) / 1000);
-      html += `<div class="result-card"><h3>ℹ️ ${t('taskInfo')}</h3><p>ID: ${report.id} · ${t('elapsed')}: ${el}${t('seconds')}</p></div>`;
-      result.innerHTML = html || `<div class="result-card"><p>${t('noResult')}</p></div>`;
-      result.classList.add('show');
-    }
+async function viewReport(id){showPage('upload');rs.innerHTML='<div style="text-align:center;color:#888">Loading...</div>';rs.classList.add('show');try{const resp=await fetch(API+'/api/report/'+id);render(await resp.json())}catch(e){showErr(e.message)}}
 
-    function showError(msg) {
-      result.innerHTML = `<div class="result-card" style="border-color:rgba(255,0,0,0.3)"><h3>❌ Error</h3><p>${esc(msg)}</p></div>`;
-      result.classList.add('show');
-    }
+async function del(id){if(!confirm(t('del')))return;await fetch(API+'/api/delete/'+id,{method:'DELETE'});loadHistory()}
 
-    // === History ===
-    async function loadHistory() {
-      const list = document.getElementById('historyList');
-      list.innerHTML = '<div style="text-align:center;color:#888">Loading...</div>';
-      try {
-        const resp = await fetch(`${API_BASE}/api/history?limit=20`);
-        const data = await resp.json();
-        if (!data.items?.length) {
-          list.innerHTML = `<div class="empty-state">${t('emptyHistory')}</div>`;
-          return;
-        }
-        list.innerHTML = data.items.map(item => {
-          const time = new Date(item.created_at).toLocaleString(currentLang === 'zh' ? 'zh-CN' : 'en-US');
-          const statusClass = item.status;
-          const statusText = item.status === 'completed' ? '✓' : item.status === 'processing' ? '⏳' : '✗';
-          return `
-            <div class="history-item" onclick="viewReport('${item.id}')">
-              <div class="history-info">
-                <div class="history-filename">${esc(item.filename || 'unknown')}</div>
-                <div class="history-time">${time}</div>
-              </div>
-              <span class="history-status ${statusClass}">${statusText}</span>
-              <button class="history-delete" onclick="event.stopPropagation();deleteRecord('${item.id}')">×</button>
-            </div>`;
-        }).join('');
-      } catch (err) {
-        list.innerHTML = `<div class="empty-state">Error: ${err.message}</div>`;
-      }
-    }
-
-    async function viewReport(taskId) {
-      showPage('upload');
-      result.innerHTML = '<div style="text-align:center;color:#888">Loading...</div>';
-      result.classList.add('show');
-      try {
-        const resp = await fetch(`${API_BASE}/api/report/${taskId}`);
-        const report = await resp.json();
-        renderReport(report);
-      } catch (err) { showError(err.message); }
-    }
-
-    async function deleteRecord(taskId) {
-      if (!confirm(t('deleteConfirm'))) return;
-      try {
-        await fetch(`${API_BASE}/api/delete/${taskId}`, { method: 'DELETE' });
-        loadHistory();
-      } catch {}
-    }
-
-    function esc(s) {
-      if (!s) return '';
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-  </script>
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+</script>
 </body>
 </html>

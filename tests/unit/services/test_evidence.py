@@ -102,6 +102,7 @@ async def test_medium_confidence_llm_assist():
     """Medium confidence with LLM should use LLM reasoning."""
     mock_llm = AsyncMock(spec=LLMPort)
     mock_llm.infer.return_value = "东京涩谷"
+    mock_llm.infer_with_reasoning.return_value = ("东京涩谷", "Based on signs and landmarks")
 
     service = FusionService(llm=mock_llm)
     scene = _make_scene(
@@ -121,6 +122,7 @@ async def test_llm_failure_falls_back():
     """LLM failure should fall back to uncertain."""
     mock_llm = AsyncMock(spec=LLMPort)
     mock_llm.infer.side_effect = Exception("API error")
+    mock_llm.infer_with_reasoning.side_effect = Exception("API error")
 
     service = FusionService(llm=mock_llm)
     scene = _make_scene(location_guess=LocationGuess(location="Tokyo", confidence=0.6, evidence=[]))
@@ -137,6 +139,7 @@ async def test_llm_failure_falls_back():
 async def test_exif_time_high_confidence():
     """EXIF time should have high confidence."""
     service = FusionService()
+    service.set_verbose(True)
     from datetime import datetime
 
     metadata = ImageMetadata(
@@ -153,17 +156,30 @@ async def test_exif_time_high_confidence():
     assert len(time_conclusions) == 1
     assert time_conclusions[0].probability >= 0.9
 
+    # Verify reasoning trace was recorded
+    traces = service.get_reasoning_traces()
+    time_traces = [t for t in traces if t["conclusion_category"] == "time"]
+    assert len(time_traces) == 1
+    assert time_traces[0]["strategy_used"] == "rule"  # High confidence
+
 
 @pytest.mark.asyncio
 async def test_vlm_time_medium_confidence():
     """VLM time guess should have medium confidence."""
     service = FusionService()
+    service.set_verbose(True)
     scene = _make_scene()
 
     results = await service.fuse(scene, [], _make_entities(), [], None)
     time_conclusions = [c for c in results if c.category == "time"]
     assert len(time_conclusions) == 1
     assert time_conclusions[0].probability == 0.5
+
+    # Verify reasoning trace was recorded
+    traces = service.get_reasoning_traces()
+    time_traces = [t for t in traces if t["conclusion_category"] == "time"]
+    assert len(time_traces) == 1
+    assert time_traces[0]["strategy_used"] == "uncertain"  # Low confidence
 
 
 # --- Weighted Probability Tests ---

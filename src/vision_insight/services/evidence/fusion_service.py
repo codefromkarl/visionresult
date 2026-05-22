@@ -96,9 +96,9 @@ class FusionService(EvidenceService):
 
         # 3) Time conclusion
         if metadata and metadata.capture_time:
-            conclusions.append(self._fuse_time_from_exif(scene, metadata))
+            conclusions.append(await self._fuse_time_from_exif(scene, metadata))
         elif scene.time_guess and scene.time_guess.time_of_day:
-            conclusions.append(self._fuse_time_from_vlm(scene))
+            conclusions.append(await self._fuse_time_from_vlm(scene))
 
         # 4) OCR-based text conclusions
         conclusions.extend(await self._fuse_ocr_texts(ocr_results, search_results))
@@ -207,7 +207,7 @@ class FusionService(EvidenceService):
     # Time fusion
     # ------------------------------------------------------------------
 
-    def _fuse_time_from_exif(
+    async def _fuse_time_from_exif(
         self, scene: SceneAnalysis, metadata: ImageMetadata
     ) -> FusedConclusion:
         evidence = [
@@ -225,32 +225,23 @@ class FusionService(EvidenceService):
                     confidence=0.6,
                 )
             )
-        return FusedConclusion(
-            statement=f"拍摄时间: {metadata.capture_time}",
-            probability=0.9,
-            evidence=evidence,
-            category="time",
-        )
+        return await self._synthesize_conclusion("time", evidence, "拍摄时间")
 
-    def _fuse_time_from_vlm(self, scene: SceneAnalysis) -> FusedConclusion:
+    async def _fuse_time_from_vlm(self, scene: SceneAnalysis) -> FusedConclusion:
         tg = scene.time_guess
         parts = [f"时段: {tg.time_of_day}"] if tg.time_of_day else []
         if tg.season:
             parts.append(f"季节: {tg.season}")
         if tg.year_estimate:
             parts.append(f"年份估计: {tg.year_estimate}")
-        return FusedConclusion(
-            statement=f"拍摄时间推测: {', '.join(parts)}",
-            probability=0.5,
-            evidence=[
-                EvidenceItem(
-                    source="vlm",
-                    content=", ".join(parts),
-                    confidence=0.5,
-                )
-            ],
-            category="time",
-        )
+        evidence = [
+            EvidenceItem(
+                source="vlm",
+                content=", ".join(parts),
+                confidence=0.5,
+            )
+        ]
+        return await self._synthesize_conclusion("time", evidence, "拍摄时间推测")
 
     # ------------------------------------------------------------------
     # OCR text fusion
