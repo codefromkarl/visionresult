@@ -28,6 +28,25 @@
       -webkit-text-fill-color: transparent;
     }
     .subtitle { color: #aaa; margin-bottom: 2rem; font-size: 1.1rem; }
+    .lang-switch {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+    .lang-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 0.3rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .lang-btn:hover { background: rgba(255,255,255,0.2); }
+    .lang-btn.active { background: rgba(0,210,255,0.3); border-color: #00d2ff; }
     .features {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -95,24 +114,29 @@
   </style>
 </head>
 <body>
+  <div class="lang-switch">
+    <button class="lang-btn active" onclick="setLang('zh')">中文</button>
+    <button class="lang-btn" onclick="setLang('en')">EN</button>
+  </div>
+
   <div class="container">
     <h1>🔍 Visual Insight</h1>
-    <p class="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+    <p class="subtitle" data-i18n="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
 
     <div class="upload-zone" id="uploadZone">
-      <input type="file" id="fileInput" accept="image/*" aria-label="选择图片文件">
+      <input type="file" id="fileInput" accept="image/*">
       <div style="font-size: 3rem;">📸</div>
-      <p>拖拽图片到此处，或点击上传</p>
-      <p style="font-size: 0.8rem; color: #555; margin-top: 0.5rem;">支持 JPG / PNG / WebP</p>
+      <p data-i18n="uploadHint">拖拽图片到此处，或点击上传</p>
+      <p style="font-size: 0.8rem; color: #555; margin-top: 0.5rem;" data-i18n="uploadSupport">支持 JPG / PNG / WebP</p>
     </div>
 
     <div class="preview" id="preview">
-      <img id="previewImg" alt="预览">
+      <img id="previewImg" alt="preview">
     </div>
 
     <div class="loading" id="loading">
       <div class="spinner"></div>
-      <p style="color: #aaa;">正在分析图片...</p>
+      <p style="color: #aaa;" data-i18n="analyzing">正在分析图片...</p>
     </div>
 
     <div class="result" id="result"></div>
@@ -120,15 +144,15 @@
     <div class="features">
       <div class="feature">
         <div class="feature-icon">🏷️</div>
-        <div class="feature-title">OCR 文字识别</div>
+        <div class="feature-title" data-i18n="featureOcr">OCR 文字识别</div>
       </div>
       <div class="feature">
         <div class="feature-icon">📍</div>
-        <div class="feature-title">地点推测</div>
+        <div class="feature-title" data-i18n="featureLocation">地点推测</div>
       </div>
       <div class="feature">
         <div class="feature-icon">🔗</div>
-        <div class="feature-title">证据链推理</div>
+        <div class="feature-title" data-i18n="featureEvidence">证据链推理</div>
       </div>
     </div>
 
@@ -136,6 +160,84 @@
   </div>
 
   <script>
+    // === i18n ===
+    const I18N = {
+      zh: {
+        subtitle: '多模态图片分析系统 — 视觉分析 + 证据链推理',
+        uploadHint: '拖拽图片到此处，或点击上传',
+        uploadSupport: '支持 JPG / PNG / WebP',
+        analyzing: '正在分析图片...',
+        featureOcr: 'OCR 文字识别',
+        featureLocation: '地点推测',
+        featureEvidence: '证据链推理',
+        sceneAnalysis: '场景分析',
+        locationGuess: '地点推测',
+        timeGuess: '时间推测',
+        detectedText: '检测到的文字',
+        keyEvidence: '关键证据',
+        sceneType: '场景类型',
+        taskInfo: '任务信息',
+        elapsed: '耗时',
+        seconds: '秒',
+        uploadFailed: '上传失败',
+        analysisFailed: '分析失败',
+        unknownError: '未知错误',
+        timeout: '分析超时',
+        completed: '分析完成',
+        noResult: '分析完成，但无详细结果',
+      },
+      en: {
+        subtitle: 'Multimodal Image Analysis — Visual Analysis + Evidence Chain',
+        uploadHint: 'Drag & drop image here, or click to upload',
+        uploadSupport: 'Supports JPG / PNG / WebP',
+        analyzing: 'Analyzing image...',
+        featureOcr: 'OCR Text Recognition',
+        featureLocation: 'Location Guess',
+        featureEvidence: 'Evidence Chain',
+        sceneAnalysis: 'Scene Analysis',
+        locationGuess: 'Location Guess',
+        timeGuess: 'Time Guess',
+        detectedText: 'Detected Text',
+        keyEvidence: 'Key Evidence',
+        sceneType: 'Scene Type',
+        taskInfo: 'Task Info',
+        elapsed: 'Elapsed',
+        seconds: 's',
+        uploadFailed: 'Upload failed',
+        analysisFailed: 'Analysis failed',
+        unknownError: 'Unknown error',
+        timeout: 'Analysis timeout',
+        completed: 'Analysis completed',
+        noResult: 'Completed, but no detailed results',
+      }
+    };
+
+    let currentLang = localStorage.getItem('lang') || 'zh';
+
+    function t(key) {
+      return I18N[currentLang]?.[key] || I18N.zh[key] || key;
+    }
+
+    function setLang(lang) {
+      currentLang = lang;
+      localStorage.setItem('lang', lang);
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent === (lang === 'zh' ? '中文' : 'EN'));
+      });
+      document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+      applyLang();
+    }
+
+    function applyLang() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.dataset.i18n);
+      });
+    }
+
+    // Init lang
+    setLang(currentLang);
+
+    // === API ===
     const API_BASE = 'https://vision-insight-api.1069123094.workers.dev';
 
     const fileInput = document.getElementById('fileInput');
@@ -182,7 +284,7 @@
         const data = await response.json();
         await pollResult(data.task_id);
       } catch (err) {
-        showError(`上传失败: ${err.message}`);
+        showError(`${t('uploadFailed')}: ${err.message}`);
       } finally {
         loading.classList.remove('show');
       }
@@ -196,64 +298,57 @@
           if (!response.ok) continue;
           const report = await response.json();
           if (report.status === 'completed') { renderReport(report); return; }
-          if (report.status === 'failed') { showError('分析失败: ' + (report.error || '未知错误')); return; }
+          if (report.status === 'failed') { showError(`${t('analysisFailed')}: ${report.error || t('unknownError')}`); return; }
         } catch { continue; }
       }
-      showError('分析超时');
+      showError(t('timeout'));
     }
 
     function renderReport(report) {
       let html = '';
       const a = report.analysis || {};
 
-      // 场景描述
       if (a.description) {
-        html += `<div class="result-card"><h3>🎬 场景分析</h3><p>${esc(a.description)}</p></div>`;
+        html += `<div class="result-card"><h3>🎬 ${t('sceneAnalysis')}</h3><p>${esc(a.description)}</p></div>`;
       }
 
-      // 地点推测
       if (a.location_guess) {
         const conf = a.location_guess.confidence || 0;
         const cls = conf >= 0.7 ? 'high' : conf >= 0.4 ? 'medium' : 'low';
         html += `<div class="result-card">
-          <h3>📍 地点推测</h3>
+          <h3>📍 ${t('locationGuess')}</h3>
           <p>${esc(a.location_guess.location)} <span class="confidence ${cls}">${Math.round(conf * 100)}%</span></p>
         </div>`;
       }
 
-      // 时间推测
       if (a.time_guess) {
         const parts = [a.time_guess.time_of_day, a.time_guess.season].filter(Boolean);
         if (parts.length) {
-          html += `<div class="result-card"><h3>🕐 时间推测</h3><p>${parts.map(esc).join(' · ')}</p></div>`;
+          html += `<div class="result-card"><h3>🕐 ${t('timeGuess')}</h3><p>${parts.map(esc).join(' · ')}</p></div>`;
         }
       }
 
-      // 检测到的文字
       if (a.detected_text?.length) {
-        html += `<div class="result-card"><h3>📝 检测到的文字</h3><ul>${a.detected_text.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+        html += `<div class="result-card"><h3>📝 ${t('detectedText')}</h3><ul>${a.detected_text.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>`;
       }
 
-      // 关键证据
       if (a.key_evidence?.length) {
-        html += `<div class="result-card"><h3>🔗 关键证据</h3><ul>${a.key_evidence.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
+        html += `<div class="result-card"><h3>🔗 ${t('keyEvidence')}</h3><ul>${a.key_evidence.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>`;
       }
 
-      // 场景类型
       if (a.scene_type) {
-        html += `<div class="result-card"><h3>🏷️ 场景类型</h3><p>${esc(a.scene_type)}</p></div>`;
+        html += `<div class="result-card"><h3>🏷️ ${t('sceneType')}</h3><p>${esc(a.scene_type)}</p></div>`;
       }
 
-      // 任务信息
       const elapsed = Math.round((new Date(report.completed_at) - new Date(report.created_at)) / 1000);
-      html += `<div class="result-card"><h3>ℹ️ 任务信息</h3><p>ID: ${report.id} · 耗时: ${elapsed}秒</p></div>`;
+      html += `<div class="result-card"><h3>ℹ️ ${t('taskInfo')}</h3><p>ID: ${report.id} · ${t('elapsed')}: ${elapsed}${t('seconds')}</p></div>`;
 
-      result.innerHTML = html || '<div class="result-card"><p>分析完成</p></div>';
+      result.innerHTML = html || `<div class="result-card"><p>${t('noResult')}</p></div>`;
       result.classList.add('show');
     }
 
     function showError(msg) {
-      result.innerHTML = `<div class="result-card" style="border-color: rgba(255,0,0,0.3);"><h3>❌ 错误</h3><p>${esc(msg)}</p></div>`;
+      result.innerHTML = `<div class="result-card" style="border-color: rgba(255,0,0,0.3);"><h3>❌ Error</h3><p>${esc(msg)}</p></div>`;
       result.classList.add('show');
     }
 
