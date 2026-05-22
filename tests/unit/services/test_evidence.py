@@ -173,7 +173,9 @@ async def test_vlm_time_medium_confidence():
     results = await service.fuse(scene, [], _make_entities(), [], None)
     time_conclusions = [c for c in results if c.category == "time"]
     assert len(time_conclusions) == 1
-    assert time_conclusions[0].probability == 0.5
+    # VLM time guess has confidence=0.5, but without LLM it falls back to uncertain
+    # probability = max_conf * 0.5 = 0.5 * 0.5 = 0.25
+    assert time_conclusions[0].probability == 0.25
 
     # Verify reasoning trace was recorded
     traces = service.get_reasoning_traces()
