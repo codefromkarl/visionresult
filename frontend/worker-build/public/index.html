@@ -11,23 +11,55 @@
       background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
       color: #fff;
       min-height: 100vh;
+    }
+    .header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
+      padding: 1rem 2rem;
+      background: rgba(0,0,0,0.3);
     }
-    .container {
-      text-align: center;
-      max-width: 600px;
-      padding: 2rem;
+    .logo {
+      font-size: 1.5rem;
+      background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
+    .nav { display: flex; gap: 1rem; align-items: center; }
+    .nav-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 0.4rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover { background: rgba(255,255,255,0.2); }
+    .nav-btn.active { background: rgba(0,210,255,0.3); border-color: #00d2ff; }
+    .lang-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .lang-btn.active { background: rgba(0,210,255,0.3); border-color: #00d2ff; }
+    .main { max-width: 800px; margin: 0 auto; padding: 2rem; }
+    .page { display: none; }
+    .page.active { display: block; }
     h1 {
-      font-size: 2.5rem;
+      font-size: 2rem;
+      text-align: center;
       margin-bottom: 0.5rem;
       background: linear-gradient(90deg, #00d2ff, #3a7bd5);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .subtitle { color: #aaa; margin-bottom: 2rem; font-size: 1.1rem; }
+    .subtitle { color: #aaa; text-align: center; margin-bottom: 2rem; }
     .features {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -35,30 +67,32 @@
       margin-top: 2rem;
     }
     .feature {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 12px;
       padding: 1.5rem 1rem;
+      text-align: center;
     }
     .feature-icon { font-size: 2rem; margin-bottom: 0.5rem; }
     .feature-title { font-size: 0.9rem; color: #ccc; }
     .upload-zone {
       margin-top: 2rem;
-      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border: 2px dashed rgba(255,255,255,0.2);
       border-radius: 16px;
       padding: 2rem;
       cursor: pointer;
       transition: all 0.3s;
       position: relative;
+      text-align: center;
     }
-    .upload-zone:hover { border-color: #00d2ff; background: rgba(0, 210, 255, 0.05); }
-    .upload-zone.dragover { border-color: #00d2ff; background: rgba(0, 210, 255, 0.1); }
+    .upload-zone:hover { border-color: #00d2ff; background: rgba(0,210,255,0.05); }
+    .upload-zone.dragover { border-color: #00d2ff; background: rgba(0,210,255,0.1); }
     .upload-zone p { color: #888; margin-top: 0.5rem; }
     .upload-zone input[type="file"] {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       opacity: 0; cursor: pointer;
     }
-    .result { display: none; margin-top: 2rem; text-align: left; }
+    .result { display: none; margin-top: 2rem; }
     .result.show { display: block; }
     .result-card {
       background: rgba(255,255,255,0.05);
@@ -74,7 +108,7 @@
     .confidence.high { background: rgba(0,200,0,0.2); color: #4ade80; }
     .confidence.medium { background: rgba(255,200,0,0.2); color: #facc15; }
     .confidence.low { background: rgba(255,0,0,0.2); color: #f87171; }
-    .loading { display: none; margin-top: 2rem; }
+    .loading { display: none; margin-top: 2rem; text-align: center; }
     .loading.show { display: block; }
     .spinner {
       border: 3px solid rgba(255,255,255,0.1);
@@ -85,57 +119,202 @@
       margin: 0 auto 1rem;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .preview { display: none; margin-top: 1rem; }
+    .preview { display: none; margin-top: 1rem; text-align: center; }
     .preview.show { display: block; }
     .preview img {
       max-width: 100%; max-height: 200px;
       border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
     }
-    .footer { margin-top: 2rem; font-size: 0.75rem; color: #555; }
+    /* History */
+    .history-list { margin-top: 1rem; }
+    .history-item {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history-item:hover { background: rgba(255,255,255,0.1); border-color: #00d2ff; }
+    .history-info { flex: 1; }
+    .history-filename { color: #fff; font-weight: 500; }
+    .history-time { color: #888; font-size: 0.8rem; margin-top: 0.3rem; }
+    .history-status {
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+    .history-status.completed { background: rgba(0,200,0,0.2); color: #4ade80; }
+    .history-status.processing { background: rgba(255,200,0,0.2); color: #facc15; }
+    .history-status.failed { background: rgba(255,0,0,0.2); color: #f87171; }
+    .history-delete {
+      background: rgba(255,0,0,0.1);
+      border: 1px solid rgba(255,0,0,0.2);
+      color: #f87171;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+    }
+    .history-delete:hover { background: rgba(255,0,0,0.2); }
+    .empty-state { text-align: center; padding: 3rem; color: #888; }
+    .footer { text-align: center; margin-top: 2rem; font-size: 0.75rem; color: #555; padding: 1rem; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔍 Visual Insight</h1>
-    <p class="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+  <div class="header">
+    <div class="logo">🔍 Visual Insight</div>
+    <div class="nav">
+      <button class="nav-btn active" onclick="showPage('upload')" data-i18n="navUpload">上传分析</button>
+      <button class="nav-btn" onclick="showPage('history')" data-i18n="navHistory">历史记录</button>
+      <button class="lang-btn" onclick="setLang('zh')">中文</button>
+      <button class="lang-btn" onclick="setLang('en')">EN</button>
+    </div>
+  </div>
 
-    <div class="upload-zone" id="uploadZone">
-      <input type="file" id="fileInput" accept="image/*" aria-label="选择图片文件">
-      <div style="font-size: 3rem;">📸</div>
-      <p>拖拽图片到此处，或点击上传</p>
-      <p style="font-size: 0.8rem; color: #555; margin-top: 0.5rem;">支持 JPG / PNG / WebP</p>
+  <div class="main">
+    <!-- 上传页面 -->
+    <div id="page-upload" class="page active">
+      <h1>🔍 Visual Insight</h1>
+      <p class="subtitle" data-i18n="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept="image/*">
+        <div style="font-size: 3rem;">📸</div>
+        <p data-i18n="uploadHint">拖拽图片到此处，或点击上传</p>
+        <p style="font-size: 0.8rem; color: #555; margin-top: 0.5rem;" data-i18n="uploadSupport">支持 JPG / PNG / WebP</p>
+      </div>
+
+      <div class="preview" id="preview">
+        <img id="previewImg" alt="preview">
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p style="color: #aaa;" data-i18n="analyzing">正在分析图片...</p>
+      </div>
+
+      <div class="result" id="result"></div>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">🏷️</div>
+          <div class="feature-title" data-i18n="featureOcr">OCR 文字识别</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">📍</div>
+          <div class="feature-title" data-i18n="featureLocation">地点推测</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🔗</div>
+          <div class="feature-title" data-i18n="featureEvidence">证据链推理</div>
+        </div>
+      </div>
     </div>
 
-    <div class="preview" id="preview">
-      <img id="previewImg" alt="预览">
-    </div>
-
-    <div class="loading" id="loading">
-      <div class="spinner"></div>
-      <p style="color: #aaa;">正在分析图片...</p>
-    </div>
-
-    <div class="result" id="result"></div>
-
-    <div class="features">
-      <div class="feature">
-        <div class="feature-icon">🏷️</div>
-        <div class="feature-title">OCR 文字识别</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">📍</div>
-        <div class="feature-title">地点推测</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🔗</div>
-        <div class="feature-title">证据链推理</div>
-      </div>
+    <!-- 历史记录页面 -->
+    <div id="page-history" class="page">
+      <h1>📋 <span data-i18n="historyTitle">历史记录</span></h1>
+      <p class="subtitle" data-i18n="historySubtitle">查看过往分析结果</p>
+      <div id="historyList" class="history-list"></div>
     </div>
 
     <div class="footer">Powered by Cloudflare Workers AI</div>
   </div>
 
   <script>
+    // === i18n ===
+    const I18N = {
+      zh: {
+        navUpload: '上传分析',
+        navHistory: '历史记录',
+        subtitle: '多模态图片分析系统 — 视觉分析 + 证据链推理',
+        uploadHint: '拖拽图片到此处，或点击上传',
+        uploadSupport: '支持 JPG / PNG / WebP',
+        analyzing: '正在分析图片...',
+        featureOcr: 'OCR 文字识别',
+        featureLocation: '地点推测',
+        featureEvidence: '证据链推理',
+        historyTitle: '历史记录',
+        historySubtitle: '查看过往分析结果',
+        sceneAnalysis: '场景分析',
+        locationGuess: '地点推测',
+        timeGuess: '时间推测',
+        detectedText: '检测到的文字',
+        keyEvidence: '关键证据',
+        sceneType: '场景类型',
+        taskInfo: '任务信息',
+        elapsed: '耗时',
+        seconds: '秒',
+        uploadFailed: '上传失败',
+        analysisFailed: '分析失败',
+        unknownError: '未知错误',
+        timeout: '分析超时',
+        noResult: '分析完成，但无详细结果',
+        emptyHistory: '暂无历史记录',
+        deleteConfirm: '确定删除这条记录吗？',
+        back: '返回',
+      },
+      en: {
+        navUpload: 'Upload',
+        navHistory: 'History',
+        subtitle: 'Multimodal Image Analysis — Visual Analysis + Evidence Chain',
+        uploadHint: 'Drag & drop image here, or click to upload',
+        uploadSupport: 'Supports JPG / PNG / WebP',
+        analyzing: 'Analyzing image...',
+        featureOcr: 'OCR Text Recognition',
+        featureLocation: 'Location Guess',
+        featureEvidence: 'Evidence Chain',
+        historyTitle: 'History',
+        historySubtitle: 'View past analysis results',
+        sceneAnalysis: 'Scene Analysis',
+        locationGuess: 'Location Guess',
+        timeGuess: 'Time Guess',
+        detectedText: 'Detected Text',
+        keyEvidence: 'Key Evidence',
+        sceneType: 'Scene Type',
+        taskInfo: 'Task Info',
+        elapsed: 'Elapsed',
+        seconds: 's',
+        uploadFailed: 'Upload failed',
+        analysisFailed: 'Analysis failed',
+        unknownError: 'Unknown error',
+        timeout: 'Analysis timeout',
+        noResult: 'Completed, but no detailed results',
+        emptyHistory: 'No history yet',
+        deleteConfirm: 'Delete this record?',
+        back: 'Back',
+      }
+    };
+
+    let currentLang = localStorage.getItem('lang') || 'zh';
+    function t(key) { return I18N[currentLang]?.[key] || I18N.zh[key] || key; }
+    function setLang(lang) {
+      currentLang = lang;
+      localStorage.setItem('lang', lang);
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent === (lang === 'zh' ? '中文' : 'EN'));
+      });
+      document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+      document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    }
+    setLang(currentLang);
+
+    // === Navigation ===
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`page-${page}`).classList.add('active');
+      document.querySelector(`.nav-btn[onclick="showPage('${page}')"]`).classList.add('active');
+      if (page === 'history') loadHistory();
+    }
+
+    // === API ===
     const API_BASE = 'https://vision-insight-api.1069123094.workers.dev';
 
     const fileInput = document.getElementById('fileInput');
@@ -145,116 +324,117 @@
     const loading = document.getElementById('loading');
     const result = document.getElementById('result');
 
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) handleFile(file);
-    });
-
-    uploadZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadZone.classList.add('dragover');
-    });
+    fileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleFile(f); });
+    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
     uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
     uploadZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      uploadZone.classList.remove('dragover');
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('image/')) handleFile(file);
+      e.preventDefault(); uploadZone.classList.remove('dragover');
+      const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) handleFile(f);
     });
 
     async function handleFile(file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        previewImg.src = e.target.result;
-        preview.classList.add('show');
-      };
+      reader.onload = (e) => { previewImg.src = e.target.result; preview.classList.add('show'); };
       reader.readAsDataURL(file);
-
-      loading.classList.add('show');
-      result.classList.remove('show');
-      result.innerHTML = '';
-
+      loading.classList.add('show'); result.classList.remove('show'); result.innerHTML = '';
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const response = await fetch(`${API_BASE}/api/analyze`, { method: 'POST', body: formData });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
+        const fd = new FormData(); fd.append('file', file);
+        const resp = await fetch(`${API_BASE}/api/analyze`, { method: 'POST', body: fd });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
         await pollResult(data.task_id);
-      } catch (err) {
-        showError(`上传失败: ${err.message}`);
-      } finally {
-        loading.classList.remove('show');
-      }
+      } catch (err) { showError(`${t('uploadFailed')}: ${err.message}`); }
+      finally { loading.classList.remove('show'); }
     }
 
-    async function pollResult(taskId, maxAttempts = 30) {
-      for (let i = 0; i < maxAttempts; i++) {
+    async function pollResult(taskId, max = 30) {
+      for (let i = 0; i < max; i++) {
         await new Promise(r => setTimeout(r, 2000));
         try {
-          const response = await fetch(`${API_BASE}/api/report/${taskId}`);
-          if (!response.ok) continue;
-          const report = await response.json();
-          if (report.status === 'completed') { renderReport(report); return; }
-          if (report.status === 'failed') { showError('分析失败: ' + (report.error || '未知错误')); return; }
+          const resp = await fetch(`${API_BASE}/api/report/${taskId}`);
+          if (!resp.ok) continue;
+          const rpt = await resp.json();
+          if (rpt.status === 'completed') { renderReport(rpt); return; }
+          if (rpt.status === 'failed') { showError(`${t('analysisFailed')}: ${rpt.error || t('unknownError')}`); return; }
         } catch { continue; }
       }
-      showError('分析超时');
+      showError(t('timeout'));
     }
 
     function renderReport(report) {
       let html = '';
       const a = report.analysis || {};
-
-      // 场景描述
-      if (a.description) {
-        html += `<div class="result-card"><h3>🎬 场景分析</h3><p>${esc(a.description)}</p></div>`;
-      }
-
-      // 地点推测
+      if (a.description) html += `<div class="result-card"><h3>🎬 ${t('sceneAnalysis')}</h3><p>${esc(a.description)}</p></div>`;
       if (a.location_guess) {
-        const conf = a.location_guess.confidence || 0;
-        const cls = conf >= 0.7 ? 'high' : conf >= 0.4 ? 'medium' : 'low';
-        html += `<div class="result-card">
-          <h3>📍 地点推测</h3>
-          <p>${esc(a.location_guess.location)} <span class="confidence ${cls}">${Math.round(conf * 100)}%</span></p>
-        </div>`;
+        const c = a.location_guess.confidence || 0;
+        const cls = c >= 0.7 ? 'high' : c >= 0.4 ? 'medium' : 'low';
+        html += `<div class="result-card"><h3>📍 ${t('locationGuess')}</h3><p>${esc(a.location_guess.location)} <span class="confidence ${cls}">${Math.round(c*100)}%</span></p></div>`;
       }
-
-      // 时间推测
       if (a.time_guess) {
-        const parts = [a.time_guess.time_of_day, a.time_guess.season].filter(Boolean);
-        if (parts.length) {
-          html += `<div class="result-card"><h3>🕐 时间推测</h3><p>${parts.map(esc).join(' · ')}</p></div>`;
-        }
+        const p = [a.time_guess.time_of_day, a.time_guess.season].filter(Boolean);
+        if (p.length) html += `<div class="result-card"><h3>🕐 ${t('timeGuess')}</h3><p>${p.map(esc).join(' · ')}</p></div>`;
       }
-
-      // 检测到的文字
-      if (a.detected_text?.length) {
-        html += `<div class="result-card"><h3>📝 检测到的文字</h3><ul>${a.detected_text.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
-      }
-
-      // 关键证据
-      if (a.key_evidence?.length) {
-        html += `<div class="result-card"><h3>🔗 关键证据</h3><ul>${a.key_evidence.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
-      }
-
-      // 场景类型
-      if (a.scene_type) {
-        html += `<div class="result-card"><h3>🏷️ 场景类型</h3><p>${esc(a.scene_type)}</p></div>`;
-      }
-
-      // 任务信息
-      const elapsed = Math.round((new Date(report.completed_at) - new Date(report.created_at)) / 1000);
-      html += `<div class="result-card"><h3>ℹ️ 任务信息</h3><p>ID: ${report.id} · 耗时: ${elapsed}秒</p></div>`;
-
-      result.innerHTML = html || '<div class="result-card"><p>分析完成</p></div>';
+      if (a.detected_text?.length) html += `<div class="result-card"><h3>📝 ${t('detectedText')}</h3><ul>${a.detected_text.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
+      if (a.key_evidence?.length) html += `<div class="result-card"><h3>🔗 ${t('keyEvidence')}</h3><ul>${a.key_evidence.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
+      if (a.scene_type) html += `<div class="result-card"><h3>🏷️ ${t('sceneType')}</h3><p>${esc(a.scene_type)}</p></div>`;
+      const el = Math.round((new Date(report.completed_at) - new Date(report.created_at)) / 1000);
+      html += `<div class="result-card"><h3>ℹ️ ${t('taskInfo')}</h3><p>ID: ${report.id} · ${t('elapsed')}: ${el}${t('seconds')}</p></div>`;
+      result.innerHTML = html || `<div class="result-card"><p>${t('noResult')}</p></div>`;
       result.classList.add('show');
     }
 
     function showError(msg) {
-      result.innerHTML = `<div class="result-card" style="border-color: rgba(255,0,0,0.3);"><h3>❌ 错误</h3><p>${esc(msg)}</p></div>`;
+      result.innerHTML = `<div class="result-card" style="border-color:rgba(255,0,0,0.3)"><h3>❌ Error</h3><p>${esc(msg)}</p></div>`;
       result.classList.add('show');
+    }
+
+    // === History ===
+    async function loadHistory() {
+      const list = document.getElementById('historyList');
+      list.innerHTML = '<div style="text-align:center;color:#888">Loading...</div>';
+      try {
+        const resp = await fetch(`${API_BASE}/api/history?limit=20`);
+        const data = await resp.json();
+        if (!data.items?.length) {
+          list.innerHTML = `<div class="empty-state">${t('emptyHistory')}</div>`;
+          return;
+        }
+        list.innerHTML = data.items.map(item => {
+          const time = new Date(item.created_at).toLocaleString(currentLang === 'zh' ? 'zh-CN' : 'en-US');
+          const statusClass = item.status;
+          const statusText = item.status === 'completed' ? '✓' : item.status === 'processing' ? '⏳' : '✗';
+          return `
+            <div class="history-item" onclick="viewReport('${item.id}')">
+              <div class="history-info">
+                <div class="history-filename">${esc(item.filename || 'unknown')}</div>
+                <div class="history-time">${time}</div>
+              </div>
+              <span class="history-status ${statusClass}">${statusText}</span>
+              <button class="history-delete" onclick="event.stopPropagation();deleteRecord('${item.id}')">×</button>
+            </div>`;
+        }).join('');
+      } catch (err) {
+        list.innerHTML = `<div class="empty-state">Error: ${err.message}</div>`;
+      }
+    }
+
+    async function viewReport(taskId) {
+      showPage('upload');
+      result.innerHTML = '<div style="text-align:center;color:#888">Loading...</div>';
+      result.classList.add('show');
+      try {
+        const resp = await fetch(`${API_BASE}/api/report/${taskId}`);
+        const report = await resp.json();
+        renderReport(report);
+      } catch (err) { showError(err.message); }
+    }
+
+    async function deleteRecord(taskId) {
+      if (!confirm(t('deleteConfirm'))) return;
+      try {
+        await fetch(`${API_BASE}/api/delete/${taskId}`, { method: 'DELETE' });
+        loadHistory();
+      } catch {}
     }
 
     function esc(s) {

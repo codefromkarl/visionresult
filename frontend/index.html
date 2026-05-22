@@ -220,6 +220,166 @@
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             h1 { font-size: 1.8rem; }
         }
+
+        /* Pipeline Trace Styles */
+        .trace-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .trace-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .trace-toggle label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: #4a5568;
+        }
+        .trace-timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        .trace-timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, #43b89c, #3584e4);
+        }
+        .trace-step {
+            position: relative;
+            margin-bottom: 16px;
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .trace-step::before {
+            content: '';
+            position: absolute;
+            left: -23px;
+            top: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #43b89c;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #43b89c;
+        }
+        .trace-step.failed::before {
+            background: #e53e3e;
+            box-shadow: 0 0 0 2px #e53e3e;
+        }
+        .trace-step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .trace-step-name {
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 14px;
+        }
+        .trace-step-duration {
+            font-size: 12px;
+            color: #718096;
+            background: #f7fafc;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        .trace-step-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .trace-step-status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .trace-step-status.failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .trace-step-summary {
+            font-size: 13px;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+        .trace-step-findings {
+            font-size: 12px;
+            color: #718096;
+            padding-left: 16px;
+        }
+        .trace-step-findings li {
+            margin-bottom: 4px;
+        }
+        .reasoning-section {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .reasoning-card {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        .reasoning-card h4 {
+            color: #2d3748;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .reasoning-strategy {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .reasoning-strategy.rule {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .reasoning-strategy.llm {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .reasoning-strategy.uncertain {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .reasoning-probability {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 8px;
+        }
+        .reasoning-steps {
+            margin-top: 12px;
+            padding-left: 16px;
+            border-left: 2px solid #e2e8f0;
+        }
+        .reasoning-step-item {
+            font-size: 13px;
+            color: #4a5568;
+            margin-bottom: 8px;
+            padding-left: 12px;
+        }
+        .reasoning-step-item::before {
+            content: '→';
+            margin-right: 8px;
+            color: #43b89c;
+        }
     </style>
 </head>
 <body>
@@ -259,6 +419,10 @@
             </div>
 
             <div style="text-align: center; margin-top: 20px;">
+                <label style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; cursor: pointer; color: #4a5568;">
+                    <input type="checkbox" id="verboseCheck">
+                    <span>启用详细推理链路（verbose 模式）</span>
+                </label>
                 <button class="btn" id="analyzeBtn" disabled>开始分析</button>
             </div>
 
@@ -276,9 +440,20 @@
                 <div class="report-actions">
                     <button class="btn btn-sm btn-outline" onclick="downloadMarkdown()">📄 Markdown</button>
                     <button class="btn btn-sm btn-outline" onclick="downloadHTML()">🌐 HTML</button>
+                    <button class="btn btn-sm btn-outline" id="traceToggleBtn" onclick="toggleTrace()">🔍 推理链路</button>
                 </div>
             </div>
             <div class="report-content" id="reportContent"></div>
+            
+            <!-- Pipeline Trace Container -->
+            <div class="trace-container" id="traceContainer">
+                <div class="reasoning-section">
+                    <h3 style="color: #2d3748; margin-bottom: 16px;">🧠 思考链条与调用证据链</h3>
+                    <div id="reasoningContainer"></div>
+                </div>
+                <h3 style="color: #2d3748; margin: 16px 0;">⚙️ Pipeline 执行详情</h3>
+                <div class="trace-timeline" id="traceTimeline"></div>
+            </div>
         </div>
 
         <div class="card history-section">
@@ -358,19 +533,26 @@
             analyzeBtn.disabled = true;
             progressContainer.style.display = 'block';
             resultContainer.style.display = 'none';
+            document.getElementById('traceContainer').style.display = 'none';
             progressFill.style.width = '0%';
             progressText.textContent = '上传中...';
+            currentTraceData = null;
 
+            const verbose = document.getElementById('verboseCheck').checked;
             const formData = new FormData();
             formData.append('file', file);
 
             try {
-                const resp = await fetch(`${API_BASE}/analyze`, {
+                const url = verbose ? `${API_BASE}/analyze?verbose=true` : `${API_BASE}/analyze`;
+                const resp = await fetch(url, {
                     method: 'POST',
                     body: formData,
                 });
                 const data = await resp.json();
                 currentTaskId = data.task_id;
+
+                // Update trace toggle button visibility
+                document.getElementById('traceToggleBtn').style.display = verbose ? 'inline-block' : 'none';
 
                 // Start SSE progress stream
                 streamProgress(currentTaskId);
@@ -517,6 +699,128 @@
             } catch (err) {
                 alert('下载失败');
             }
+        }
+
+        // Pipeline Trace Functions
+        let traceVisible = false;
+        let currentTraceData = null;
+
+        function toggleTrace() {
+            traceVisible = !traceVisible;
+            const container = document.getElementById('traceContainer');
+            const btn = document.getElementById('traceToggleBtn');
+            
+            if (traceVisible) {
+                container.style.display = 'block';
+                btn.textContent = '❌ 隐藏链路';
+                if (currentTaskId && !currentTraceData) {
+                    loadTrace(currentTaskId);
+                }
+            } else {
+                container.style.display = 'none';
+                btn.textContent = '🔍 推理链路';
+            }
+        }
+
+        async function loadTrace(taskId) {
+            try {
+                const resp = await fetch(`${API_BASE}/report/${taskId}?include_trace=true`);
+                const data = await resp.json();
+                
+                if (data.pipeline_trace) {
+                    currentTraceData = data.pipeline_trace;
+                    renderTrace(data.pipeline_trace);
+                } else {
+                    document.getElementById('traceTimeline').innerHTML = 
+                        '<p style="color: #718096; text-align: center; padding: 20px;">此报告未记录推理链路（需要 verbose 模式）</p>';
+                }
+            } catch (err) {
+                console.error('Failed to load trace:', err);
+                document.getElementById('traceTimeline').innerHTML = 
+                    '<p style="color: #e53e3e; text-align: center; padding: 20px;">加载推理链路失败</p>';
+            }
+        }
+
+        function renderTrace(trace) {
+            // Render reasoning traces
+            const reasoningContainer = document.getElementById('reasoningContainer');
+            if (trace.reasoning_traces && trace.reasoning_traces.length > 0) {
+                reasoningContainer.innerHTML = trace.reasoning_traces.map(rt => `
+                    <div class="reasoning-card">
+                        <h4>
+                            ${rt.conclusion_category === 'location' ? '📍' : rt.conclusion_category === 'scene' ? '🏞️' : rt.conclusion_category === 'time' ? '⏰' : '📝'}
+                            ${rt.conclusion_statement}
+                            <span class="reasoning-strategy ${rt.strategy_used}">${rt.strategy_used === 'rule' ? '规则匹配' : rt.strategy_used === 'llm' ? 'LLM推理' : '不确定'}</span>
+                        </h4>
+                        <div class="reasoning-probability">置信度: ${(rt.final_probability * 100).toFixed(1)}%</div>
+                        ${rt.steps.length > 0 ? `
+                            <div class="reasoning-steps">
+                                ${rt.steps.map(step => `
+                                    <div class="reasoning-step-item">
+                                        <strong>${step.action === 'rule_match' ? '规则匹配' : step.action === 'llm_inference' ? 'LLM推理' : step.action}:</strong>
+                                        ${step.description}
+                                        ${step.metadata && step.metadata.llm_reasoning ? `<br><em style="color: #718096;">推理过程: ${step.metadata.llm_reasoning}</em>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } else {
+                reasoningContainer.innerHTML = '<p style="color: #718096; padding: 10px;">无推理链路数据</p>';
+            }
+
+            // Render pipeline steps
+            const timeline = document.getElementById('traceTimeline');
+            if (trace.steps && trace.steps.length > 0) {
+                timeline.innerHTML = trace.steps.map(step => `
+                    <div class="trace-step ${step.status === 'failed' ? 'failed' : ''}">
+                        <div class="trace-step-header">
+                            <span class="trace-step-name">${getStageIcon(step.stage_name)} ${getStageName(step.stage_name)}</span>
+                            <div>
+                                <span class="trace-step-status ${step.status}">${step.status === 'success' ? '成功' : step.status === 'failed' ? '失败' : '跳过'}</span>
+                                <span class="trace-step-duration">${step.duration_ms}ms</span>
+                            </div>
+                        </div>
+                        ${step.input_summary ? `<div class="trace-step-summary">📥 ${step.input_summary}</div>` : ''}
+                        ${step.output_summary ? `<div class="trace-step-summary">📤 ${step.output_summary}</div>` : ''}
+                        ${step.key_findings && step.key_findings.length > 0 ? `
+                            <ul class="trace-step-findings">
+                                ${step.key_findings.map(f => `<li>${f}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                        ${step.error_message ? `<div style="color: #e53e3e; font-size: 12px; margin-top: 8px;">❌ ${step.error_message}</div>` : ''}
+                    </div>
+                `).join('');
+            } else {
+                timeline.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">无 Pipeline 执行数据</p>';
+            }
+        }
+
+        function getStageIcon(stage) {
+            const icons = {
+                'preprocess': '🖼️',
+                'ocr': '📝',
+                'vlm_analysis': '👁️',
+                'entity_extraction': '🏷️',
+                'web_search': '🌐',
+                'evidence_fusion': '🔬',
+                'report_generation': '📊',
+            };
+            return icons[stage] || '⚙️';
+        }
+
+        function getStageName(stage) {
+            const names = {
+                'preprocess': '图片预处理',
+                'ocr': 'OCR文字识别',
+                'vlm_analysis': 'VLM场景分析',
+                'entity_extraction': '实体抽取',
+                'web_search': '联网验证',
+                'evidence_fusion': '证据融合',
+                'report_generation': '报告生成',
+            };
+            return names[stage] || stage;
         }
     </script>
 </body>

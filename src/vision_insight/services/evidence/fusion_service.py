@@ -35,6 +35,15 @@ class LLMPort(ABC):
         """Send *prompt* to an LLM and return its text response."""
         ...
 
+    async def infer_with_reasoning(self, prompt: str) -> tuple[str, str]:
+        """Send *prompt* to an LLM and return (response, reasoning_trace).
+
+        Default implementation returns empty reasoning. Override to provide
+        detailed reasoning chain from the LLM.
+        """
+        response = await self.infer(prompt)
+        return response, ""
+
 
 class FusionService(EvidenceService):
     """Fuse evidence with a rule-first, LLM-assist hybrid strategy.
@@ -47,10 +56,26 @@ class FusionService(EvidenceService):
 
     def __init__(self, llm: LLMPort | None = None) -> None:
         self._llm = llm
+        self._verbose = False
+        self._reasoning_traces: list[dict] = []  # Collected reasoning traces
+
+    def set_verbose(self, verbose: bool) -> None:
+        """Enable or disable verbose mode."""
+        self._verbose = verbose
+        if not verbose:
+            self._reasoning_traces = []
 
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
+
+    def get_reasoning_traces(self) -> list[dict]:
+        """Return collected reasoning traces."""
+        return self._reasoning_traces
+
+    def clear_reasoning_traces(self) -> None:
+        """Clear collected reasoning traces."""
+        self._reasoning_traces = []
 
     async def fuse(
         self,
@@ -274,37 +299,74 @@ class FusionService(EvidenceService):
         label: str,
     ) -> FusedConclusion:
         """Apply the hybrid rule + LLM strategy to produce a conclusion."""
+        import time as _time
+        start_time = _time.time()
+        steps = []
+        strategy_used = "none"
+
         if not evidence:
-            return FusedConclusion(
+            result = FusedConclusion(
                 statement=f"无足够证据判断{label}",
                 probability=0.0,
                 evidence=[],
                 category=category,
             )
+            if self._verbose:
+                self._reasoning_traces.append({
+                    "conclusion_category": category,
+                    "conclusion_statement": result.statement,
+                    "final_probability": 0.0,
+                    "steps": [],
+                    "strategy_used": "none",
+                    "total_duration_ms": int((_time.time() - start_time) * 1000),
+                })
+            return result
 
         max_conf = max(e.confidence for e in evidence)
 
         # --- High confidence → rule-based direct verdict ---
         if max_conf >= _HIGH_CONFIDENCE_THRESHOLD:
+            strategy_used = "rule"
             best = max(evidence, key=lambda e: e.confidence)
             supporting = [e for e in evidence if e.supporting]
             prob = self._weighted_probability(supporting)
-            return FusedConclusion(
+            steps.append({
+                "step_id": 1,
+                "action": "rule_match",
+                "description": f"High confidence match (>{_HIGH_CONFIDENCE_THRESHOLD})",
+                "input_summary": f"{len(evidence)} evidence items, max confidence={max_conf:.2f}",
+                "output_summary": f"Best match: [{best.source}] {best.content[:50]}...",
+                "confidence_before": max_conf,
+                "confidence_after": prob,
+                "duration_ms": int((_time.time() - start_time) * 1000),
+                "metadata": {"best_source": best.source, "num_supporting": len(supporting)},
+            })
+            result = FusedConclusion(
                 statement=f"{label}: {best.content}",
                 probability=prob,
                 evidence=evidence,
                 category=category,
             )
-
         # --- Medium confidence → LLM-assisted reasoning ---
-        if max_conf >= _MEDIUM_CONFIDENCE_THRESHOLD and self._llm is not None:
-            prompt = self._build_llm_prompt(category, evidence, label)
+        elif max_conf >= _MEDIUM_CONFIDENCE_THRESHOLD and self._llm is not None:
+            strategy_used = "llm"
+            prompt = self._build_llm_prompt(category, evidence, label, verbose=self._verbose)
             try:
-                llm_response = await self._llm.infer(prompt)
+                llm_response, reasoning = await self._llm.infer_with_reasoning(prompt)
                 prob = self._weighted_probability([e for e in evidence if e.supporting])
-                # Cap LLM-assisted probability at 0.75
                 prob = min(prob, 0.75)
-                return FusedConclusion(
+                steps.append({
+                    "step_id": 1,
+                    "action": "llm_inference",
+                    "description": f"Medium confidence, using LLM for reasoning",
+                    "input_summary": f"{len(evidence)} evidence items, max confidence={max_conf:.2f}",
+                    "output_summary": f"LLM response: {llm_response[:100]}...",
+                    "confidence_before": max_conf,
+                    "confidence_after": prob,
+                    "duration_ms": int((_time.time() - start_time) * 1000),
+                    "metadata": {"llm_reasoning": reasoning, "prompt_length": len(prompt)},
+                })
+                result = FusedConclusion(
                     statement=f"{label} (LLM辅助): {llm_response}",
                     probability=prob,
                     evidence=evidence,
@@ -312,15 +374,57 @@ class FusionService(EvidenceService):
                 )
             except Exception as exc:
                 logger.warning("LLM inference failed: %s", exc)
-                # Fall through to uncertain
-
+                strategy_used = "fallback"
+                steps.append({
+                    "step_id": 1,
+                    "action": "llm_failed",
+                    "description": f"LLM inference failed, falling back to uncertain",
+                    "input_summary": f"{len(evidence)} evidence items",
+                    "output_summary": str(exc),
+                    "confidence_before": max_conf,
+                    "confidence_after": max_conf * 0.5,
+                    "duration_ms": int((_time.time() - start_time) * 1000),
+                    "metadata": {"error": str(exc)},
+                })
+                result = FusedConclusion(
+                    statement=f"{label}: 证据不足，无法确定",
+                    probability=max_conf * 0.5,
+                    evidence=evidence,
+                    category=category,
+                )
         # --- Low confidence / no LLM → mark uncertain ---
-        return FusedConclusion(
-            statement=f"{label}: 证据不足，无法确定",
-            probability=max_conf * 0.5,
-            evidence=evidence,
-            category=category,
-        )
+        else:
+            strategy_used = "uncertain"
+            steps.append({
+                "step_id": 1,
+                "action": "low_confidence",
+                "description": f"Low confidence (<{_MEDIUM_CONFIDENCE_THRESHOLD}), no LLM available",
+                "input_summary": f"{len(evidence)} evidence items, max confidence={max_conf:.2f}",
+                "output_summary": "Marked as uncertain",
+                "confidence_before": max_conf,
+                "confidence_after": max_conf * 0.5,
+                "duration_ms": int((_time.time() - start_time) * 1000),
+                "metadata": {},
+            })
+            result = FusedConclusion(
+                statement=f"{label}: 证据不足，无法确定",
+                probability=max_conf * 0.5,
+                evidence=evidence,
+                category=category,
+            )
+
+        # Record reasoning trace if verbose
+        if self._verbose:
+            self._reasoning_traces.append({
+                "conclusion_category": category,
+                "conclusion_statement": result.statement,
+                "final_probability": result.probability,
+                "steps": steps,
+                "strategy_used": strategy_used,
+                "total_duration_ms": int((_time.time() - start_time) * 1000),
+            })
+
+        return result
 
     # ------------------------------------------------------------------
     # Helpers
@@ -340,7 +444,7 @@ class FusionService(EvidenceService):
         return min(1.0 - complement, 1.0)
 
     @staticmethod
-    def _build_llm_prompt(category: str, evidence: list[EvidenceItem], label: str) -> str:
+    def _build_llm_prompt(category: str, evidence: list[EvidenceItem], label: str, verbose: bool = False) -> str:
         lines = [
             f"你是一个图片分析助手。请根据以下证据，对「{label}」给出最可能的结论。",
             f"类别: {category}",
@@ -348,5 +452,8 @@ class FusionService(EvidenceService):
         ]
         for i, e in enumerate(evidence, 1):
             lines.append(f"  {i}. [{e.source}] {e.content} (置信度={e.confidence:.2f})")
-        lines.append("请用一句话回答，不要解释推理过程。")
+        if verbose:
+            lines.append("请用一句话回答结论，然后另起一行以'推理过程:'开头，详细说明你的推理步骤。")
+        else:
+            lines.append("请用一句话回答，不要解释推理过程。")
         return "\n".join(lines)

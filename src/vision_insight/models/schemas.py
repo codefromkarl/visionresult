@@ -134,6 +134,60 @@ class FusedConclusion(BaseModel):
     category: str = ""  # location, time, scene, identity
 
 
+# === Pipeline Trace Models (for verbose/debug mode) ===
+
+
+class ReasoningStep(BaseModel):
+    """Single step in the reasoning chain."""
+
+    step_id: int
+    action: str  # e.g., "rule_match", "llm_inference", "evidence_weight"
+    description: str
+    input_summary: str = ""
+    output_summary: str = ""
+    confidence_before: float = 0.0
+    confidence_after: float = 0.0
+    duration_ms: int = 0
+    metadata: dict = Field(default_factory=dict)
+
+
+class ReasoningTrace(BaseModel):
+    """Complete reasoning trace for a conclusion."""
+
+    conclusion_category: str
+    conclusion_statement: str
+    final_probability: float
+    steps: list[ReasoningStep] = Field(default_factory=list)
+    strategy_used: str = ""  # rule, llm, hybrid
+    total_duration_ms: int = 0
+
+
+class PipelineStep(BaseModel):
+    """Detailed information about a pipeline stage execution."""
+
+    stage_name: str  # preprocess, ocr, vlm_analysis, etc.
+    status: str  # success, failed, skipped
+    start_time: datetime
+    end_time: datetime | None = None
+    duration_ms: int = 0
+    input_summary: str = ""  # Brief description of inputs
+    output_summary: str = ""  # Brief description of outputs
+    key_findings: list[str] = Field(default_factory=list)  # Notable discoveries
+    error_message: str | None = None
+    # Detailed data (only included in verbose mode)
+    input_data: dict = Field(default_factory=dict)
+    output_data: dict = Field(default_factory=dict)
+
+
+class PipelineTrace(BaseModel):
+    """Complete trace of the analysis pipeline execution."""
+
+    steps: list[PipelineStep] = Field(default_factory=list)
+    reasoning_traces: list[ReasoningTrace] = Field(default_factory=list)
+    total_duration_ms: int = 0
+    verbose_mode: bool = True
+
+
 # === Response Models ===
 
 
@@ -152,6 +206,8 @@ class AnalysisReport(BaseModel):
     report_markdown: str = ""
     created_at: datetime = Field(default_factory=datetime.now)
     processing_time_ms: int = 0
+    # Pipeline trace for verbose mode
+    pipeline_trace: PipelineTrace | None = None
 
 
 class AnalysisTaskResponse(BaseModel):

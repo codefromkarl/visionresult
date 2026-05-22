@@ -4,7 +4,7 @@ export default {
     
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
     
@@ -26,10 +26,31 @@ export default {
 
 async function handleAPI(request, env, ctx, url) {
   try {
+    // Health
     if (url.pathname === '/api/health') {
       return jsonResponse({ status: 'ok', service: 'vision-insight' });
     }
     
+    // 历史记录列表
+    if (url.pathname === '/api/history' && request.method === 'GET') {
+      const limit = parseInt(url.searchParams.get('limit') || '20');
+      const offset = parseInt(url.searchParams.get('offset') || '0');
+      
+      const results = await env.DB.prepare(
+        'SELECT id, status, filename, created_at, completed_at FROM analyses ORDER BY created_at DESC LIMIT ? OFFSET ?'
+      ).bind(limit, offset).all();
+      
+      const count = await env.DB.prepare('SELECT COUNT(*) as total FROM analyses').first();
+      
+      return jsonResponse({
+        items: results.results,
+        total: count.total,
+        limit,
+        offset,
+      });
+    }
+    
+    // 上传分析
     if (url.pathname === '/api/analyze' && request.method === 'POST') {
       const formData = await request.formData();
       const file = formData.get('file');
@@ -58,6 +79,7 @@ async function handleAPI(request, env, ctx, url) {
       });
     }
     
+    // 查询结果
     if (url.pathname.startsWith('/api/report/')) {
       const taskId = url.pathname.split('/api/report/')[1];
       
@@ -80,6 +102,18 @@ async function handleAPI(request, env, ctx, url) {
       });
     }
     
+    // 删除记录
+    if (url.pathname.startsWith('/api/delete/') && request.method === 'DELETE') {
+      const taskId = url.pathname.split('/api/delete/')[1];
+      
+      await env.DB.prepare('DELETE FROM analyses WHERE id = ?').bind(taskId).run();
+      try {
+        await env.IMAGE_BUCKET.delete(`${taskId}/`);
+      } catch {}
+      
+      return jsonResponse({ success: true });
+    }
+    
     return jsonResponse({ error: 'Not found' }, 404);
     
   } catch (error) {
@@ -98,14 +132,14 @@ async function processImage(env, taskId, imageBuffer, mimeType) {
   try {
     const aiResponse = await env.AI.run('@cf/llava-hf/llava-1.5-7b-hf', {
       image: [...new Uint8Array(imageBuffer)],
-      prompt: `Analyze this image. Respond ONLY with valid JSON, no other text:
+      prompt: `Analyze this image. Respond ONLY with valid JSON:
 {
   "scene_type": "street/indoor/landscape/food/document/other",
-  "description": "detailed description of what you see",
-  "location_guess": {"location": "city or place name", "confidence": 0.7},
+  "description": "detailed description",
+  "location_guess": {"location": "city or place", "confidence": 0.7},
   "time_guess": {"time_of_day": "morning/afternoon/evening/night", "season": "spring/summer/autumn/winter"},
-  "detected_text": ["any text visible in the image"],
-  "key_evidence": ["key visual evidence you used for your analysis"]
+  "detected_text": ["text in image"],
+  "key_evidence": ["key visual evidence"]
 }`,
       max_tokens: 1024,
     });
@@ -114,13 +148,7 @@ async function processImage(env, taskId, imageBuffer, mimeType) {
     
     let result;
     try {
-      // 清理响应文本，移除转义字符
-      let cleanText = responseText
-        .replace(/\\n/g, '\n')
-        .replace(/\\"/g, '"')
-        .replace(/\\_/g, '_');
-      
-      // 提取 JSON
+      let cleanText = responseText.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\_/g, '_');
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         result = JSON.parse(jsonMatch[0]);
@@ -128,9 +156,6 @@ async function processImage(env, taskId, imageBuffer, mimeType) {
         result.description = result.description || '';
         result.detected_text = result.detected_text || [];
         result.key_evidence = result.key_evidence || [];
-        if (result.location_guess && typeof result.location_guess.confidence !== 'number') {
-          result.location_guess.confidence = parseFloat(result.location_guess.confidence) || 0.5;
-        }
       } else {
         throw new Error('No JSON found');
       }

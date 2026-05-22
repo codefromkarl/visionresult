@@ -125,10 +125,14 @@ def _report_to_record(report: AnalysisReport, filename: str = None) -> AnalysisR
         ensure_ascii=False,
     )
 
+    # Save pipeline trace if available
+    if report.pipeline_trace:
+        record.pipeline_trace_json = report.pipeline_trace.model_dump_json()
+
     return record
 
 
-async def _run_analysis(task_id: str, image_bytes: bytes, filename: str = None) -> None:
+async def _run_analysis(task_id: str, image_bytes: bytes, filename: str = None, verbose: bool = False) -> None:
     """Background task: run the analysis pipeline with progress tracking."""
     runner = get_pipeline_runner()
 
@@ -144,7 +148,7 @@ async def _run_analysis(task_id: str, image_bytes: bytes, filename: str = None) 
         _progress[task_id].append((stage, percent))
 
     try:
-        updated = await runner.execute(report, image_bytes, progress_callback)
+        updated = await runner.execute(report, image_bytes, progress_callback, verbose=verbose)
 
         # Save to database
         record = _report_to_record(updated, filename)
@@ -171,8 +175,13 @@ async def create_analysis(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     analysis_depth: str = "standard",
+    verbose: bool = False,
 ):
-    """Submit an image for analysis."""
+    """Submit an image for analysis.
+
+    Args:
+        verbose: If true, record detailed pipeline trace with reasoning steps.
+    """
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
@@ -191,7 +200,7 @@ async def create_analysis(
     )
     save_analysis(record)
 
-    background_tasks.add_task(_run_analysis, task_id, image_bytes, file.filename)
+    background_tasks.add_task(_run_analysis, task_id, image_bytes, file.filename, verbose)
 
     return AnalysisTaskResponse(
         task_id=task_id,
@@ -240,11 +249,12 @@ async def create_analysis_from_url(
 
 
 @router.get("/report/{task_id}", tags=["reports"], summary="获取分析报告")
-async def get_report(task_id: str, format: str = "json"):
+async def get_report(task_id: str, format: str = "json", include_trace: bool = False):
     """Get analysis report by task ID.
 
     Args:
         format: Response format - 'json' (default) or 'html'
+        include_trace: If true, include pipeline trace in JSON response (only if available)
     """
     record = get_analysis(task_id)
     if not record:
@@ -262,7 +272,14 @@ async def get_report(task_id: str, format: str = "json"):
         html = await service.generate_html_report(report)
         return HTMLResponse(content=html)
 
-    return record.to_dict()
+    result = record.to_dict()
+    
+    # Include pipeline trace if requested and available
+    if include_trace and record.pipeline_trace_json:
+        import json
+        result["pipeline_trace"] = json.loads(record.pipeline_trace_json)
+    
+    return result
 
 
 @router.get("/reports", tags=["reports"], summary="历史报告列表")

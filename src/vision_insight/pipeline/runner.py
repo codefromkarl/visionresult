@@ -6,7 +6,7 @@ import logging
 import time
 
 from vision_insight.core.config import settings
-from vision_insight.models.schemas import AnalysisReport, AnalysisStatus
+from vision_insight.models.schemas import AnalysisReport, AnalysisStatus, ReasoningTrace
 from vision_insight.pipeline.graph import PipelineState, ProgressCallback, build_pipeline
 from vision_insight.services import (
     EntityService,
@@ -115,6 +115,7 @@ class PipelineRunner:
         report: AnalysisReport,
         image_bytes: bytes,
         progress_callback: ProgressCallback = None,
+        verbose: bool = False,
     ) -> AnalysisReport:
         """Execute the full analysis pipeline.
 
@@ -122,11 +123,15 @@ class PipelineRunner:
             report: The AnalysisReport to populate (must have id and PENDING status).
             image_bytes: Raw image file bytes.
             progress_callback: Optional callback for progress updates.
+            verbose: Whether to record detailed pipeline trace.
 
         Returns:
             The populated AnalysisReport with status COMPLETED or FAILED.
         """
         self._init_services()
+
+        # Set verbose mode on fusion service
+        self._evidence.set_verbose(verbose)
 
         start_time = time.time()
         report.status = AnalysisStatus.PROCESSING
@@ -135,12 +140,23 @@ class PipelineRunner:
             report=report,
             image_bytes=image_bytes,
             progress_callback=progress_callback,
+            verbose=verbose,
+            pipeline_trace={"steps": [], "reasoning_traces": []} if verbose else {},
         )
 
         try:
             result = await self._pipeline.ainvoke(state)
             elapsed_ms = int((time.time() - start_time) * 1000)
             result["report"].processing_time_ms = elapsed_ms
+
+            # Add reasoning traces to pipeline trace if verbose
+            if verbose and hasattr(self._evidence, 'get_reasoning_traces'):
+                reasoning_traces = self._evidence.get_reasoning_traces()
+                if result["report"].pipeline_trace:
+                    result["report"].pipeline_trace.reasoning_traces = [
+                        ReasoningTrace(**t) for t in reasoning_traces
+                    ]
+
             logger.info("Pipeline completed in %dms for task %s", elapsed_ms, report.id)
             return result["report"]
         except Exception as exc:

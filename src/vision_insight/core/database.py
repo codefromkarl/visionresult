@@ -56,6 +56,9 @@ class AnalysisRecord(Base):
     # Report
     report_markdown = Column(Text, default="")
 
+    # Pipeline trace (JSON)
+    pipeline_trace_json = Column(Text, nullable=True)
+
     def to_dict(self) -> dict:
         """Convert to API-compatible dict."""
         return {
