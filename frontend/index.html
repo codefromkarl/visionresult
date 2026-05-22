@@ -8,7 +8,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -17,14 +17,13 @@
             margin: 0 auto;
         }
         h1 {
-            color: white;
+            color: #2d3748;
             text-align: center;
             margin-bottom: 30px;
             font-size: 2.5rem;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         .subtitle {
-            color: rgba(255,255,255,0.9);
+            color: #718096;
             text-align: center;
             margin-bottom: 30px;
             font-size: 1.1rem;
@@ -33,28 +32,29 @@
             background: white;
             border-radius: 16px;
             padding: 32px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             margin-bottom: 24px;
+            border: 1px solid #e2e8f0;
         }
         .upload-zone {
-            border: 3px dashed #e0e0e0;
+            border: 3px dashed #cbd5e0;
             border-radius: 12px;
             padding: 48px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            background: #fafafa;
+            background: #f7fafc;
         }
         .upload-zone:hover, .upload-zone.dragover {
-            border-color: #667eea;
-            background: #f0f0ff;
+            border-color: #43b89c;
+            background: #f0fdf9;
         }
         .upload-zone h3 {
-            color: #333;
+            color: #2d3748;
             margin-bottom: 8px;
         }
         .upload-zone p {
-            color: #666;
+            color: #718096;
             font-size: 14px;
         }
         .upload-icon {
@@ -65,7 +65,7 @@
         .btn {
             display: inline-block;
             padding: 12px 32px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #43b89c 0%, #3584e4 100%);
             color: white;
             border: none;
             border-radius: 8px;
@@ -75,7 +75,7 @@
         }
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(67, 184, 156, 0.4);
         }
         .btn:disabled {
             opacity: 0.5;
@@ -98,21 +98,21 @@
         }
         .progress-bar {
             height: 8px;
-            background: #e0e0e0;
+            background: #e2e8f0;
             border-radius: 4px;
             overflow: hidden;
             margin-bottom: 8px;
         }
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
+            background: linear-gradient(90deg, #43b89c, #3584e4);
             border-radius: 4px;
             transition: width 0.3s ease;
             width: 0%;
         }
         .progress-text {
             font-size: 14px;
-            color: #666;
+            color: #718096;
         }
         .result-container {
             display: none;
@@ -133,11 +133,11 @@
         }
         .btn-outline {
             background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
+            color: #43b89c;
+            border: 2px solid #43b89c;
         }
         .report-content {
-            background: #f9fafb;
+            background: #f7fafc;
             border-radius: 8px;
             padding: 24px;
             white-space: pre-wrap;
@@ -146,6 +146,8 @@
             line-height: 1.6;
             max-height: 500px;
             overflow-y: auto;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
         }
         .history-section {
             margin-top: 32px;
@@ -154,12 +156,12 @@
             display: flex;
             align-items: center;
             padding: 16px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #e2e8f0;
             cursor: pointer;
             transition: background 0.2s;
         }
         .history-item:hover {
-            background: #f5f5f5;
+            background: #f7fafc;
         }
         .history-thumb {
             width: 60px;
@@ -167,17 +169,17 @@
             border-radius: 8px;
             object-fit: cover;
             margin-right: 16px;
-            background: #e0e0e0;
+            background: #e2e8f0;
         }
         .history-info {
             flex: 1;
         }
         .history-info h4 {
-            color: #333;
+            color: #2d3748;
             margin-bottom: 4px;
         }
         .history-info p {
-            color: #666;
+            color: #718096;
             font-size: 14px;
         }
         .status-badge {
@@ -201,16 +203,17 @@
             border-radius: 12px;
             padding: 20px;
             text-align: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
         }
         .stat-number {
             font-size: 2rem;
             font-weight: bold;
-            color: #667eea;
+            color: #43b89c;
         }
         .stat-label {
             font-size: 14px;
-            color: #666;
+            color: #718096;
             margin-top: 4px;
         }
         @media (max-width: 600px) {

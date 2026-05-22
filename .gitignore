@@ -38,3 +38,4 @@ out/
 .trellis/.developer
 .trellis/.runtime/
 .trellis/workspace/*/journal-*.md
+.ace-tool/

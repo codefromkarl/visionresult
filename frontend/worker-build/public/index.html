@@ -58,8 +58,6 @@
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       opacity: 0; cursor: pointer;
     }
-
-    /* 结果展示 */
     .result { display: none; margin-top: 2rem; text-align: left; }
     .result.show { display: block; }
     .result-card {
@@ -76,8 +74,6 @@
     .confidence.high { background: rgba(0,200,0,0.2); color: #4ade80; }
     .confidence.medium { background: rgba(255,200,0,0.2); color: #facc15; }
     .confidence.low { background: rgba(255,0,0,0.2); color: #f87171; }
-
-    /* 加载动画 */
     .loading { display: none; margin-top: 2rem; }
     .loading.show { display: block; }
     .spinner {
@@ -89,15 +85,12 @@
       margin: 0 auto 1rem;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* 预览图 */
     .preview { display: none; margin-top: 1rem; }
     .preview.show { display: block; }
     .preview img {
       max-width: 100%; max-height: 200px;
       border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
     }
-
     .footer { margin-top: 2rem; font-size: 0.75rem; color: #555; }
   </style>
 </head>
@@ -143,15 +136,8 @@
   </div>
 
   <script>
-    // API 地址 — 自动配置，无需用户填写
-    const API_BASE = (() => {
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return 'http://localhost:8001';
-      }
-      return 'https://vision-insight-api.1069123094.workers.dev';
-    })();
+    const API_BASE = 'https://vision-insight-api.1069123094.workers.dev';
 
-    // DOM
     const fileInput = document.getElementById('fileInput');
     const uploadZone = document.getElementById('uploadZone');
     const preview = document.getElementById('preview');
@@ -159,20 +145,16 @@
     const loading = document.getElementById('loading');
     const result = document.getElementById('result');
 
-    // 文件选择
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) handleFile(file);
     });
 
-    // 拖拽上传
     uploadZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       uploadZone.classList.add('dragover');
     });
-    uploadZone.addEventListener('dragleave', () => {
-      uploadZone.classList.remove('dragover');
-    });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
     uploadZone.addEventListener('drop', (e) => {
       e.preventDefault();
       uploadZone.classList.remove('dragover');
@@ -180,9 +162,7 @@
       if (file && file.type.startsWith('image/')) handleFile(file);
     });
 
-    // 处理文件上传
     async function handleFile(file) {
-      // 预览
       const reader = new FileReader();
       reader.onload = (e) => {
         previewImg.src = e.target.result;
@@ -190,7 +170,6 @@
       };
       reader.readAsDataURL(file);
 
-      // 加载状态
       loading.classList.add('show');
       result.classList.remove('show');
       result.innerHTML = '';
@@ -198,14 +177,8 @@
       try {
         const formData = new FormData();
         formData.append('file', file);
-
-        const response = await fetch(`${API_BASE}/api/analyze`, {
-          method: 'POST',
-          body: formData,
-        });
-
+        const response = await fetch(`${API_BASE}/api/analyze`, { method: 'POST', body: formData });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
         const data = await response.json();
         await pollResult(data.task_id);
       } catch (err) {
@@ -215,78 +188,78 @@
       }
     }
 
-    // 轮询结果
     async function pollResult(taskId, maxAttempts = 30) {
       for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, 2000));
-
         try {
           const response = await fetch(`${API_BASE}/api/report/${taskId}`);
           if (!response.ok) continue;
-
           const report = await response.json();
-          if (report.status === 'completed') {
-            renderReport(report);
-            return;
-          } else if (report.status === 'failed') {
-            showError('分析失败: ' + (report.error || '未知错误'));
-            return;
-          }
+          if (report.status === 'completed') { renderReport(report); return; }
+          if (report.status === 'failed') { showError('分析失败: ' + (report.error || '未知错误')); return; }
         } catch { continue; }
       }
       showError('分析超时');
     }
 
-    // 渲染报告
     function renderReport(report) {
       let html = '';
+      const a = report.analysis || {};
 
-      if (report.analysis) {
-        const a = report.analysis;
+      // 场景描述
+      if (a.description) {
+        html += `<div class="result-card"><h3>🎬 场景分析</h3><p>${esc(a.description)}</p></div>`;
+      }
 
-        if (a.description) {
-          html += `<div class="result-card"><h3>🎬 场景分析</h3><p>${escapeHtml(a.description)}</p></div>`;
-        }
+      // 地点推测
+      if (a.location_guess) {
+        const conf = a.location_guess.confidence || 0;
+        const cls = conf >= 0.7 ? 'high' : conf >= 0.4 ? 'medium' : 'low';
+        html += `<div class="result-card">
+          <h3>📍 地点推测</h3>
+          <p>${esc(a.location_guess.location)} <span class="confidence ${cls}">${Math.round(conf * 100)}%</span></p>
+        </div>`;
+      }
 
-        if (a.location_guess) {
-          const conf = a.location_guess.confidence || 0;
-          const cls = conf >= 0.7 ? 'high' : conf >= 0.4 ? 'medium' : 'low';
-          html += `<div class="result-card">
-            <h3>📍 地点推测</h3>
-            <p>${escapeHtml(a.location_guess.location || '未知')} <span class="confidence ${cls}">${Math.round(conf * 100)}%</span></p>
-          </div>`;
-        }
-
-        if (a.time_guess) {
-          const parts = [a.time_guess.time_of_day, a.time_guess.season].filter(Boolean);
-          if (parts.length) {
-            html += `<div class="result-card"><h3>🕐 时间推测</h3><p>${parts.map(escapeHtml).join(' · ')}</p></div>`;
-          }
-        }
-
-        if (a.detected_text?.length) {
-          html += `<div class="result-card"><h3>📝 检测到的文字</h3><ul>${a.detected_text.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul></div>`;
-        }
-
-        if (a.key_evidence?.length) {
-          html += `<div class="result-card"><h3>🔗 关键证据</h3><ul>${a.key_evidence.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
+      // 时间推测
+      if (a.time_guess) {
+        const parts = [a.time_guess.time_of_day, a.time_guess.season].filter(Boolean);
+        if (parts.length) {
+          html += `<div class="result-card"><h3>🕐 时间推测</h3><p>${parts.map(esc).join(' · ')}</p></div>`;
         }
       }
 
-      html += `<div class="result-card"><h3>ℹ️ 任务信息</h3><p>ID: ${report.id} · 耗时: ${Math.round((new Date(report.completed_at) - new Date(report.created_at)) / 1000)}秒</p></div>`;
+      // 检测到的文字
+      if (a.detected_text?.length) {
+        html += `<div class="result-card"><h3>📝 检测到的文字</h3><ul>${a.detected_text.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+      }
 
-      result.innerHTML = html || '<div class="result-card"><p>分析完成，但无详细结果</p></div>';
+      // 关键证据
+      if (a.key_evidence?.length) {
+        html += `<div class="result-card"><h3>🔗 关键证据</h3><ul>${a.key_evidence.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
+      }
+
+      // 场景类型
+      if (a.scene_type) {
+        html += `<div class="result-card"><h3>🏷️ 场景类型</h3><p>${esc(a.scene_type)}</p></div>`;
+      }
+
+      // 任务信息
+      const elapsed = Math.round((new Date(report.completed_at) - new Date(report.created_at)) / 1000);
+      html += `<div class="result-card"><h3>ℹ️ 任务信息</h3><p>ID: ${report.id} · 耗时: ${elapsed}秒</p></div>`;
+
+      result.innerHTML = html || '<div class="result-card"><p>分析完成</p></div>';
       result.classList.add('show');
     }
 
     function showError(msg) {
-      result.innerHTML = `<div class="result-card" style="border-color: rgba(255,0,0,0.3);"><h3>❌ 错误</h3><p>${escapeHtml(msg)}</p></div>`;
+      result.innerHTML = `<div class="result-card" style="border-color: rgba(255,0,0,0.3);"><h3>❌ 错误</h3><p>${esc(msg)}</p></div>`;
       result.classList.add('show');
     }
 
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    function esc(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
   </script>
 </body>

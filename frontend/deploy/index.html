@@ -8,8 +8,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-      color: #fff;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+      color: #2d3748;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -23,18 +23,18 @@
     h1 {
       font-size: 2.5rem;
       margin-bottom: 0.5rem;
-      background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+      background: linear-gradient(90deg, #43b89c, #3584e4);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .subtitle { color: #aaa; margin-bottom: 2rem; font-size: 1.1rem; }
+    .subtitle { color: #718096; margin-bottom: 2rem; font-size: 1.1rem; }
     .status {
       display: inline-block;
       padding: 0.5rem 1.5rem;
-      background: rgba(0, 210, 255, 0.1);
-      border: 1px solid rgba(0, 210, 255, 0.3);
+      background: #e6faf5;
+      border: 1px solid #b2f5ea;
       border-radius: 2rem;
-      color: #00d2ff;
+      color: #43b89c;
       margin-bottom: 2rem;
     }
     .features {
@@ -44,57 +44,60 @@
       margin-top: 2rem;
     }
     .feature {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 1.5rem 1rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
     .feature-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-    .feature-title { font-size: 0.9rem; color: #ccc; }
+    .feature-title { font-size: 0.9rem; color: #4a5568; }
     .upload-zone {
       margin-top: 2rem;
-      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border: 2px dashed #cbd5e0;
       border-radius: 16px;
       padding: 2rem;
       cursor: pointer;
       transition: all 0.3s;
       position: relative;
+      background: #ffffff;
     }
-    .upload-zone:hover { border-color: #00d2ff; background: rgba(0, 210, 255, 0.05); }
-    .upload-zone.dragover { border-color: #00d2ff; background: rgba(0, 210, 255, 0.1); }
-    .upload-zone p { color: #888; margin-top: 0.5rem; }
+    .upload-zone:hover { border-color: #43b89c; background: #f0fdf9; }
+    .upload-zone.dragover { border-color: #43b89c; background: #e6faf5; }
+    .upload-zone p { color: #a0aec0; margin-top: 0.5rem; }
     .upload-zone input[type="file"] {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       opacity: 0; cursor: pointer;
     }
-    .api-docs { margin-top: 2rem; font-size: 0.85rem; color: #666; }
-    .api-docs a { color: #00d2ff; text-decoration: none; }
+    .api-docs { margin-top: 2rem; font-size: 0.85rem; color: #a0aec0; }
+    .api-docs a { color: #43b89c; text-decoration: none; }
     .api-docs a:hover { text-decoration: underline; }
 
     /* 结果展示 */
     .result { display: none; margin-top: 2rem; text-align: left; }
     .result.show { display: block; }
     .result-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 1.5rem;
       margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
-    .result-card h3 { color: #00d2ff; margin-bottom: 0.8rem; font-size: 1rem; }
-    .result-card p, .result-card li { color: #ccc; line-height: 1.6; font-size: 0.9rem; }
+    .result-card h3 { color: #43b89c; margin-bottom: 0.8rem; font-size: 1rem; }
+    .result-card p, .result-card li { color: #4a5568; line-height: 1.6; font-size: 0.9rem; }
     .result-card ul { padding-left: 1.2rem; }
     .confidence { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
-    .confidence.high { background: rgba(0,200,0,0.2); color: #4ade80; }
-    .confidence.medium { background: rgba(255,200,0,0.2); color: #facc15; }
-    .confidence.low { background: rgba(255,0,0,0.2); color: #f87171; }
+    .confidence.high { background: #d4edda; color: #28a745; }
+    .confidence.medium { background: #fff3cd; color: #ffc107; }
+    .confidence.low { background: #f8d7da; color: #dc3545; }
 
     /* 加载动画 */
     .loading { display: none; margin-top: 2rem; }
     .loading.show { display: block; }
     .spinner {
-      border: 3px solid rgba(255,255,255,0.1);
-      border-top: 3px solid #00d2ff;
+      border: 3px solid #e2e8f0;
+      border-top: 3px solid #43b89c;
       border-radius: 50%;
       width: 40px; height: 40px;
       animation: spin 1s linear infinite;
@@ -107,31 +110,31 @@
     .preview.show { display: block; }
     .preview img {
       max-width: 100%; max-height: 200px;
-      border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; border: 1px solid #e2e8f0;
     }
 
     /* API 配置 */
     .api-config {
       margin-top: 1rem;
       padding: 0.8rem;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 8px;
       font-size: 0.8rem;
     }
     .api-config input {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fff;
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      color: #2d3748;
       padding: 0.3rem 0.5rem;
       border-radius: 4px;
       width: 250px;
       font-size: 0.8rem;
     }
     .api-config button {
-      background: rgba(0,210,255,0.2);
-      border: 1px solid rgba(0,210,255,0.3);
-      color: #00d2ff;
+      background: #e6faf5;
+      border: 1px solid #b2f5ea;
+      color: #43b89c;
       padding: 0.3rem 0.8rem;
       border-radius: 4px;
       cursor: pointer;
@@ -143,8 +146,8 @@
       border-radius: 50%;
       margin-right: 0.3rem;
     }
-    .api-status.connected { background: #4ade80; }
-    .api-status.disconnected { background: #f87171; }
+    .api-status.connected { background: #28a745; }
+    .api-status.disconnected { background: #dc3545; }
   </style>
 </head>
 <body>
@@ -157,7 +160,7 @@
       <input type="file" id="fileInput" accept="image/*" aria-label="选择图片文件">
       <div style="font-size: 3rem;">📸</div>
       <p>拖拽图片到此处，或点击上传</p>
-      <p style="font-size: 0.8rem; color: #555; margin-top: 0.5rem;">支持 JPG / PNG / WebP</p>
+      <p style="font-size: 0.8rem; color: #a0aec0; margin-top: 0.5rem;">支持 JPG / PNG / WebP</p>
     </div>
 
     <div class="preview" id="preview">
@@ -166,7 +169,7 @@
 
     <div class="loading" id="loading">
       <div class="spinner"></div>
-      <p style="color: #aaa;">正在分析图片...</p>
+      <p style="color: #718096;">正在分析图片...</p>
     </div>
 
     <div class="result" id="result"></div>
