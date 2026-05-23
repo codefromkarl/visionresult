@@ -1,8 +1,6 @@
 """Image processing utilities."""
 
-from __future__ import annotations
-
-import asyncio
+import base64
 import io
 from datetime import datetime
 from typing import Any
@@ -10,6 +8,18 @@ from typing import Any
 import cv2
 import numpy as np
 from PIL import ExifTags, Image
+
+
+def encode_image_base64(image_bytes: bytes) -> str:
+    """Encode image bytes to base64 string.
+
+    Args:
+        image_bytes: Raw image file bytes.
+
+    Returns:
+        Base64-encoded string.
+    """
+    return base64.b64encode(image_bytes).decode("utf-8")
 
 
 def _convert_gps_to_degrees(gps_coord: tuple) -> float:
@@ -114,7 +124,7 @@ def _extract_capture_time(exif: dict[str, Any]) -> datetime | None:
 def get_image_metadata(image_bytes: bytes) -> dict:
     """Extract image metadata including EXIF GPS and capture time."""
     img = Image.open(io.BytesIO(image_bytes))
-    metadata = {
+    metadata: dict[str, Any] = {
         "width": img.width,
         "height": img.height,
         "format": img.format,
@@ -125,8 +135,12 @@ def get_image_metadata(image_bytes: bytes) -> dict:
     # Extract EXIF
     exif_data: dict[str, Any] = {}
     raw_exif = None
-    if hasattr(img, "_getexif") and img._getexif():
-        raw_exif = img._getexif()
+    if hasattr(img, "getexif"):
+        try:
+            raw_exif = img.getexif()
+        except Exception:
+            raw_exif = None
+    if raw_exif:
         for tag_id, value in raw_exif.items():
             tag = ExifTags.TAGS.get(tag_id, tag_id)
             exif_data[str(tag)] = str(value)
@@ -134,11 +148,11 @@ def get_image_metadata(image_bytes: bytes) -> dict:
 
     # Extract GPS from raw EXIF (before string conversion)
     if raw_exif:
-        gps = _extract_gps(raw_exif)
+        gps = _extract_gps(dict(raw_exif))
         if gps:
             metadata["gps"] = gps
 
-        capture_time = _extract_capture_time(raw_exif)
+        capture_time = _extract_capture_time(dict(raw_exif))
         if capture_time:
             metadata["capture_time"] = capture_time.isoformat()
 
@@ -148,7 +162,7 @@ def get_image_metadata(image_bytes: bytes) -> dict:
 def auto_rotate(img: Image.Image) -> Image.Image:
     """Auto-rotate image based on EXIF orientation tag."""
     try:
-        exif = img._getexif()
+        exif = img.getexif() if hasattr(img, "getexif") else None
         if exif:
             for tag_id, value in exif.items():
                 tag = ExifTags.TAGS.get(tag_id, tag_id)
@@ -170,7 +184,7 @@ def compress_image(
     quality: int = 85,
 ) -> bytes:
     """Compress image to fit within max_size while maintaining aspect ratio."""
-    img = Image.open(io.BytesIO(image_bytes))
+    img: Image.Image = Image.open(io.BytesIO(image_bytes))
     img = auto_rotate(img)
 
     # Resize if larger than max_size
@@ -231,58 +245,22 @@ def is_blurry(image_bytes: bytes, threshold: float = 100.0) -> bool:
     return assess_sharpness(image_bytes) < threshold
 
 
-# Async wrappers for CPU-intensive image operations
-
-async def get_image_metadata_async(image_bytes: bytes) -> dict:
-    """Async wrapper for get_image_metadata to avoid blocking the event loop.
+def detect_image_format(image_bytes: bytes) -> str:
+    """Detect image format from magic bytes.
 
     Args:
         image_bytes: Raw image file bytes.
 
     Returns:
-        Image metadata dictionary.
+        Image format string: 'png', 'gif', 'webp', or 'jpeg' (default).
     """
-    return await asyncio.to_thread(get_image_metadata, image_bytes)
+    if not image_bytes:
+        return "jpeg"
+    if image_bytes[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if image_bytes[:4] == b"GIF8":
+        return "gif"
+    if image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+        return "webp"
+    return "jpeg"
 
-
-async def compress_image_async(
-    image_bytes: bytes,
-    max_size: tuple[int, int] = (2048, 2048),
-    quality: int = 85,
-) -> bytes:
-    """Async wrapper for compress_image to avoid blocking the event loop.
-
-    Args:
-        image_bytes: Raw image file bytes.
-        max_size: Maximum dimensions (width, height).
-        quality: JPEG quality (1-100).
-
-    Returns:
-        Compressed image bytes.
-    """
-    return await asyncio.to_thread(compress_image, image_bytes, max_size, quality)
-
-
-async def assess_sharpness_async(image_bytes: bytes) -> float:
-    """Async wrapper for assess_sharpness to avoid blocking the event loop.
-
-    Args:
-        image_bytes: Raw image file bytes.
-
-    Returns:
-        Laplacian variance as float.
-    """
-    return await asyncio.to_thread(assess_sharpness, image_bytes)
-
-
-async def is_blurry_async(image_bytes: bytes, threshold: float = 100.0) -> bool:
-    """Async wrapper for is_blurry to avoid blocking the event loop.
-
-    Args:
-        image_bytes: Raw image file bytes.
-        threshold: Sharpness threshold.
-
-    Returns:
-        True if image is blurry.
-    """
-    return await asyncio.to_thread(is_blurry, image_bytes, threshold)

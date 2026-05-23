@@ -9,19 +9,15 @@ API docs: https://cloud.baidu.com/doc/OCR/s/1k3h7y3db
 
 from __future__ import annotations
 
-import base64
 import logging
 import time
-from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import httpx
 
 from vision_insight.models.schemas import OCRResult
 from vision_insight.services import OCRService
-
-if TYPE_CHECKING:
-    pass
+from vision_insight.utils.image import encode_image_base64
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +146,7 @@ class BaiduOCRService(OCRService):
             access_token = await self._get_access_token()
 
             # Base64 encode (without data URI header)
-            image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+            image_b64 = encode_image_base64(image_bytes)
 
             # Build request body
             body = {"image": image_b64}

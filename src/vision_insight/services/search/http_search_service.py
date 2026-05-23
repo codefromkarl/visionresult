@@ -1,10 +1,9 @@
 """HTTP-based search service supporting Google, Bing, and Wikipedia."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import os
+import re
 
 import httpx
 
@@ -16,11 +15,8 @@ logger = logging.getLogger(__name__)
 # Timeout for external search requests (seconds)
 _SEARCH_TIMEOUT = 10.0
 
-# Wikipedia API endpoint
-_WIKIPEDIA_API = "https://zh.wikipedia.org/w/api.php"
-
 # Proxy configuration from environment
-_PROXY = os.getenv("HTTP_PROXY") or os.getenv("http_proxy") or "http://127.0.0.1:7897"
+_PROXY = os.getenv("HTTP_PROXY") or os.getenv("http_proxy") or None
 
 
 class HttpSearchService(SearchService):
@@ -81,7 +77,7 @@ class HttpSearchService(SearchService):
         if not self._google_api_key or not self._google_cse_id:
             logger.debug("Google CSE credentials not configured, skipping")
             return []
-        params = {
+        params: dict[str, str | int] = {
             "key": self._google_api_key,
             "cx": self._google_cse_id,
             "q": query,
@@ -119,7 +115,7 @@ class HttpSearchService(SearchService):
             logger.debug("Bing API key not configured, skipping")
             return []
         headers = {"Ocp-Apim-Subscription-Key": self._bing_api_key}
-        params = {"q": query, "count": 5}
+        params: dict[str, str | int] = {"q": query, "count": 5}
         try:
             async with httpx.AsyncClient(timeout=self._timeout, proxy=_PROXY) as client:
                 resp = await client.get(
@@ -156,7 +152,7 @@ class HttpSearchService(SearchService):
         # 先尝试中文，失败则用英文
         for lang in ['zh', 'en']:
             wiki_url = f"https://{lang}.wikipedia.org/w/api.php"
-            search_params = {
+            search_params: dict[str, str | int] = {
                 "action": "query",
                 "list": "search",
                 "srsearch": query,
@@ -198,6 +194,4 @@ class HttpSearchService(SearchService):
 
 def _strip_html(text: str) -> str:
     """Remove simple HTML tags from a string."""
-    import re
-
     return re.sub(r"<[^>]+>", "", text)
