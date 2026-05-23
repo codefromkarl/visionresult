@@ -1,7 +1,5 @@
 """Pydantic models for API and pipeline data structures."""
 
-from __future__ import annotations
-
 from datetime import datetime
 from enum import StrEnum
 
@@ -59,18 +57,6 @@ class DetectedObject(BaseModel):
     category: str = ""  # person, building, food, logo, vehicle, etc.
 
 
-class SceneAnalysis(BaseModel):
-    """Scene-level understanding from VLM."""
-
-    scene_type: str
-    description: str
-    location_guess: LocationGuess | None = None
-    time_guess: TimeGuess | None = None
-    people: list[PeopleInfo] = Field(default_factory=list)
-    key_evidence: list[str] = Field(default_factory=list)
-    uncertainties: list[str] = Field(default_factory=list)
-
-
 class LocationGuess(BaseModel):
     """Location prediction with confidence."""
 
@@ -94,6 +80,18 @@ class PeopleInfo(BaseModel):
     count: int
     age_group: str = ""  # young, middle-aged, elderly
     activity: str = ""
+
+
+class SceneAnalysis(BaseModel):
+    """Scene-level understanding from VLM."""
+
+    scene_type: str
+    description: str
+    location_guess: LocationGuess | None = None
+    time_guess: TimeGuess | None = None
+    people: list[PeopleInfo] = Field(default_factory=list)
+    key_evidence: list[str] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
 
 
 class EntityExtraction(BaseModel):
