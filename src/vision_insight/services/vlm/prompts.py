@@ -1,7 +1,5 @@
 """Shared prompt templates and helpers for VLM services."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

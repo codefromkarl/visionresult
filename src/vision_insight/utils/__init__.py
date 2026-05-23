@@ -1,7 +1,5 @@
 """Utility modules."""
 
-from __future__ import annotations
-
 import uuid
 from typing import TYPE_CHECKING
 
@@ -61,4 +59,3 @@ def extract_entities_rule_based(
         landmarks=[],
         text_entities=dedupe_strings(text_entities),
     )
-
