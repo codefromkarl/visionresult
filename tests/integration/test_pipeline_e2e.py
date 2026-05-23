@@ -55,7 +55,7 @@ class MockOCRService(OCRService):
 
 
 class MockVLMService(VLMService):
-    async def analyze(self, image_bytes, ocr_results=None):
+    async def analyze(self, image_bytes, ocr_results=None, lang: str = "zh"):
         return SceneAnalysis(
             scene_type="street",
             description="日本东京涩谷商业区夜景，霓虹灯闪烁，人流密集",
@@ -75,7 +75,7 @@ class MockVLMService(VLMService):
             uncertainties=["具体年份不确定"],
         )
 
-    async def detect_objects(self, image_bytes):
+    async def detect_objects(self, image_bytes, lang: str = "zh"):
         return [
             DetectedObject(label="building", confidence=0.9, category="building"),
             DetectedObject(label="person", confidence=0.85, category="person"),
@@ -201,10 +201,10 @@ async def test_pipeline_handles_vlm_failure():
     from vision_insight.services.evidence.fusion_service import FusionService
 
     class FailingVLMService(VLMService):
-        async def analyze(self, image_bytes, ocr_results=None):
+        async def analyze(self, image_bytes, ocr_results=None, lang: str = "zh"):
             raise RuntimeError("VLM API timeout")
 
-        async def detect_objects(self, image_bytes):
+        async def detect_objects(self, image_bytes, lang: str = "zh"):
             raise RuntimeError("VLM API timeout")
 
     runner = PipelineRunner()

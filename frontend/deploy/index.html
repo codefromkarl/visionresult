@@ -1,406 +1,153 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Visual Insight Agent</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
-      color: #2d3748;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .container {
-      text-align: center;
-      max-width: 600px;
-      padding: 2rem;
-    }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(90deg, #43b89c, #3584e4);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .subtitle { color: #718096; margin-bottom: 2rem; font-size: 1.1rem; }
-    .status {
-      display: inline-block;
-      padding: 0.5rem 1.5rem;
-      background: #e6faf5;
-      border: 1px solid #b2f5ea;
-      border-radius: 2rem;
-      color: #43b89c;
-      margin-bottom: 2rem;
-    }
-    .features {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-      margin-top: 2rem;
-    }
-    .feature {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 1.5rem 1rem;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    }
-    .feature-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-    .feature-title { font-size: 0.9rem; color: #4a5568; }
-    .upload-zone {
-      margin-top: 2rem;
-      border: 2px dashed #cbd5e0;
-      border-radius: 16px;
-      padding: 2rem;
-      cursor: pointer;
-      transition: all 0.3s;
-      position: relative;
-      background: #ffffff;
-    }
-    .upload-zone:hover { border-color: #43b89c; background: #f0fdf9; }
-    .upload-zone.dragover { border-color: #43b89c; background: #e6faf5; }
-    .upload-zone p { color: #a0aec0; margin-top: 0.5rem; }
-    .upload-zone input[type="file"] {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      opacity: 0; cursor: pointer;
-    }
-    .api-docs { margin-top: 2rem; font-size: 0.85rem; color: #a0aec0; }
-    .api-docs a { color: #43b89c; text-decoration: none; }
-    .api-docs a:hover { text-decoration: underline; }
-
-    /* 结果展示 */
-    .result { display: none; margin-top: 2rem; text-align: left; }
-    .result.show { display: block; }
-    .result-card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    }
-    .result-card h3 { color: #43b89c; margin-bottom: 0.8rem; font-size: 1rem; }
-    .result-card p, .result-card li { color: #4a5568; line-height: 1.6; font-size: 0.9rem; }
-    .result-card ul { padding-left: 1.2rem; }
-    .confidence { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
-    .confidence.high { background: #d4edda; color: #28a745; }
-    .confidence.medium { background: #fff3cd; color: #ffc107; }
-    .confidence.low { background: #f8d7da; color: #dc3545; }
-
-    /* 加载动画 */
-    .loading { display: none; margin-top: 2rem; }
-    .loading.show { display: block; }
-    .spinner {
-      border: 3px solid #e2e8f0;
-      border-top: 3px solid #43b89c;
-      border-radius: 50%;
-      width: 40px; height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* 预览图 */
-    .preview { display: none; margin-top: 1rem; }
-    .preview.show { display: block; }
-    .preview img {
-      max-width: 100%; max-height: 200px;
-      border-radius: 8px; border: 1px solid #e2e8f0;
-    }
-
-    /* API 配置 */
-    .api-config {
-      margin-top: 1rem;
-      padding: 0.8rem;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 0.8rem;
-    }
-    .api-config input {
-      background: #f7fafc;
-      border: 1px solid #e2e8f0;
-      color: #2d3748;
-      padding: 0.3rem 0.5rem;
-      border-radius: 4px;
-      width: 250px;
-      font-size: 0.8rem;
-    }
-    .api-config button {
-      background: #e6faf5;
-      border: 1px solid #b2f5ea;
-      color: #43b89c;
-      padding: 0.3rem 0.8rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.8rem;
-    }
-    .api-status {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      margin-right: 0.3rem;
-    }
-    .api-status.connected { background: #28a745; }
-    .api-status.disconnected { background: #dc3545; }
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="多模态图片分析系统 - 视觉分析 + 证据链推理">
+    <title>Visual Insight Agent</title>
+    
+    <!-- 样式表 -->
+    <link rel="stylesheet" href="src/css/base.css">
+    <link rel="stylesheet" href="src/css/toast.css">
+    <link rel="stylesheet" href="src/css/upload.css">
+    <link rel="stylesheet" href="src/css/events.css">
+    <link rel="stylesheet" href="src/css/report.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
 </head>
 <body>
-  <div class="container">
-    <h1>🔍 Visual Insight</h1>
-    <p class="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
-    <div class="status" id="statusBadge">⏳ 检查 API 状态...</div>
+    <div class="container" role="main">
+        <!-- 标题 -->
+        <header>
+            <h1>🔍 Visual Insight Agent</h1>
+            <p class="subtitle text-secondary text-center mb-8">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+        </header>
 
-    <div class="upload-zone" id="uploadZone">
-      <input type="file" id="fileInput" accept="image/*" aria-label="选择图片文件">
-      <div style="font-size: 3rem;">📸</div>
-      <p>拖拽图片到此处，或点击上传</p>
-      <p style="font-size: 0.8rem; color: #a0aec0; margin-top: 0.5rem;">支持 JPG / PNG / WebP</p>
+        <!-- 上传卡片 -->
+        <section class="card" aria-label="图片上传">
+            <div class="upload-zone" 
+                 id="uploadZone" 
+                 role="button" 
+                 tabindex="0"
+                 aria-label="点击或拖拽图片到此处上传">
+                <span class="upload-zone-icon" aria-hidden="true">📸</span>
+                <h3 class="upload-zone-title">拖拽图片到此处或点击上传</h3>
+                <p class="upload-zone-subtitle">支持 JPG、PNG、GIF、WebP 格式</p>
+                <div class="upload-zone-formats">
+                    <span class="upload-zone-format">JPG</span>
+                    <span class="upload-zone-format">PNG</span>
+                    <span class="upload-zone-format">GIF</span>
+                    <span class="upload-zone-format">WebP</span>
+                </div>
+            </div>
+            <input type="file" 
+                   id="fileInput" 
+                   accept="image/*"
+                   aria-label="选择图片文件">
+
+            <!-- 图片预览 -->
+            <div class="preview-container" id="previewContainer" aria-label="图片预览">
+                <img id="previewImg" 
+                     class="preview-img" 
+                     alt="选择的图片预览">
+            </div>
+
+            <!-- 分析选项 -->
+            <div class="analysis-options">
+                <label for="verboseCheck">
+                    <input type="checkbox" id="verboseCheck">
+                    <span>启用详细推理链路（verbose 模式）</span>
+                </label>
+                <div class="analyze-btn-container">
+                    <button class="btn btn-lg" 
+                            id="analyzeBtn" 
+                            disabled
+                            aria-label="开始分析图片">
+                        🚀 开始分析
+                    </button>
+                </div>
+            </div>
+
+            <!-- 进度条 -->
+            <div class="progress-container" id="progressContainer" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">
+                    <span class="progress-stage">准备中...</span>
+                    <span class="progress-percent">0%</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分析过程卡片 -->
+        <section class="card events-container" 
+                 id="eventsContainer" 
+                 aria-label="分析过程"
+                 style="display: none;">
+            <div class="events-header">
+                <h3>🧠 分析过程</h3>
+            </div>
+            <div class="events-stats" id="eventsStats"></div>
+            <div class="events-timeline" 
+                 id="eventsTimeline"
+                 role="log"
+                 aria-live="polite"
+                 aria-label="分析事件时间线"></div>
+        </section>
+
+        <!-- 结果卡片 -->
+        <section class="card result-container" 
+                 id="resultContainer" 
+                 aria-label="分析结果"
+                 style="display: none;">
+            <div class="report-header">
+                <h2>📊 分析报告</h2>
+                <div class="report-actions">
+                    <button class="btn btn-sm btn-outline" 
+                            onclick="downloadMarkdown()"
+                            aria-label="下载 Markdown 格式报告">
+                        📄 Markdown
+                    </button>
+                    <button class="btn btn-sm btn-outline" 
+                            onclick="downloadHTML()"
+                            aria-label="下载 HTML 格式报告">
+                        🌐 HTML
+                    </button>
+                    <button class="btn btn-sm btn-outline" 
+                            id="traceToggleBtn"
+                            aria-label="显示/隐藏推理链路">
+                        🔍 推理链路
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 报告内容 -->
+            <div class="report-content" 
+                 id="reportContent"
+                 role="document"
+                 aria-label="分析报告内容"></div>
+            
+            <!-- 推理链路容器 -->
+            <div class="trace-container" id="traceContainer" aria-label="推理链路详情">
+                <div class="reasoning-section">
+                    <h3>🧠 思考链条与调用证据链</h3>
+                    <div id="reasoningContainer"></div>
+                </div>
+                <h3>⚙️ Pipeline 执行详情</h3>
+                <div class="trace-timeline" id="traceTimeline"></div>
+            </div>
+        </section>
     </div>
 
-    <div class="preview" id="preview">
-      <img id="previewImg" alt="预览">
-    </div>
+    <!-- Toast 容器 -->
+    <div id="toast-container" 
+         class="toast-container" 
+         role="alert" 
+         aria-live="polite"></div>
 
-    <div class="loading" id="loading">
-      <div class="spinner"></div>
-      <p style="color: #718096;">正在分析图片...</p>
-    </div>
-
-    <div class="result" id="result"></div>
-
-    <div class="features">
-      <div class="feature">
-        <div class="feature-icon">🏷️</div>
-        <div class="feature-title">OCR 文字识别</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">📍</div>
-        <div class="feature-title">地点推测</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🔗</div>
-        <div class="feature-title">证据链推理</div>
-      </div>
-    </div>
-
-    <div class="api-docs">
-      Powered by Cloudflare Workers AI
-    </div>
-  </div>
-
-  <script>
-    // ─── API Base URL ──────────────────────────────────────
-    // API Base URL
-    // Cloudflare Pages Functions 自动部署到同一域名的 /api/* 路径
-    const API_BASE = (() => {
-      // 本地开发环境
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return 'http://localhost:8001';
-      }
-      // Cloudflare Pages Functions: 留空即可，自动处理 /api/* 路径
-      return '';
-    })();
-
-    // ─── DOM Elements ──────────────────────────────────────
-    const fileInput = document.getElementById('fileInput');
-    const uploadZone = document.getElementById('uploadZone');
-    const preview = document.getElementById('preview');
-    const previewImg = document.getElementById('previewImg');
-    const loading = document.getElementById('loading');
-    const result = document.getElementById('result');
-    const statusBadge = document.getElementById('statusBadge');
-
-    // ─── Health Check ──────────────────────────────────────
-    const apiUrlInput = document.getElementById('apiUrlInput');
-    const apiStatus = document.getElementById('apiStatus');
-
-    // 初始化 API URL 输入框
-    apiUrlInput.value = API_BASE;
-
-    function saveApiUrl() {
-      const url = apiUrlInput.value.trim();
-      if (url) {
-        localStorage.setItem('api_base', url);
-        location.reload();
-      }
-    }
-
-    async function checkHealth() {
-      try {
-        // Cloudflare Pages Functions 自动可用
-        statusBadge.textContent = '✅ 系统就绪';
-        statusBadge.style.borderColor = 'rgba(0, 200, 0, 0.3)';
-        statusBadge.style.color = '#4ade80';
-        apiStatus.className = 'api-status connected';
-      } catch {
-        statusBadge.textContent = '⚠️ 系统错误';
-        apiStatus.className = 'api-status disconnected';
-      }
-    }
-    checkHealth();
-
-    // ─── File Input Handler ────────────────────────────────
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) handleFile(file);
-    });
-
-    // ─── Drag & Drop ───────────────────────────────────────
-    uploadZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadZone.classList.add('dragover');
-    });
-    uploadZone.addEventListener('dragleave', () => {
-      uploadZone.classList.remove('dragover');
-    });
-    uploadZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      uploadZone.classList.remove('dragover');
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('image/')) handleFile(file);
-    });
-
-    // ─── Handle File Upload ────────────────────────────────
-    async function handleFile(file) {
-      // 预览
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        previewImg.src = e.target.result;
-        preview.classList.add('show');
-      };
-      reader.readAsDataURL(file);
-
-      // 显示加载状态
-      loading.classList.add('show');
-      result.classList.remove('show');
-      result.innerHTML = '';
-
-      try {
-        // 上传到 API
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await fetch(`${API_BASE}/api/analyze`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const data = await response.json();
-        const taskId = data.task_id;
-
-        // 轮询结果
-        await pollResult(taskId);
-      } catch (err) {
-        showError(`上传失败: ${err.message}`);
-      } finally {
-        loading.classList.remove('show');
-      }
-    }
-
-    // ─── Poll for Results ──────────────────────────────────
-    async function pollResult(taskId, maxAttempts = 30) {
-      for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 1000));
-
-        try {
-          const response = await fetch(`${API_BASE}/api/report/${taskId}`);
-          if (!response.ok) continue;
-
-          const report = await response.json();
-          if (report.status === 'completed') {
-            renderReport(report);
-            return;
-          } else if (report.status === 'failed') {
-            showError('分析失败');
-            return;
-          }
-        } catch { continue; }
-      }
-      showError('分析超时');
-    }
-
-    // ─── Render Report ─────────────────────────────────────
-    function renderReport(report) {
-      let html = '';
-
-      // 场景
-      if (report.scene_analysis) {
-        const sa = report.scene_analysis;
-        html += `<div class="result-card">
-          <h3>🎬 场景分析</h3>
-          <p>${escapeHtml(sa.description)}</p>
-        </div>`;
-
-        // 地点
-        if (sa.location_guess) {
-          const loc = sa.location_guess;
-          const confClass = loc.confidence >= 0.7 ? 'high' : loc.confidence >= 0.4 ? 'medium' : 'low';
-          html += `<div class="result-card">
-            <h3>📍 地点推测</h3>
-            <p>${escapeHtml(loc.location)}
-              <span class="confidence ${confClass}">${Math.round(loc.confidence * 100)}%</span>
-            </p>
-            ${loc.evidence?.length ? `<ul>${loc.evidence.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>` : ''}
-          </div>`;
-        }
-
-        // 时间
-        if (sa.time_guess) {
-          const tg = sa.time_guess;
-          const parts = [tg.time_of_day, tg.season, tg.year_estimate].filter(Boolean);
-          if (parts.length) {
-            html += `<div class="result-card">
-              <h3>🕐 时间推测</h3>
-              <p>${parts.map(escapeHtml).join(' · ')}</p>
-            </div>`;
-          }
-        }
-      }
-
-      // OCR
-      if (report.ocr_results?.length) {
-        html += `<div class="result-card">
-          <h3>📝 OCR 文字</h3>
-          <ul>${report.ocr_results.map(r =>
-            `<li>${escapeHtml(r.text)} <span class="confidence ${r.confidence >= 0.8 ? 'high' : 'medium'}">${Math.round(r.confidence * 100)}%</span></li>`
-          ).join('')}</ul>
-        </div>`;
-      }
-
-      // 结论
-      if (report.conclusions?.length) {
-        html += `<div class="result-card">
-          <h3>🔗 分析结论</h3>
-          <ul>${report.conclusions.map(c => {
-            const confClass = c.probability >= 0.7 ? 'high' : c.probability >= 0.4 ? 'medium' : 'low';
-            return `<li>${escapeHtml(c.statement)} <span class="confidence ${confClass}">${Math.round(c.probability * 100)}%</span></li>`;
-          }).join('')}</ul>
-        </div>`;
-      }
-
-      result.innerHTML = html || '<div class="result-card"><p>无分析结果</p></div>';
-      result.classList.add('show');
-    }
-
-    function showError(msg) {
-      result.innerHTML = `<div class="result-card" style="border-color: rgba(255,0,0,0.3);">
-        <h3>❌ 错误</h3><p>${escapeHtml(msg)}</p>
-      </div>`;
-      result.classList.add('show');
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-  </script>
+    <!-- 应用脚本 -->
+    <script type="module" src="src/js/app.js?v=9"></script>
 </body>
 </html>

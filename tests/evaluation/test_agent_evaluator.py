@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from tests.evaluation.agent_evaluator import (
-    TestQualityAssessment,
     TestGap,
-    RequirementTestAlignment,
-    extract_test_descriptions,
-    extract_requirements,
-    evaluate_test_quality,
-    analyze_requirement_test_alignment,
+    TestQualityAssessment,
     _parse_json_response,
+    analyze_requirement_test_alignment,
+    evaluate_test_quality,
+    extract_requirements,
+    extract_test_descriptions,
 )
-
 
 # ─── JSON 解析测试 ─────────────────────────────────────────
 
@@ -145,7 +142,10 @@ def test_upload():
             "suggested_tests": ["def test_upload_error(): ..."]
         })
 
-        with patch("tests.evaluation.agent_evaluator._call_llm", new_callable=AsyncMock) as mock_llm:
+        with patch(
+            "tests.evaluation.agent_evaluator._call_llm",
+            new_callable=AsyncMock,
+        ) as mock_llm:
             mock_llm.return_value = mock_response
 
             result = await evaluate_test_quality(
@@ -186,7 +186,10 @@ def test_upload():
             "overall_alignment": 0.67
         })
 
-        with patch("tests.evaluation.agent_evaluator._call_llm", new_callable=AsyncMock) as mock_llm:
+        with patch(
+            "tests.evaluation.agent_evaluator._call_llm",
+            new_callable=AsyncMock,
+        ) as mock_llm:
             mock_llm.return_value = mock_response
 
             alignments = await analyze_requirement_test_alignment(

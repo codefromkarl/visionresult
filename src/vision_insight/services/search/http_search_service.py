@@ -19,6 +19,9 @@ _SEARCH_TIMEOUT = 10.0
 # Wikipedia API endpoint
 _WIKIPEDIA_API = "https://zh.wikipedia.org/w/api.php"
 
+# Proxy configuration from environment
+_PROXY = os.getenv("HTTP_PROXY") or os.getenv("http_proxy") or "http://127.0.0.1:7897"
+
 
 class HttpSearchService(SearchService):
     """Search service backed by Google Custom Search, Bing, and Wikipedia via httpx."""
@@ -85,7 +88,7 @@ class HttpSearchService(SearchService):
             "num": 5,
         }
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=self._timeout, proxy=_PROXY) as client:
                 resp = await client.get("https://www.googleapis.com/customsearch/v1", params=params)
                 resp.raise_for_status()
                 data = resp.json()
@@ -118,7 +121,7 @@ class HttpSearchService(SearchService):
         headers = {"Ocp-Apim-Subscription-Key": self._bing_api_key}
         params = {"q": query, "count": 5}
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=self._timeout, proxy=_PROXY) as client:
                 resp = await client.get(
                     "https://api.bing.microsoft.com/v7.0/search",
                     headers=headers,
@@ -149,42 +152,48 @@ class HttpSearchService(SearchService):
     # ------------------------------------------------------------------
 
     async def _search_wikipedia(self, query: str) -> list[SearchResult]:
-        """Search Chinese Wikipedia for relevant articles."""
-        # Step 1: search for matching titles
-        search_params = {
-            "action": "query",
-            "list": "search",
-            "srsearch": query,
-            "srlimit": 5,
-            "format": "json",
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                resp = await client.get(_WIKIPEDIA_API, params=search_params)
-                resp.raise_for_status()
-                data = resp.json()
-        except httpx.HTTPError as exc:
-            logger.error("Wikipedia search failed: %s", exc)
-            return []
+        """Search Wikipedia for relevant articles."""
+        # 先尝试中文，失败则用英文
+        for lang in ['zh', 'en']:
+            wiki_url = f"https://{lang}.wikipedia.org/w/api.php"
+            search_params = {
+                "action": "query",
+                "list": "search",
+                "srsearch": query,
+                "srlimit": 5,
+                "format": "json",
+            }
+            headers = {
+                "User-Agent": "VisualInsightAgent/1.0 (https://imagerecognition.codefromkarl.xyz)"
+            }
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout, proxy=_PROXY) as client:
+                    resp = await client.get(wiki_url, params=search_params, headers=headers)
+                    resp.raise_for_status()
+                    data = resp.json()
 
-        results: list[SearchResult] = []
-        for item in data.get("query", {}).get("search", []):
-            title = item.get("title", "")
-            snippet = item.get("snippet", "")
-            # Strip HTML tags from snippet
-            snippet = _strip_html(snippet)
-            page_url = f"https://zh.wikipedia.org/wiki/{title.replace(' ', '_')}"
-            results.append(
-                SearchResult(
-                    query=query,
-                    source="wikipedia",
-                    title=title,
-                    snippet=snippet,
-                    url=page_url,
-                    relevance=0.6,
-                )
-            )
-        return results
+                    results: list[SearchResult] = []
+                    for item in data.get("query", {}).get("search", []):
+                        title = item.get("title", "")
+                        snippet = item.get("snippet", "")
+                        snippet = _strip_html(snippet)
+                        page_url = f"https://{lang}.wikipedia.org/wiki/{title.replace(' ', '_')}"
+                        results.append(
+                            SearchResult(
+                                query=query,
+                                source="wikipedia",
+                                title=title,
+                                snippet=snippet,
+                                url=page_url,
+                                relevance=0.6 if lang == 'zh' else 0.5,
+                            )
+                        )
+                    if results:
+                        return results
+            except Exception as exc:
+                logger.warning("Wikipedia %s search failed: %s", lang, exc)
+                continue
+        return []
 
 
 def _strip_html(text: str) -> str:

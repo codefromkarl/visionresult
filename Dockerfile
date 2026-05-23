@@ -2,18 +2,26 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for OpenCV
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libgl1 \
     libglib2.0-0 \
+    libgomp1 \
+    tesseract-ocr \
+    tesseract-ocr-chi-sim \
+    tesseract-ocr-eng \
+    fonts-noto-cjk \
+    fonts-wqy-zenhei \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
 COPY pyproject.toml .
-RUN pip install -e ".[dev]" --no-cache-dir || pip install fastapi uvicorn httpx pillow pydantic pydantic-settings python-dotenv python-multipart --no-cache-dir
-
-# Copy application code
 COPY src/ src/
+RUN pip install --no-cache-dir . || pip install fastapi uvicorn httpx pillow pydantic pydantic-settings python-dotenv python-multipart pytesseract --no-cache-dir
+
+# Copy frontend
 COPY frontend/ frontend/
 
 # Create data directories

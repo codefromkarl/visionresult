@@ -16,6 +16,8 @@ env/
 # Data
 data/uploads/*
 data/cache/*
+data/images/*
+*.db
 !data/uploads/.gitkeep
 !data/cache/.gitkeep
 
@@ -24,6 +26,13 @@ data/cache/*
 .vscode/
 *.swp
 *.swo
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # OS
 .DS_Store

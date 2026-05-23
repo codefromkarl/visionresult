@@ -32,13 +32,19 @@ class VLMService(ABC):
 
     @abstractmethod
     async def analyze(
-        self, image_bytes: bytes, ocr_results: list[OCRResult] | None = None
+        self, image_bytes: bytes, ocr_results: list[OCRResult] | None = None, lang: str = "zh"
     ) -> SceneAnalysis:
-        """Analyze image scene with VLM."""
+        """Analyze image scene with VLM.
+
+        Args:
+            image_bytes: Raw image bytes.
+            ocr_results: Optional OCR results for context.
+            lang: Output language - 'zh' for Chinese, 'en' for English.
+        """
         ...
 
     @abstractmethod
-    async def detect_objects(self, image_bytes: bytes) -> list[DetectedObject]:
+    async def detect_objects(self, image_bytes: bytes, lang: str = "zh") -> list[DetectedObject]:
         """Detect objects in image."""
         ...
 
@@ -86,7 +92,7 @@ class ReportService(ABC):
     """Report generation service."""
 
     @abstractmethod
-    async def generate_user_report(self, report) -> str:
+    async def generate_user_report(self, report, lang: str = "zh") -> str:
         """Generate user-friendly markdown report."""
         ...
 

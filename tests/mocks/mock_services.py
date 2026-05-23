@@ -54,15 +54,18 @@ class MockVLMService(VLMService):
         self._objects = objects or []
         self.analyze_count = 0
         self.detect_count = 0
+        self.last_lang = None
 
     async def analyze(
-        self, image_bytes: bytes, ocr_results: list[OCRResult] | None = None
+        self, image_bytes: bytes, ocr_results: list[OCRResult] | None = None, lang: str = "zh"
     ) -> SceneAnalysis:
         self.analyze_count += 1
+        self.last_lang = lang
         return self._scene
 
-    async def detect_objects(self, image_bytes: bytes) -> list[DetectedObject]:
+    async def detect_objects(self, image_bytes: bytes, lang: str = "zh") -> list[DetectedObject]:
         self.detect_count += 1
+        self.last_lang = lang
         return self._objects
 
 
@@ -114,9 +117,11 @@ class MockReportService(ReportService):
     def __init__(self, markdown: str = "# Mock Report\n分析完成"):
         self._markdown = markdown
         self.call_count = 0
+        self.last_lang = None
 
-    async def generate_user_report(self, report) -> str:
+    async def generate_user_report(self, report, lang: str = "zh") -> str:
         self.call_count += 1
+        self.last_lang = lang
         return self._markdown
 
     async def generate_structured_report(self, report) -> dict:

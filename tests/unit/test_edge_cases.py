@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import io
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from PIL import Image
 
-from vision_insight.models.schemas import AnalysisReport, AnalysisStatus
 from vision_insight.utils.image import compress_image, get_image_metadata, is_blurry
 
 

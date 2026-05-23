@@ -6,8 +6,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from vision_insight import __version__
+from vision_insight.api.health import router as health_router
 from vision_insight.api.routes import router
+from vision_insight.core.auth import setup_api_key_auth
 from vision_insight.core.config import settings
+from vision_insight.core.rate_limiter import setup_rate_limiting
+from vision_insight.core.request_id import setup_request_id
 
 app = FastAPI(
     title="Visual Insight Agent",
@@ -28,7 +33,7 @@ app = FastAPI(
 - Swagger UI: `/docs`
 - ReDoc: `/redoc`
 """,
-    version="0.2.0",
+    version=__version__,
     tags_metadata=[
         {
             "name": "analysis",
@@ -49,23 +54,33 @@ app = FastAPI(
     ],
 )
 
+# Setup request ID tracking
+setup_request_id(app)
+
+# Setup rate limiting
+setup_rate_limiting(
+    app,
+    requests_per_minute=settings.rate_limit_per_minute,
+    requests_per_hour=settings.rate_limit_per_hour,
+)
+
+# Setup API key authentication (if enabled)
+setup_api_key_auth(app, enabled=settings.enable_api_key_auth)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    max_age=600,  # 预检请求缓存 10 分钟
 )
 
 app.include_router(router, prefix="/api/v1")
+app.include_router(health_router)
 
 # Serve frontend
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "ok", "version": "0.1.0"}
 
 
 @app.get("/")

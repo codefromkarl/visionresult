@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 from datetime import datetime
 from typing import Any
@@ -228,3 +229,60 @@ def is_blurry(image_bytes: bytes, threshold: float = 100.0) -> bool:
         True if image is blurry (sharpness below threshold).
     """
     return assess_sharpness(image_bytes) < threshold
+
+
+# Async wrappers for CPU-intensive image operations
+
+async def get_image_metadata_async(image_bytes: bytes) -> dict:
+    """Async wrapper for get_image_metadata to avoid blocking the event loop.
+
+    Args:
+        image_bytes: Raw image file bytes.
+
+    Returns:
+        Image metadata dictionary.
+    """
+    return await asyncio.to_thread(get_image_metadata, image_bytes)
+
+
+async def compress_image_async(
+    image_bytes: bytes,
+    max_size: tuple[int, int] = (2048, 2048),
+    quality: int = 85,
+) -> bytes:
+    """Async wrapper for compress_image to avoid blocking the event loop.
+
+    Args:
+        image_bytes: Raw image file bytes.
+        max_size: Maximum dimensions (width, height).
+        quality: JPEG quality (1-100).
+
+    Returns:
+        Compressed image bytes.
+    """
+    return await asyncio.to_thread(compress_image, image_bytes, max_size, quality)
+
+
+async def assess_sharpness_async(image_bytes: bytes) -> float:
+    """Async wrapper for assess_sharpness to avoid blocking the event loop.
+
+    Args:
+        image_bytes: Raw image file bytes.
+
+    Returns:
+        Laplacian variance as float.
+    """
+    return await asyncio.to_thread(assess_sharpness, image_bytes)
+
+
+async def is_blurry_async(image_bytes: bytes, threshold: float = 100.0) -> bool:
+    """Async wrapper for is_blurry to avoid blocking the event loop.
+
+    Args:
+        image_bytes: Raw image file bytes.
+        threshold: Sharpness threshold.
+
+    Returns:
+        True if image is blurry.
+    """
+    return await asyncio.to_thread(is_blurry, image_bytes, threshold)

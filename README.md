@@ -41,9 +41,9 @@
 
 | 模块 | 技术 | 作用 |
 |------|------|------|
-| OCR | PaddleOCR | 文字提取（中/日/英） |
-| VLM | Qwen2-VL / OpenAI / Gemini | 场景理解 |
-| 实体抽取 | spaCy / LLM | 结构化信息提取 |
+| OCR | Baidu OCR / Tesseract / PaddleOCR | 文字提取（中/日/英），支持多引擎降级 |
+| VLM | Zhipu / OpenAI / Gemini / 降级模式 | 场景理解，支持 provider fallback |
+| 实体抽取 | LLM + 规则降级 | 结构化信息提取 |
 | 联网检索 | Google / Bing / Wikipedia | 信息验证 |
 | 证据融合 | 规则 + LLM | 多源证据加权 |
 | Pipeline | LangGraph | 多步骤编排 |
@@ -76,10 +76,19 @@ curl http://localhost:8000/api/v1/report/{task_id}?include_trace=true
 ## 技术栈
 
 - **后端**: Python 3.11+ / FastAPI / LangGraph
-- **OCR**: PaddleOCR
-- **VLM**: Qwen2-VL (本地) / OpenAI API / Gemini API
-- **前端**: React + Next.js (计划中)
-- **数据库**: PostgreSQL + pgvector
+- **OCR**: Baidu OCR / Tesseract / PaddleOCR（按配置自动降级）
+- **VLM**: Zhipu GLM-4V / OpenAI API / Gemini API / 降级模式
+- **前端**: 静态 HTML/CSS/JavaScript（支持上传、进度、报告、推理链路可视化）
+- **数据库**: SQLite（当前本地持久化）；PostgreSQL + pgvector 为后续扩展方向
+
+## 降级策略
+
+系统现在以“可用优先、明确降级”为原则：
+
+1. **OCR fallback**：优先使用配置的 OCR provider；Baidu 未配置或 provider 失败时，可回退到 Tesseract / PaddleOCR；所有 OCR 都不可用时返回空 OCR 结果，但 pipeline 继续执行。
+2. **VLM fallback**：`VIA_VLM_PROVIDER=auto` 时按 Zhipu → OpenAI → Gemini 选择可用 provider；当前 provider 失败或限流时尝试下一个；全部不可用时返回明确的 `unknown` 场景和“不瞎猜”的说明。
+3. **实体抽取 fallback**：无 LLM key 时使用规则抽取，保留 VLM 地点猜测与高置信 OCR 文本。
+4. **证据链优先**：结论必须带来源、置信度和推理策略；verbose 模式会记录 Pipeline Trace。
 
 ## 设计原则
 
@@ -169,8 +178,8 @@ visionresult/
 │   │   ├── evidence/  # 证据融合
 │   │   └── report/    # 报告生成
 │   └── utils/         # 工具函数
-├── frontend/          # Next.js 前端（计划中）
-├── tests/             # 测试
+├── frontend/          # 静态前端页面与 Cloudflare 部署文件
+├── tests/             # 单元、集成、质量守卫、E2E 测试
 ├── configs/           # 配置文件
 └── docs/              # 文档
 ```

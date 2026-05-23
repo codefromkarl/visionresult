@@ -56,13 +56,15 @@ class PaddleOCRService(OCRService):
         try:
             from paddleocr import PaddleOCR
 
-            self._engine = PaddleOCR(
-                use_angle_cls=True,
-                lang=self._lang,
-                use_gpu=self._use_gpu,
-                enable_mkldnn=self._enable_mkldnn,
-                show_log=False,
-            )
+            # Try with minimal parameters for compatibility
+            try:
+                self._engine = PaddleOCR(
+                    use_angle_cls=True,
+                    lang=self._lang,
+                )
+            except Exception as e:
+                logger.warning("PaddleOCR initialization failed: %s", e)
+                raise
             self._initialized = True
             logger.info("PaddleOCR engine initialized (lang=%s)", self._lang)
         except ImportError:
@@ -89,7 +91,24 @@ class PaddleOCRService(OCRService):
         self._ensure_engine()
 
         try:
-            results = self._engine.ocr(image_bytes, cls=True)
+            # PaddleOCR expects file path or numpy array, not bytes
+            import os
+            import tempfile
+
+            # Save bytes to temporary file
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                tmp.write(image_bytes)
+                tmp_path = tmp.name
+
+            try:
+                # Try with cls parameter first, fallback without it
+                try:
+                    results = self._engine.ocr(tmp_path, cls=True)
+                except TypeError:
+                    results = self._engine.ocr(tmp_path)
+            finally:
+                # Clean up temporary file
+                os.unlink(tmp_path)
         except Exception:
             logger.exception("PaddleOCR inference failed")
             return []

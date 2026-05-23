@@ -8,14 +8,13 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import pytest
 from datetime import datetime
+
+import pytest
 
 from vision_insight.models.schemas import (
     AnalysisReport,
     AnalysisStatus,
-    EvidenceItem,
-    FusedConclusion,
     PipelineStep,
     PipelineTrace,
     ReasoningStep,
@@ -128,8 +127,8 @@ class TestFusionServiceTrace:
 
     @pytest.mark.asyncio
     async def test_fusion_service_records_traces(self):
+        from vision_insight.models.schemas import EntityExtraction, SceneAnalysis
         from vision_insight.services.evidence.fusion_service import FusionService
-        from vision_insight.models.schemas import SceneAnalysis, OCRResult, EntityExtraction
 
         service = FusionService(llm=None)
         service.set_verbose(True)
@@ -141,7 +140,7 @@ class TestFusionServiceTrace:
         )
 
         # Fuse with no evidence
-        conclusions = await service.fuse(
+        await service.fuse(
             scene=scene,
             ocr_results=[],
             entities=EntityExtraction(),
@@ -156,10 +155,13 @@ class TestFusionServiceTrace:
 
     @pytest.mark.asyncio
     async def test_fusion_service_records_location_trace(self):
-        from vision_insight.services.evidence.fusion_service import FusionService
         from vision_insight.models.schemas import (
-            SceneAnalysis, OCRResult, EntityExtraction, LocationGuess
+            EntityExtraction,
+            LocationGuess,
+            OCRResult,
+            SceneAnalysis,
         )
+        from vision_insight.services.evidence.fusion_service import FusionService
 
         service = FusionService(llm=None)
         service.set_verbose(True)
@@ -182,7 +184,7 @@ class TestFusionServiceTrace:
             landmarks=["Shibuya 109"],
         )
 
-        conclusions = await service.fuse(
+        await service.fuse(
             scene=scene,
             ocr_results=ocr_results,
             entities=entities,
@@ -202,11 +204,15 @@ class TestFusionServiceTrace:
 
     @pytest.mark.asyncio
     async def test_fusion_service_records_time_trace(self):
-        from vision_insight.services.evidence.fusion_service import FusionService
-        from vision_insight.models.schemas import (
-            SceneAnalysis, EntityExtraction, TimeGuess, ImageMetadata
-        )
         from datetime import datetime
+
+        from vision_insight.models.schemas import (
+            EntityExtraction,
+            ImageMetadata,
+            SceneAnalysis,
+            TimeGuess,
+        )
+        from vision_insight.services.evidence.fusion_service import FusionService
 
         service = FusionService(llm=None)
         service.set_verbose(True)
@@ -225,7 +231,7 @@ class TestFusionServiceTrace:
             capture_time=datetime(2024, 1, 15, 20, 30),
         )
 
-        conclusions = await service.fuse(
+        await service.fuse(
             scene=scene,
             ocr_results=[],
             entities=EntityExtraction(),
@@ -245,10 +251,13 @@ class TestFusionServiceTrace:
 
     @pytest.mark.asyncio
     async def test_fusion_service_verbose_disabled_no_traces(self):
-        from vision_insight.services.evidence.fusion_service import FusionService
         from vision_insight.models.schemas import (
-            SceneAnalysis, OCRResult, EntityExtraction, LocationGuess
+            EntityExtraction,
+            LocationGuess,
+            OCRResult,
+            SceneAnalysis,
         )
+        from vision_insight.services.evidence.fusion_service import FusionService
 
         service = FusionService(llm=None)
         # Verbose mode is OFF by default
@@ -272,7 +281,7 @@ class TestFusionServiceTrace:
             landmarks=["Shibuya 109"],
         )
 
-        conclusions = await service.fuse(
+        await service.fuse(
             scene=scene,
             ocr_results=ocr_results,
             entities=entities,

@@ -113,3 +113,85 @@ async def test_vlm_failure_graceful_degradation():
 - [ ] 覆盖率 ≥ 阈值（见 pyproject.toml）
 - [ ] 质量守卫无新增失败
 - [ ] E2E 测试覆盖新功能
+
+---
+
+## 国际化 (i18n) 模式
+
+### 后端 VLM 服务
+
+```python
+# ✅ VLM 服务接受 lang 参数
+async def analyze(
+    self,
+    image_bytes: bytes,
+    ocr_results: list[OCRResult] | None = None,
+    lang: str = "zh",  # 默认中文
+) -> SceneAnalysis:
+    ocr_context = ""
+    if ocr_results:
+        texts = [r.text for r in ocr_results]
+        if lang == "en":
+            ocr_context = f"\nOCR detected these texts: {texts}\n"
+        else:
+            ocr_context = f"\n图片中检测到的文字：{texts}\n"
+
+    prompt_tpl = SCENE_ANALYSIS_PROMPT_EN if lang == "en" else SCENE_ANALYSIS_PROMPT_ZH
+    prompt = prompt_tpl.format(ocr_context=ocr_context)
+```
+
+### 后端报告服务
+
+```python
+# ✅ 报告服务使用标签映射
+_LABELS = {
+    "zh": {"report_title": "图片分析报告", "scene": "场景", ...},
+    "en": {"report_title": "Image Analysis Report", "scene": "Scene", ...},
+}
+
+def _lbl(self, key: str, lang: str = "zh") -> str:
+    return self._LABELS.get(lang, self._LABELS["zh"]).get(key, key)
+
+async def generate_user_report(self, report, lang: str = "zh") -> str:
+    labels = self._LABELS.get(lang, self._LABELS["zh"])
+    sections = [f"# {labels['report_title']}\n"]
+```
+
+### 前端 i18n
+
+```javascript
+// ✅ i18n.js 模块
+const I18N = {
+    zh: { title: '图片分析报告', ... },
+    en: { title: 'Image Analysis Report', ... },
+};
+
+let currentLang = localStorage.getItem('lang') || 'zh';
+export function t(key) { return I18N[currentLang]?.[key] ?? I18N.zh[key] ?? key; }
+export function setLang(lang) { currentLang = lang; localStorage.setItem('lang', lang); applyI18n(); }
+
+// ✅ HTML 使用 data-i18n 属性
+// <h2 data-i18n="reportTitle">📊 分析报告</h2>
+
+// ✅ JavaScript 使用 t() 函数
+let md = `# ${t('rptTitle')}\n\n`;
+```
+
+### API 参数传递
+
+```python
+# ✅ API 端点接受 lang 参数
+@router.post("/analyze")
+async def create_analysis(
+    file: UploadFile = File(...),
+    lang: str = "zh",  # 查询参数
+    ...
+):
+    background_tasks.add_task(_run_analysis, task_id, image_bytes, file.filename, verbose, lang)
+
+# ✅ Pipeline 状态传递 lang
+state = PipelineState(
+    ...,
+    lang=lang,
+)
+```

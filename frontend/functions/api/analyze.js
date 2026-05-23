@@ -27,7 +27,14 @@ export async function onRequestPost(context) {
     ).bind(taskId, 'processing', file.name, new Date().toISOString()).run();
 
     // 4. 异步处理（使用 Workers AI）
-    context.waitUntil(processImage(env, taskId, buffer, file.type));
+    // 使用 waitUntil 进行异步处理
+    const processingPromise = processImage(env, taskId, buffer, file.type);
+    if (context.waitUntil) {
+      context.waitUntil(processingPromise);
+    } else {
+      // Fallback: 不等待异步处理
+      processingPromise.catch(console.error);
+    }
 
     return Response.json({
       task_id: taskId,
@@ -59,13 +66,25 @@ async function processImage(env, taskId, imageBuffer, mimeType) {
       max_tokens: 1024,
     });
 
-    // 解析 AI 响应
+    // 解析 AI 响应 - 处理 Markdown 转义字符
     let result;
     try {
-      const jsonMatch = analysis.response.match(/\{[\s\S]*\}/);
+      // 先清理 Markdown 转义（llava 可能返回 \\/ \\_ \\* 等）
+      const cleanedResponse = analysis.response
+        .replace(/\\_/g, '_')
+        .replace(/\\\//g, '/')
+        .replace(/\\\*/g, '*');
+      const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
       result = jsonMatch ? JSON.parse(jsonMatch[0]) : { description: analysis.response };
     } catch {
-      result = { description: analysis.response };
+      // 尝试更激进的清理：移除所有反斜杠转义
+      try {
+        const stripped = analysis.response.replace(/\\(?=[^"\\])/g, '');
+        const jsonMatch2 = stripped.match(/\{[\s\S]*\}/);
+        result = jsonMatch2 ? JSON.parse(jsonMatch2[0]) : { description: analysis.response };
+      } catch {
+        result = { description: analysis.response };
+      }
     }
 
     // 更新 D1 记录

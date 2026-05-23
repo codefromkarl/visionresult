@@ -9,12 +9,29 @@ services:
       - ./data:/app/data
     env_file:
       - .env
+    environment:
+      - VIA_HOST=0.0.0.0
+      - VIA_PORT=8001
+      - VIA_DEBUG=false
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 3s
       retries: 3
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # Read-only root filesystem (except data directory)
+    read_only: true
+    tmpfs:
+      - /tmp
 
   # 可选: Nginx 反向代理 (同时托管前端和 API)
   nginx:
@@ -23,8 +40,11 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./frontend/public:/usr/share/nginx/html:ro
+      - ./frontend:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - api
     restart: unless-stopped
+    # Security options
+    security_opt:
+      - no-new-privileges:true

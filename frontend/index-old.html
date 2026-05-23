@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Visual Insight Agent</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2d3748;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+        .subtitle {
+            color: #718096;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 24px;
+            border: 1px solid #e2e8f0;
+        }
+        .upload-zone {
+            border: 3px dashed #cbd5e0;
+            border-radius: 12px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f7fafc;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #43b89c;
+            background: #f0fdf9;
+        }
+        .upload-zone h3 {
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+        .upload-zone p {
+            color: #718096;
+            font-size: 14px;
+        }
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        #fileInput { display: none; }
+        .btn {
+            display: inline-block;
+            padding: 12px 32px;
+            background: linear-gradient(135deg, #43b89c 0%, #3584e4 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(67, 184, 156, 0.4);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .preview-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .preview-img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #43b89c, #3584e4);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        .progress-text {
+            font-size: 14px;
+            color: #718096;
+        }
+        .result-container {
+            display: none;
+        }
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .report-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        .btn-outline {
+            background: white;
+            color: #43b89c;
+            border: 2px solid #43b89c;
+        }
+        .report-content {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 24px;
+            white-space: pre-wrap;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow-y: auto;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* Pipeline Trace Styles */
+        .trace-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .trace-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .trace-toggle label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: #4a5568;
+        }
+        .trace-timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        .trace-timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, #43b89c, #3584e4);
+        }
+        .trace-step {
+            position: relative;
+            margin-bottom: 16px;
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .trace-step::before {
+            content: '';
+            position: absolute;
+            left: -23px;
+            top: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #43b89c;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #43b89c;
+        }
+        .trace-step.failed::before {
+            background: #e53e3e;
+            box-shadow: 0 0 0 2px #e53e3e;
+        }
+        .trace-step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .trace-step-name {
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 14px;
+        }
+        .trace-step-duration {
+            font-size: 12px;
+            color: #718096;
+            background: #f7fafc;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        .trace-step-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .trace-step-status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .trace-step-status.failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .trace-step-summary {
+            font-size: 13px;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+        .trace-step-findings {
+            font-size: 12px;
+            color: #718096;
+            padding-left: 16px;
+        }
+        .trace-step-findings li {
+            margin-bottom: 4px;
+        }
+        .reasoning-section {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .reasoning-card {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        .reasoning-card h4 {
+            color: #2d3748;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .reasoning-strategy {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .reasoning-strategy.rule {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .reasoning-strategy.llm {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .reasoning-strategy.uncertain {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .reasoning-probability {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 8px;
+        }
+        .reasoning-steps {
+            margin-top: 12px;
+            padding-left: 16px;
+            border-left: 2px solid #e2e8f0;
+        }
+        .reasoning-step-item {
+            font-size: 13px;
+            color: #4a5568;
+            margin-bottom: 8px;
+            padding-left: 12px;
+        }
+        .reasoning-step-item::before {
+            content: '→';
+            margin-right: 8px;
+            color: #43b89c;
+        }
+
+        /* Execution Events Timeline */
+        .events-container {
+            display: none;
+            margin-top: 24px;
+            border-top: 2px solid #e2e8f0;
+            padding-top: 24px;
+        }
+        .events-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .events-header h3 {
+            color: #2d3748;
+            margin: 0;
+        }
+        .events-timeline {
+            position: relative;
+            padding-left: 24px;
+            max-height: 500px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        .events-timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+        }
+        .event-item {
+            position: relative;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 13px;
+        }
+        .event-item::before {
+            content: '';
+            position: absolute;
+            left: -20px;
+            top: 16px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #cbd5e0;
+            border: 2px solid white;
+        }
+        .event-item.event-INFO::before { background: #43b89c; }
+        .event-item.event-WARNING::before { background: #f59e0b; }
+        .event-item.event-ERROR::before { background: #e53e3e; }
+        .event-item.event-start::before { background: #3584e4; }
+        .event-item.event-end::before { background: #43b89c; }
+        .event-item.event-fail::before { background: #e53e3e; }
+        .event-item.event-retry::before { background: #f59e0b; }
+        .event-time {
+            color: #718096;
+            font-size: 11px;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        .event-name {
+            font-weight: 600;
+            color: #2d3748;
+            margin: 4px 0;
+        }
+        .event-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .event-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #edf2f7;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #4a5568;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        .event-tag.error { background: #fee2e2; color: #991b1b; }
+        .event-tag.duration { background: #dbeafe; color: #1e40af; }
+        .event-tag.node { background: #d1fae5; color: #065f46; }
+        .events-stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .events-stat {
+            text-align: center;
+        }
+        .events-stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #43b89c;
+        }
+        .events-stat-label {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        /* Insight Cards */
+        .insight-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .insight-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .insight-icon {
+            font-size: 28px;
+            line-height: 1;
+        }
+        .insight-title-group {
+            flex: 1;
+        }
+        .insight-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a202c;
+            display: block;
+        }
+        .insight-tool {
+            font-size: 12px;
+            color: #718096;
+        }
+        .insight-time {
+            font-size: 11px;
+            color: #a0aec0;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        .insight-summary {
+            font-size: 14px;
+            color: #4a5568;
+            padding: 10px 14px;
+            background: #f7fafc;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 3px solid #43b89c;
+        }
+        .insight-results {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .insight-result-item {
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .insight-result-item:last-child {
+            border-bottom: none;
+        }
+        .insight-result-label {
+            min-width: 90px;
+            color: #718096;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        .insight-result-value {
+            color: #2d3748;
+            word-break: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Visual Insight Agent</h1>
+        <p class="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+
+        <div class="card">
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📸</div>
+                <h3>拖拽图片到此处或点击上传</h3>
+                <p>支持 JPG、PNG、GIF、WebP 格式</p>
+            </div>
+            <input type="file" id="fileInput" accept="image/*">
+
+            <div class="preview-container" id="previewContainer">
+                <img id="previewImg" class="preview-img" alt="预览">
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <label style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; cursor: pointer; color: #4a5568;">
+                    <input type="checkbox" id="verboseCheck">
+                    <span>启用详细推理链路（verbose 模式）</span>
+                </label>
+                <button class="btn" id="analyzeBtn" disabled>开始分析</button>
+            </div>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">准备中...</div>
+            </div>
+        </div>
+
+        <div class="card result-container" id="resultContainer">
+            <div class="report-header">
+                <h2>📊 分析报告</h2>
+                <div class="report-actions">
+                    <button class="btn btn-sm btn-outline" onclick="downloadMarkdown()">📄 Markdown</button>
+                    <button class="btn btn-sm btn-outline" onclick="downloadHTML()">🌐 HTML</button>
+                    <button class="btn btn-sm btn-outline" id="traceToggleBtn" onclick="toggleTrace()">🔍 推理链路</button>
+                </div>
+            </div>
+            <div class="report-content" id="reportContent"></div>
+            
+            <!-- Analysis Insight Container - Shows during analysis (inside result) -->
+            <div class="events-container" id="eventsContainer" style="display: none;">
+                <div class="events-header">
+                    <h3>🧠 分析过程</h3>
+                </div>
+                <div class="events-stats" id="eventsStatsInner"></div>
+                <div class="events-timeline" id="eventsTimelineInner"></div>
+            </div>
+
+            <!-- Pipeline Trace Container -->
+            <div class="trace-container" id="traceContainer">
+                <div class="reasoning-section">
+                    <h3 style="color: #2d3748; margin-bottom: 16px;">🧠 思考链条与调用证据链</h3>
+                    <div id="reasoningContainer"></div>
+                </div>
+                <h3 style="color: #2d3748; margin: 16px 0;">⚙️ Pipeline 执行详情</h3>
+                <div class="trace-timeline" id="traceTimeline"></div>
+            </div>
+        </div>
+
+        <!-- Analysis Insight Container - Shows during analysis -->
+        <div class="card" id="eventsCard" style="display: none;">
+            <div class="events-header">
+                <h3>🧠 分析过程</h3>
+            </div>
+            <div class="events-stats" id="eventsStats"></div>
+            <div class="events-timeline" id="eventsTimeline"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+        let currentTaskId = null;
+
+        // DOM elements
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImg = document.getElementById('previewImg');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const resultContainer = document.getElementById('resultContainer');
+        const reportContent = document.getElementById('reportContent');
+
+        // Upload zone events
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        analyzeBtn.addEventListener('click', startAnalysis);
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('请选择图片文件');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                previewContainer.style.display = 'block';
+                analyzeBtn.disabled = false;
+                analyzeBtn.dataset.file = file.name;
+                window.selectedFile = file;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function startAnalysis() {
+            const file = window.selectedFile;
+            if (!file) return;
+
+            analyzeBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            resultContainer.style.display = 'none';
+            document.getElementById('traceContainer').style.display = 'none';
+            progressFill.style.width = '0%';
+            progressText.textContent = '上传中...';
+            currentTraceData = null;
+
+            const verbose = document.getElementById('verboseCheck').checked;
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const url = verbose ? `${API_BASE}/analyze?verbose=true` : `${API_BASE}/analyze`;
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await resp.json();
+                currentTaskId = data.task_id;
+
+                // Update trace toggle button visibility
+                document.getElementById('traceToggleBtn').style.display = verbose ? 'inline-block' : 'none';
+
+                // Start SSE progress stream
+                streamProgress(currentTaskId);
+            } catch (err) {
+                progressText.textContent = '上传失败: ' + err.message;
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        function streamProgress(taskId) {
+            const eventSource = new EventSource(`${API_BASE}/analyze/${taskId}/stream`);
+
+            // Show events card and initialize
+            const eventsCard = document.getElementById('eventsCard');
+            const eventsTimeline = document.getElementById('eventsTimeline');
+            eventsCard.style.display = 'block';
+            eventsTimeline.innerHTML = '';
+            currentEventsData = [];
+
+            // Update stats in real-time
+            let eventCount = 0;
+            let errorCount = 0;
+            let retryCount = 0;
+            let totalDuration = 0;
+
+            function updateStats() {
+                document.getElementById('eventsStats').innerHTML = `
+                    <div class="events-stat">
+                        <div class="events-stat-value">${eventCount}</div>
+                        <div class="events-stat-label">事件数</div>
+                    </div>
+                    <div class="events-stat">
+                        <div class="events-stat-value" style="color: ${errorCount > 0 ? '#e53e3e' : '#43b89c'}">${errorCount}</div>
+                        <div class="events-stat-label">错误</div>
+                    </div>
+                    <div class="events-stat">
+                        <div class="events-stat-value">${retryCount}</div>
+                        <div class="events-stat-label">重试</div>
+                    </div>
+                `;
+            }
+            updateStats();
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'event') {
+                    // Real-time event from the pipeline
+                    const evt = data.data;
+                    eventCount++;
+                    if (evt.level === 'ERROR') errorCount++;
+                    if (evt.event && evt.event.includes('retry')) retryCount++;
+                    if (evt.duration_ms) totalDuration += evt.duration_ms;
+
+                    // Append event to timeline
+                    appendEventToTimeline(evt);
+                    updateStats();
+
+                    // Update progress text based on event
+                    if (evt.event === 'node_start' && evt.node) {
+                        const stageNames = {
+                            'preprocess': '预处理...',
+                            'ocr': '文字识别...',
+                            'vlm_analysis': '场景分析...',
+                            'entity_extraction': '实体抽取...',
+                            'web_search': '联网验证...',
+                            'evidence_fusion': '证据融合...',
+                            'report_generation': '生成报告...',
+                        };
+                        progressText.textContent = stageNames[evt.node] || evt.node;
+                    }
+                    if (evt.event === 'vlm_request_retry') {
+                        progressText.textContent = `VLM 重试 ${evt.attempt}/${evt.max_retries}...`;
+                    }
+
+                    currentEventsData.push(evt);
+                } else if (data.type === 'progress') {
+                    // Progress update
+                    if (data.progress !== undefined) {
+                        progressFill.style.width = data.progress + '%';
+                    }
+
+                    if (data.stage === 'done') {
+                        eventSource.close();
+                        progressFill.style.width = '100%';
+                        loadReport(taskId);
+                    }
+                }
+            };
+
+            eventSource.onerror = () => {
+                eventSource.close();
+                // Fallback to polling
+                setTimeout(() => loadReport(taskId), 1000);
+            };
+        }
+
+        function appendEventToTimeline(evt) {
+            const timeline = document.getElementById('eventsTimeline');
+            const ts = evt.ts ? new Date(evt.ts).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }) : '';
+
+            // Handle insight events specially
+            if (evt.event === 'insight') {
+                const div = document.createElement('div');
+                div.className = 'insight-card';
+                div.innerHTML = `
+                    <div class="insight-header">
+                        <span class="insight-icon">${evt.icon || '🔍'}</span>
+                        <div class="insight-title-group">
+                            <span class="insight-title">${evt.title || evt.node}</span>
+                            <span class="insight-tool">🔧 ${evt.tool || ''}</span>
+                        </div>
+                        <span class="insight-time">${ts}</span>
+                    </div>
+                    <div class="insight-summary">${evt.summary || ''}</div>
+                    <div class="insight-results">
+                        ${(evt.results || []).map(r => `
+                            <div class="insight-result-item">
+                                <span class="insight-result-label">${r.label}</span>
+                                <span class="insight-result-value">${formatInsightValue(r.value)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                timeline.appendChild(div);
+                timeline.scrollTop = timeline.scrollHeight;
+                return;
+            }
+
+            // Handle other event types
+            const levelClass = `event-${evt.level || 'INFO'}`;
+            const eventClass = evt.event ? (
+                evt.event.includes('start') ? 'event-start' :
+                evt.event.includes('end') ? 'event-end' :
+                evt.event.includes('fail') ? 'event-fail' :
+                evt.event.includes('retry') ? 'event-retry' : ''
+            ) : '';
+
+            // Build detail tags
+            const tags = [];
+            if (evt.node) tags.push({ text: evt.node, class: 'node' });
+            if (evt.duration_ms !== undefined) tags.push({ text: `${evt.duration_ms}ms`, class: 'duration' });
+            if (evt.attempt) tags.push({ text: `尝试 ${evt.attempt}/${evt.max_retries || '?'}`, class: '' });
+            if (evt.delay_s) tags.push({ text: `等待 ${evt.delay_s}s`, class: '' });
+            if (evt.error) tags.push({ text: evt.error, class: 'error' });
+            if (evt.error_type) tags.push({ text: evt.error_type, class: 'error' });
+            if (evt.status_code) tags.push({ text: `HTTP ${evt.status_code}`, class: 'error' });
+            if (evt.image_bytes) tags.push({ text: `${(evt.image_bytes / 1024).toFixed(1)}KB`, class: '' });
+            if (evt.width && evt.height) tags.push({ text: `${evt.width}x${evt.height}`, class: '' });
+            if (evt.num_regions !== undefined) tags.push({ text: `${evt.num_regions} 文字区域`, class: '' });
+            if (evt.scene_type) tags.push({ text: evt.scene_type, class: 'node' });
+            if (evt.location) tags.push({ text: `📍 ${evt.location}`, class: 'node' });
+            if (evt.location_confidence) tags.push({ text: `${(evt.location_confidence * 100).toFixed(0)}%`, class: '' });
+            if (evt.num_conclusions !== undefined) tags.push({ text: `${evt.num_conclusions} 结论`, class: '' });
+            if (evt.num_ocr !== undefined) tags.push({ text: `${evt.num_ocr} OCR`, class: '' });
+            if (evt.ocr_count !== undefined) tags.push({ text: `${evt.ocr_count} OCR文本`, class: '' });
+            if (evt.stage) tags.push({ text: evt.stage, class: 'node' });
+            if (evt.percent !== undefined) tags.push({ text: `${evt.percent}%`, class: '' });
+            if (evt.status) tags.push({ text: evt.status, class: evt.status === 'completed' ? 'node' : evt.status === 'failed' ? 'error' : '' });
+
+            const eventName = evt.event || 'unknown';
+            const eventNameDisplay = formatEventName(eventName);
+
+            const div = document.createElement('div');
+            div.className = `event-item ${levelClass} ${eventClass}`;
+            div.innerHTML = `
+                <div class="event-time">${ts}</div>
+                <div class="event-name">${eventNameDisplay}</div>
+                <div class="event-details">
+                    ${tags.map(t => `<span class="event-tag ${t.class}">${t.text}</span>`).join('')}
+                </div>
+            `;
+
+            timeline.appendChild(div);
+            timeline.scrollTop = timeline.scrollHeight;
+        }
+
+        function formatInsightValue(value) {
+            if (Array.isArray(value)) {
+                return value.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', ');
+            }
+            if (typeof value === 'object') {
+                return JSON.stringify(value);
+            }
+            return String(value);
+        }
+
+        function formatEventName(eventName) {
+            return eventName
+                .replace(/_/g, ' ')
+                .replace(/\bstart\b/, '▶️ 开始')
+                .replace(/\bend\b/, '✅ 完成')
+                .replace(/\bfail\b/, '❌ 失败')
+                .replace(/\bretry\b/, '🔄 重试')
+                .replace(/\bok\b/, '✅ 成功')
+                .replace(/\btimeout\b/, '⏰ 超时')
+                .replace(/\breceived\b/, '📥 接收')
+                .replace(/\bcreated\b/, '🆕 创建')
+                .replace(/\bconnect\b/, '🔗 连接')
+                .replace(/node/, '📦 节点')
+                .replace(/vlm/, '👁️ VLM')
+                .replace(/pipeline/, '⚙️ Pipeline')
+                .replace(/request/, '🌐 请求')
+                .replace(/background task/, '🔄 后台任务')
+                .replace(/progress/, '📊 进度')
+                .replace(/sse/, '📡 SSE')
+                .replace(/image compressed/, '🖼️ 图片压缩');
+        }
+
+        async function loadReport(taskId) {
+            try {
+                const resp = await fetch(`${API_BASE}/report/${taskId}`);
+                const data = await resp.json();
+
+                if (data.status === 'completed') {
+                    reportContent.textContent = data.report_markdown;
+                    resultContainer.style.display = 'block';
+                    progressText.textContent = '分析完成！';
+                } else if (data.status === 'failed') {
+                    reportContent.textContent = data.report_markdown || '分析失败';
+                    resultContainer.style.display = 'block';
+                    progressText.textContent = '分析失败';
+                } else {
+                    // Still processing
+                    setTimeout(() => loadReport(taskId), 2000);
+                    return;
+                }
+
+                analyzeBtn.disabled = false;
+            } catch (err) {
+                progressText.textContent = '加载报告失败: ' + err.message;
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        function downloadMarkdown() {
+            const content = reportContent.textContent;
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `report-${currentTaskId || 'unknown'}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function downloadHTML() {
+            if (!currentTaskId) return;
+            try {
+                const resp = await fetch(`${API_BASE}/report/${currentTaskId}?format=html`);
+                const html = await resp.text();
+                const blob = new Blob([html], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `report-${currentTaskId}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('下载失败');
+            }
+        }
+
+        // Pipeline Trace Functions
+        let traceVisible = false;
+        let currentTraceData = null;
+
+        function toggleTrace() {
+            traceVisible = !traceVisible;
+            const container = document.getElementById('traceContainer');
+            const btn = document.getElementById('traceToggleBtn');
+            
+            if (traceVisible) {
+                container.style.display = 'block';
+                btn.textContent = '❌ 隐藏链路';
+                if (currentTaskId && !currentTraceData) {
+                    loadTrace(currentTaskId);
+                }
+            } else {
+                container.style.display = 'none';
+                btn.textContent = '🔍 推理链路';
+            }
+        }
+
+        async function loadTrace(taskId) {
+            try {
+                const resp = await fetch(`${API_BASE}/report/${taskId}?include_trace=true`);
+                const data = await resp.json();
+                
+                if (data.pipeline_trace) {
+                    currentTraceData = data.pipeline_trace;
+                    renderTrace(data.pipeline_trace);
+                } else {
+                    document.getElementById('traceTimeline').innerHTML = 
+                        '<p style="color: #718096; text-align: center; padding: 20px;">此报告未记录推理链路（需要 verbose 模式）</p>';
+                }
+            } catch (err) {
+                console.error('Failed to load trace:', err);
+                document.getElementById('traceTimeline').innerHTML = 
+                    '<p style="color: #e53e3e; text-align: center; padding: 20px;">加载推理链路失败</p>';
+            }
+        }
+
+        function renderTrace(trace) {
+            // Render reasoning traces
+            const reasoningContainer = document.getElementById('reasoningContainer');
+            if (trace.reasoning_traces && trace.reasoning_traces.length > 0) {
+                reasoningContainer.innerHTML = trace.reasoning_traces.map(rt => `
+                    <div class="reasoning-card">
+                        <h4>
+                            ${rt.conclusion_category === 'location' ? '📍' : rt.conclusion_category === 'scene' ? '🏞️' : rt.conclusion_category === 'time' ? '⏰' : '📝'}
+                            ${rt.conclusion_statement}
+                            <span class="reasoning-strategy ${rt.strategy_used}">${rt.strategy_used === 'rule' ? '规则匹配' : rt.strategy_used === 'llm' ? 'LLM推理' : '不确定'}</span>
+                        </h4>
+                        <div class="reasoning-probability">置信度: ${(rt.final_probability * 100).toFixed(1)}%</div>
+                        ${rt.steps.length > 0 ? `
+                            <div class="reasoning-steps">
+                                ${rt.steps.map(step => `
+                                    <div class="reasoning-step-item">
+                                        <strong>${step.action === 'rule_match' ? '规则匹配' : step.action === 'llm_inference' ? 'LLM推理' : step.action}:</strong>
+                                        ${step.description}
+                                        ${step.metadata && step.metadata.llm_reasoning ? `<br><em style="color: #718096;">推理过程: ${step.metadata.llm_reasoning}</em>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } else {
+                reasoningContainer.innerHTML = '<p style="color: #718096; padding: 10px;">无推理链路数据</p>';
+            }
+
+            // Render pipeline steps
+            const timeline = document.getElementById('traceTimeline');
+            if (trace.steps && trace.steps.length > 0) {
+                timeline.innerHTML = trace.steps.map(step => `
+                    <div class="trace-step ${step.status === 'failed' ? 'failed' : ''}">
+                        <div class="trace-step-header">
+                            <span class="trace-step-name">${getStageIcon(step.stage_name)} ${getStageName(step.stage_name)}</span>
+                            <div>
+                                <span class="trace-step-status ${step.status}">${step.status === 'success' ? '成功' : step.status === 'failed' ? '失败' : '跳过'}</span>
+                                <span class="trace-step-duration">${step.duration_ms}ms</span>
+                            </div>
+                        </div>
+                        ${step.input_summary ? `<div class="trace-step-summary">📥 ${step.input_summary}</div>` : ''}
+                        ${step.output_summary ? `<div class="trace-step-summary">📤 ${step.output_summary}</div>` : ''}
+                        ${step.key_findings && step.key_findings.length > 0 ? `
+                            <ul class="trace-step-findings">
+                                ${step.key_findings.map(f => `<li>${f}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                        ${step.error_message ? `<div style="color: #e53e3e; font-size: 12px; margin-top: 8px;">❌ ${step.error_message}</div>` : ''}
+                    </div>
+                `).join('');
+            } else {
+                timeline.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">无 Pipeline 执行数据</p>';
+            }
+        }
+
+        function getStageIcon(stage) {
+            const icons = {
+                'preprocess': '🖼️',
+                'ocr': '📝',
+                'vlm_analysis': '👁️',
+                'entity_extraction': '🏷️',
+                'web_search': '🌐',
+                'evidence_fusion': '🔬',
+                'report_generation': '📊',
+            };
+            return icons[stage] || '⚙️';
+        }
+
+        function getStageName(stage) {
+            const names = {
+                'preprocess': '图片预处理',
+                'ocr': 'OCR文字识别',
+                'vlm_analysis': 'VLM场景分析',
+                'entity_extraction': '实体抽取',
+                'web_search': '联网验证',
+                'evidence_fusion': '证据融合',
+                'report_generation': '报告生成',
+            };
+            return names[stage] || stage;
+        }
+
+        // Execution Events Functions
+        let currentEventsData = null;
+
+        async function loadEvents() {
+            if (!currentTaskId) return;
+
+            try {
+                const resp = await fetch(`${API_BASE}/analyze/${currentTaskId}/events`);
+                const data = await resp.json();
+                currentEventsData = data.events;
+                renderEvents(data.events);
+            } catch (err) {
+                console.error('Failed to load events:', err);
+                document.getElementById('eventsTimeline').innerHTML =
+                    '<p style="color: #e53e3e; text-align: center; padding: 20px;">加载执行链路失败</p>';
+            }
+        }
+
+        function renderEvents(events) {
+            const timeline = document.getElementById('eventsTimeline');
+            const stats = document.getElementById('eventsStats');
+
+            if (!events || events.length === 0) {
+                timeline.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">暂无执行事件记录</p>';
+                stats.innerHTML = '';
+                return;
+            }
+
+            // Calculate stats
+            const errors = events.filter(e => e.level === 'ERROR').length;
+            const warnings = events.filter(e => e.level === 'WARNING').length;
+            const retries = events.filter(e => e.event && e.event.includes('retry')).length;
+            const durationEvents = events.filter(e => e.duration_ms);
+            const totalDuration = durationEvents.reduce((sum, e) => sum + (e.duration_ms || 0), 0);
+
+            stats.innerHTML = `
+                <div class="events-stat">
+                    <div class="events-stat-value">${events.length}</div>
+                    <div class="events-stat-label">总事件数</div>
+                </div>
+                <div class="events-stat">
+                    <div class="events-stat-value" style="color: ${errors > 0 ? '#e53e3e' : '#43b89c'}">${errors}</div>
+                    <div class="events-stat-label">错误</div>
+                </div>
+                <div class="events-stat">
+                    <div class="events-stat-value" style="color: ${warnings > 0 ? '#f59e0b' : '#43b89c'}">${warnings}</div>
+                    <div class="events-stat-label">警告</div>
+                </div>
+                <div class="events-stat">
+                    <div class="events-stat-value">${retries}</div>
+                    <div class="events-stat-label">重试</div>
+                </div>
+                <div class="events-stat">
+                    <div class="events-stat-value">${totalDuration}ms</div>
+                    <div class="events-stat-label">总耗时</div>
+                </div>
+            `;
+
+            // Render events timeline
+            timeline.innerHTML = events.map(event => {
+                const ts = event.ts ? new Date(event.ts).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }) : '';
+                const levelClass = `event-${event.level || 'INFO'}`;
+                const eventClass = event.event ? (
+                    event.event.includes('start') ? 'event-start' :
+                    event.event.includes('end') ? 'event-end' :
+                    event.event.includes('fail') ? 'event-fail' :
+                    event.event.includes('retry') ? 'event-retry' : ''
+                ) : '';
+
+                // Build detail tags
+                const tags = [];
+                if (event.node) tags.push({ text: event.node, class: 'node' });
+                if (event.duration_ms !== undefined) tags.push({ text: `${event.duration_ms}ms`, class: 'duration' });
+                if (event.attempt) tags.push({ text: `尝试 ${event.attempt}/${event.max_retries || '?'}`, class: '' });
+                if (event.delay_s) tags.push({ text: `等待 ${event.delay_s}s`, class: '' });
+                if (event.error) tags.push({ text: event.error, class: 'error' });
+                if (event.error_type) tags.push({ text: event.error_type, class: 'error' });
+                if (event.status_code) tags.push({ text: `HTTP ${event.status_code}`, class: 'error' });
+                if (event.image_bytes) tags.push({ text: `${(event.image_bytes / 1024).toFixed(1)}KB`, class: '' });
+                if (event.width && event.height) tags.push({ text: `${event.width}x${event.height}`, class: '' });
+                if (event.num_regions !== undefined) tags.push({ text: `${event.num_regions} 文字区域`, class: '' });
+                if (event.scene_type) tags.push({ text: event.scene_type, class: 'node' });
+                if (event.location) tags.push({ text: `📍 ${event.location}`, class: 'node' });
+                if (event.location_confidence) tags.push({ text: `${(event.location_confidence * 100).toFixed(0)}%`, class: '' });
+                if (event.num_conclusions !== undefined) tags.push({ text: `${event.num_conclusions} 结论`, class: '' });
+                if (event.num_ocr !== undefined) tags.push({ text: `${event.num_ocr} OCR`, class: '' });
+                if (event.ocr_count !== undefined) tags.push({ text: `${event.ocr_count} OCR文本`, class: '' });
+                if (event.stage) tags.push({ text: event.stage, class: 'node' });
+                if (event.percent !== undefined) tags.push({ text: `${event.percent}%`, class: '' });
+                if (event.status) tags.push({ text: event.status, class: event.status === 'completed' ? 'node' : event.status === 'failed' ? 'error' : '' });
+                if (event.filename) tags.push({ text: event.filename, class: '' });
+                if (event.poll_count) tags.push({ text: `${event.poll_count} 次轮询`, class: '' });
+
+                // Filter out internal data keys from display
+                const skipKeys = new Set(['ts', 'level', 'event', 'node', 'duration_ms', 'attempt', 'max_retries', 'delay_s', 'error', 'error_type', 'status_code', 'image_bytes', 'width', 'height', 'num_regions', 'scene_type', 'location', 'location_confidence', 'num_conclusions', 'num_ocr', 'ocr_count', 'stage', 'percent', 'status', 'filename', 'poll_count', 'avg_confidence', 'has_gps', 'has_exif', 'has_capture_time', 'format']);
+                Object.entries(event).forEach(([key, val]) => {
+                    if (!skipKeys.has(key) && val !== null && val !== undefined && val !== '') {
+                        tags.push({ text: `${key}=${typeof val === 'object' ? JSON.stringify(val) : val}`, class: '' });
+                    }
+                });
+
+                const eventName = event.event || 'unknown';
+                const eventNameDisplay = eventName
+                    .replace(/_/g, ' ')
+                    .replace(/\bstart\b/, '▶️ 开始')
+                    .replace(/\bend\b/, '✅ 完成')
+                    .replace(/\bfail\b/, '❌ 失败')
+                    .replace(/\bretry\b/, '🔄 重试')
+                    .replace(/\bok\b/, '✅ 成功')
+                    .replace(/\btimeout\b/, '⏰ 超时')
+                    .replace(/\breceived\b/, '📥 接收')
+                    .replace(/\bcreated\b/, '🆕 创建')
+                    .replace(/\bconnect\b/, '🔗 连接')
+                    .replace(/\bstart\b/, '▶️')
+                    .replace(/node/, '📦 节点')
+                    .replace(/vlm/, '👁️ VLM')
+                    .replace(/pipeline/, '⚙️ Pipeline')
+                    .replace(/request/, '🌐 请求')
+                    .replace(/background task/, '🔄 后台任务')
+                    .replace(/progress/, '📊 进度')
+                    .replace(/sse/, '📡 SSE')
+                    .replace(/image compressed/, '🖼️ 图片压缩');
+
+                return `
+                    <div class="event-item ${levelClass} ${eventClass}">
+                        <div class="event-time">${ts}</div>
+                        <div class="event-name">${eventNameDisplay}</div>
+                        <div class="event-details">
+                            ${tags.map(t => `<span class="event-tag ${t.class}">${t.text}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Auto-load events when report is loaded
+        const originalLoadReport = loadReport;
+        loadReport = async function(taskId) {
+            await originalLoadReport(taskId);
+            // Load events after report is loaded
+            if (currentTaskId) {
+                loadEvents();
+            }
+        };
+    </script>
+</body>
+</html>

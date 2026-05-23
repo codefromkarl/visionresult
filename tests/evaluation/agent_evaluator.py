@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
@@ -336,7 +336,10 @@ async def main():
     import sys
 
     if len(sys.argv) < 3:
-        print("Usage: python -m tests.evaluation.agent_evaluator <prd_path> <test_path> [impl_path...]")
+        print(
+            "Usage: python -m tests.evaluation.agent_evaluator "
+            "<prd_path> <test_path> [impl_path...]"
+        )
         sys.exit(1)
 
     prd_path = sys.argv[1]
@@ -370,12 +373,12 @@ async def main():
     print(f"{'='*60}")
 
     if assessment.strengths:
-        print(f"\n✅ 优点:")
+        print("\n✅ 优点:")
         for s in assessment.strengths:
             print(f"  - {s}")
 
     if assessment.weaknesses:
-        print(f"\n❌ 缺点:")
+        print("\n❌ 缺点:")
         for w in assessment.weaknesses:
             print(f"  - {w}")
 
@@ -388,12 +391,12 @@ async def main():
             print(f"    建议: {g.suggested_test[:100]}...")
 
     if assessment.recommendations:
-        print(f"\n💡 改进建议:")
+        print("\n💡 改进建议:")
         for r in assessment.recommendations:
             print(f"  - {r}")
 
     if assessment.suggested_tests:
-        print(f"\n📝 建议补充的测试:")
+        print("\n📝 建议补充的测试:")
         for i, t in enumerate(assessment.suggested_tests, 1):
             print(f"\n  --- 测试 {i} ---")
             print(f"  {t[:200]}...")

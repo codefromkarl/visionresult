@@ -13,19 +13,27 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
     cors_origins: list[str] = ["http://localhost:3000"]
+    api_keys: str = ""  # Comma-separated API keys for authentication
 
     # Paths
     upload_dir: Path = Path("data/uploads")
     cache_dir: Path = Path("data/cache")
 
     # VLM
-    vlm_provider: str = "qwen2-vl"  # qwen2-vl | openai | gemini
+    vlm_provider: str = "zhipu"  # qwen2-vl | openai | gemini | zhipu
     openai_api_key: str = ""
     gemini_api_key: str = ""
+    zhipu_api_key: str = ""
     qwen_model_path: str = ""
 
     # OCR
+    ocr_provider: str = "baidu"  # baidu | tesseract | paddle
     ocr_lang: str = "ch"  # ch | en | japan | korean
+
+    # Baidu OCR
+    baidu_ocr_api_key: str = ""
+    baidu_ocr_secret_key: str = ""
+    baidu_ocr_accurate: bool = True  # Use high-accuracy mode
 
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/vision_insight"
@@ -40,6 +48,13 @@ class Settings(BaseSettings):
     cloudflare_account_id: str = ""
     cloudflare_zone_id: str = ""
     pages_project: str = "vision-insight"
+
+    # Rate limiting
+    rate_limit_per_minute: int = 60
+    rate_limit_per_hour: int = 1000
+
+    # Auth
+    enable_api_key_auth: bool = False  # Enable API key authentication
 
     model_config = {"env_prefix": "VIA_", "env_file": ".env"}
 

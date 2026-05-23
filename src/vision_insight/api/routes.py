@@ -6,8 +6,9 @@ import logging
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from vision_insight.core.database import (
@@ -18,6 +19,7 @@ from vision_insight.core.database import (
     save_analysis,
     search_analyses,
 )
+from vision_insight.core.event_logger import log_event
 from vision_insight.models.schemas import (
     AnalysisReport,
     AnalysisStatus,
@@ -34,6 +36,81 @@ router = APIRouter()
 
 # In-memory progress store for SSE (not persisted)
 _progress: dict[str, list[tuple[str, int]]] = {}
+
+# File upload constraints
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+# Image storage directory
+IMAGES_DIR = Path("data/images")
+IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+# Magic bytes for image format validation
+IMAGE_MAGIC_BYTES = {
+    b"\xff\xd8\xff": "jpeg",
+    b"\x89PNG\r\n\x1a\n": "png",
+    b"GIF87a": "gif",
+    b"GIF89a": "gif",
+    b"RIFF": "webp",  # WebP starts with RIFF
+}
+
+
+def _validate_image_file(file: UploadFile, image_bytes: bytes) -> None:
+    """Validate uploaded image file.
+
+    Args:
+        file: The uploaded file object.
+        image_bytes: Raw file bytes.
+
+    Raises:
+        HTTPException: If validation fails.
+    """
+    # Check file size
+    if len(image_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)}MB",
+        )
+
+    if len(image_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    # Check MIME type
+    if file.content_type and file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid content type: {file.content_type}. "
+                f"Allowed: {', '.join(ALLOWED_MIME_TYPES)}"
+            ),
+        )
+
+    # Check file extension
+    if file.filename:
+        ext = Path(file.filename).suffix.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file extension: {ext}. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
+            )
+
+    # Validate magic bytes (file signature)
+    is_valid_image = False
+    for magic, format_name in IMAGE_MAGIC_BYTES.items():
+        if image_bytes[: len(magic)] == magic:
+            is_valid_image = True
+            break
+
+    # Additional check for WebP (RIFF....WEBP)
+    if not is_valid_image and image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+        is_valid_image = True
+
+    if not is_valid_image:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image file: file signature does not match any supported format",
+        )
 
 
 def _record_to_report(record: AnalysisRecord) -> AnalysisReport:
@@ -132,7 +209,9 @@ def _report_to_record(report: AnalysisReport, filename: str = None) -> AnalysisR
     return record
 
 
-async def _run_analysis(task_id: str, image_bytes: bytes, filename: str = None, verbose: bool = False) -> None:
+async def _run_analysis(
+    task_id: str, image_bytes: bytes, filename: str = None, verbose: bool = False, lang: str = "zh"
+) -> None:
     """Background task: run the analysis pipeline with progress tracking."""
     runner = get_pipeline_runner()
 
@@ -146,16 +225,31 @@ async def _run_analysis(task_id: str, image_bytes: bytes, filename: str = None, 
 
     def progress_callback(stage: str, percent: int):
         _progress[task_id].append((stage, percent))
+        log_event(task_id, "progress", stage=stage, percent=percent)
+
+    log_event(
+        task_id, "background_task_start", filename=filename, image_bytes=len(image_bytes), lang=lang
+    )
 
     try:
-        updated = await runner.execute(report, image_bytes, progress_callback, verbose=verbose)
+        updated = await runner.execute(
+            report, image_bytes, progress_callback, verbose=verbose, lang=lang
+        )
 
         # Save to database
         record = _report_to_record(updated, filename)
         save_analysis(record)
 
+        log_event(
+            task_id,
+            "background_task_end",
+            status=updated.status.value,
+            processing_time_ms=updated.processing_time_ms,
+        )
+
     except Exception as exc:
         logger.exception("Background analysis failed for %s", task_id)
+        log_event(task_id, "background_task_fail", error=str(exc), error_type=type(exc).__name__)
         # Save failure to database
         record = AnalysisRecord(
             id=task_id,
@@ -176,20 +270,33 @@ async def create_analysis(
     file: UploadFile = File(...),
     analysis_depth: str = "standard",
     verbose: bool = False,
+    lang: str = "zh",
+    request: Request = None,
 ):
     """Submit an image for analysis.
 
     Args:
         verbose: If true, record detailed pipeline trace with reasoning steps.
+        lang: Output language - 'zh' for Chinese (default), 'en' for English.
     """
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
-
     image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="Empty file")
+
+    # Validate file (size, type, magic bytes)
+    _validate_image_file(file, image_bytes)
 
     task_id = str(uuid.uuid4())[:8]
+
+    client_ip = request.client.host if request else "unknown"
+    log_event(
+        task_id,
+        "request_received",
+        filename=file.filename,
+        content_type=file.content_type,
+        image_bytes=len(image_bytes),
+        analysis_depth=analysis_depth,
+        verbose=verbose,
+        client_ip=client_ip,
+    )
 
     # Create pending record in DB
     record = AnalysisRecord(
@@ -200,7 +307,14 @@ async def create_analysis(
     )
     save_analysis(record)
 
-    background_tasks.add_task(_run_analysis, task_id, image_bytes, file.filename, verbose)
+    # Save image to local storage
+    image_path = IMAGES_DIR / f"{task_id}{Path(file.filename).suffix.lower()}"
+    image_path.write_bytes(image_bytes)
+    log_event(task_id, "image_saved", path=str(image_path))
+
+    background_tasks.add_task(_run_analysis, task_id, image_bytes, file.filename, verbose, lang)
+
+    log_event(task_id, "task_created", status="pending", lang=lang)
 
     return AnalysisTaskResponse(
         task_id=task_id,
@@ -249,12 +363,15 @@ async def create_analysis_from_url(
 
 
 @router.get("/report/{task_id}", tags=["reports"], summary="获取分析报告")
-async def get_report(task_id: str, format: str = "json", include_trace: bool = False):
+async def get_report(
+    task_id: str, format: str = "json", include_trace: bool = False, lang: str = "zh"
+):
     """Get analysis report by task ID.
 
     Args:
         format: Response format - 'json' (default) or 'html'
         include_trace: If true, include pipeline trace in JSON response (only if available)
+        lang: Language for HTML report - 'zh' (default) or 'en'
     """
     record = get_analysis(task_id)
     if not record:
@@ -269,16 +386,17 @@ async def get_report(task_id: str, format: str = "json", include_trace: bool = F
         from vision_insight.services.report.markdown_report_service import MarkdownReportService
 
         service = MarkdownReportService()
-        html = await service.generate_html_report(report)
+        html = await service.generate_html_report(report, lang=lang)
         return HTMLResponse(content=html)
 
     result = record.to_dict()
-    
+
     # Include pipeline trace if requested and available
     if include_trace and record.pipeline_trace_json:
         import json
+
         result["pipeline_trace"] = json.loads(record.pipeline_trace_json)
-    
+
     return result
 
 
@@ -318,6 +436,27 @@ async def delete_report(task_id: str):
     return {"message": "Deleted", "task_id": task_id}
 
 
+@router.get("/image/{task_id}", tags=["images"], summary="获取分析图片")
+async def get_image(task_id: str):
+    """Get the analyzed image by task ID."""
+    # Find image file
+    for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"]:
+        image_path = IMAGES_DIR / f"{task_id}{ext}"
+        if image_path.exists():
+            from fastapi.responses import FileResponse
+
+            media_type = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".gif": "image/gif",
+                ".webp": "image/webp",
+                ".bmp": "image/bmp",
+            }.get(ext, "image/jpeg")
+            return FileResponse(image_path, media_type=media_type)
+    raise HTTPException(status_code=404, detail="Image not found")
+
+
 @router.post("/analyze/batch", tags=["analysis"], summary="批量图片分析")
 async def create_batch_analysis(
     background_tasks: BackgroundTasks,
@@ -331,13 +470,13 @@ async def create_batch_analysis(
 
     results = []
     for file in files:
-        if not file.content_type or not file.content_type.startswith("image/"):
-            results.append({"filename": file.filename, "error": "Not an image file"})
-            continue
-
         image_bytes = await file.read()
-        if not image_bytes:
-            results.append({"filename": file.filename, "error": "Empty file"})
+
+        # Validate each file
+        try:
+            _validate_image_file(file, image_bytes)
+        except HTTPException as e:
+            results.append({"filename": file.filename, "error": e.detail})
             continue
 
         task_id = str(uuid.uuid4())[:8]
@@ -356,29 +495,69 @@ async def create_batch_analysis(
 
 @router.get("/analyze/{task_id}/stream", tags=["analysis"], summary="实时进度SSE")
 async def stream_progress(task_id: str):
-    """Stream analysis progress via SSE."""
+    """Stream analysis progress and events via SSE."""
     record = get_analysis(task_id)
     if not record:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    from vision_insight.core.event_logger import register_sse_queue, unregister_sse_queue
+
+    log_event(task_id, "sse_connect")
+
     async def event_generator() -> AsyncGenerator[str, None]:
-        last_idx = 0
-        while True:
-            # Check database for completion
+        # Register for real-time events
+        event_queue = register_sse_queue(task_id)
+        try:
+            # Check if already completed
             rec = get_analysis(task_id)
             if rec and rec.status in ("completed", "failed"):
-                data = {"stage": "done", "progress": 100, "status": rec.status}
+                data = {"type": "progress", "stage": "done", "progress": 100, "status": rec.status}
                 yield f"data: {json.dumps(data)}\n\n"
-                break
+                return
 
-            # Check in-memory progress
-            progress_list = _progress.get(task_id, [])
-            while last_idx < len(progress_list):
-                stage, percent = progress_list[last_idx]
-                yield f"data: {json.dumps({'stage': stage, 'progress': percent})}\n\n"
-                last_idx += 1
+            while True:
+                try:
+                    # Wait for event from queue with timeout
+                    event_data = await asyncio.wait_for(event_queue.get(), timeout=30.0)
+                    yield f"data: {json.dumps(event_data, ensure_ascii=False)}\n\n"
 
-            await asyncio.sleep(0.5)
+                    # Check if this was a terminal event
+                    if event_data.get("type") == "progress" and event_data.get("stage") == "done":
+                        break
+                    if event_data.get("type") == "event" and event_data.get("data", {}).get(
+                        "event"
+                    ) in ("background_task_end", "background_task_fail"):
+                        # Send done signal
+                        rec = get_analysis(task_id)
+                        status = rec.status if rec else "failed"
+                        data = {
+                            "type": "progress",
+                            "stage": "done",
+                            "progress": 100,
+                            "status": status,
+                        }
+                        yield f"data: {json.dumps(data)}\n\n"
+                        break
+
+                except asyncio.Timeout:
+                    # Send heartbeat to keep connection alive
+                    yield ": heartbeat\n\n"
+
+                    # Check if completed (fallback)
+                    rec = get_analysis(task_id)
+                    if rec and rec.status in ("completed", "failed"):
+                        data = {
+                            "type": "progress",
+                            "stage": "done",
+                            "progress": 100,
+                            "status": rec.status,
+                        }
+                        yield f"data: {json.dumps(data)}\n\n"
+                        break
+
+            log_event(task_id, "sse_end", status="stream_complete")
+        finally:
+            unregister_sse_queue(task_id, event_queue)
 
     return StreamingResponse(
         event_generator(),
@@ -389,6 +568,30 @@ async def stream_progress(task_id: str):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/analyze/{task_id}/events", tags=["analysis"], summary="执行链路事件")
+async def get_task_events(task_id: str):
+    """Get the execution trace events for a task.
+
+    Returns all recorded events for the task's execution lifecycle,
+    including pipeline stages, VLM retries, timeouts, etc.
+    """
+    from vision_insight.core.event_logger import get_task_events as _get_events
+
+    events = _get_events(task_id)
+    if not events:
+        # Also check if task exists in DB
+        record = get_analysis(task_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return {
+            "task_id": task_id,
+            "events": [],
+            "message": "No events recorded (task may have run before events feature was enabled)",
+        }
+
+    return {"task_id": task_id, "events": events, "total": len(events)}
 
 
 @router.get("/stats", tags=["system"], summary="系统统计")

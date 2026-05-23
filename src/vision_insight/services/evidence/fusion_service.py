@@ -349,8 +349,10 @@ class FusionService(EvidenceService):
                 steps.append({
                     "step_id": 1,
                     "action": "llm_inference",
-                    "description": f"Medium confidence, using LLM for reasoning",
-                    "input_summary": f"{len(evidence)} evidence items, max confidence={max_conf:.2f}",
+                    "description": "Medium confidence, using LLM for reasoning",
+                    "input_summary": (
+                        f"{len(evidence)} evidence items, max confidence={max_conf:.2f}"
+                    ),
                     "output_summary": f"LLM response: {llm_response[:100]}...",
                     "confidence_before": max_conf,
                     "confidence_after": prob,
@@ -369,7 +371,7 @@ class FusionService(EvidenceService):
                 steps.append({
                     "step_id": 1,
                     "action": "llm_failed",
-                    "description": f"LLM inference failed, falling back to uncertain",
+                    "description": "LLM inference failed, falling back to uncertain",
                     "input_summary": f"{len(evidence)} evidence items",
                     "output_summary": str(exc),
                     "confidence_before": max_conf,
@@ -389,7 +391,10 @@ class FusionService(EvidenceService):
             steps.append({
                 "step_id": 1,
                 "action": "low_confidence",
-                "description": f"Low confidence (<{_MEDIUM_CONFIDENCE_THRESHOLD}), no LLM available",
+                "description": (
+                    f"Low confidence (<{_MEDIUM_CONFIDENCE_THRESHOLD}), "
+                    "no LLM available"
+                ),
                 "input_summary": f"{len(evidence)} evidence items, max confidence={max_conf:.2f}",
                 "output_summary": "Marked as uncertain",
                 "confidence_before": max_conf,
@@ -435,7 +440,12 @@ class FusionService(EvidenceService):
         return min(1.0 - complement, 1.0)
 
     @staticmethod
-    def _build_llm_prompt(category: str, evidence: list[EvidenceItem], label: str, verbose: bool = False) -> str:
+    def _build_llm_prompt(
+        category: str,
+        evidence: list[EvidenceItem],
+        label: str,
+        verbose: bool = False,
+    ) -> str:
         lines = [
             f"你是一个图片分析助手。请根据以下证据，对「{label}」给出最可能的结论。",
             f"类别: {category}",

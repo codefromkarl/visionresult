@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextvars
 import json
 import logging
 from typing import Any
@@ -22,6 +23,12 @@ from vision_insight.models.schemas import (
 from vision_insight.services import VLMService
 
 logger = logging.getLogger(__name__)
+
+# Context variable for task_id. Pipeline nodes set this before calling VLM
+# providers so lower-level request/retry logging can correlate events.
+current_task_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "current_task_id", default="unknown"
+)
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -66,16 +73,66 @@ async def _retry_with_backoff(coro_factory, max_retries: int = MAX_RETRIES):
 # Structured prompt template for scene analysis
 # ---------------------------------------------------------------------------
 
-SCENE_ANALYSIS_PROMPT = """\
-You are a visual scene analyst. Analyze this image and return a JSON object with exactly \
-the following structure (no markdown, no extra text, pure JSON only):
+SCENE_ANALYSIS_PROMPT_ZH = """\
+你是一个视觉场景分析师。请仔细分析这张图片。
 
+重要规则：
+1. 只返回有效的JSON对象，不要markdown，不要额外文本。
+2. "scene_type" 必须是以下之一：indoor, outdoor, street, restaurant, office, home, transport,
+   event, nature, unknown
+3. "description" 用中文写2-4个不重复的句子描述场景。
+4. "location_guess.location" 用中文写具体地点（如"东京涩谷"、"北京故宫"），不要写大洲或地区。
+5. "time_guess.time_of_day" 必须是以下之一：morning, afternoon, evening, night
+6. "time_guess.season" 必须是以下之一：spring, summer, autumn, winter
+7. 所有文字描述（description, evidence, key_evidence, uncertainties）都用中文。
+
+返回这个JSON结构：
 {{
-  "scene_type": "<one of: indoor, outdoor, street, restaurant, "
-    "office, home, transport, event, nature, unknown>",
-  "description": "<2-4 sentence natural-language description of the scene>",
+  "scene_type": "<indoor|outdoor|street|restaurant|office|home|transport|event|nature|unknown>",
+  "description": "<用中文描述场景>"
   "location_guess": {{
-    "location": "<best guess of geographic location or venue type>",
+    "location": "<用中文写具体地点>",
+    "confidence": <0.0-1.0>,
+    "evidence": ["<视觉线索1>", "<视觉线索2>"]
+  }},
+  "time_guess": {{
+    "time_of_day": "<morning|afternoon|evening|night>",
+    "season": "<spring|summer|autumn|winter>",
+    "year_estimate": "<如 2020s, 2024>",
+    "evidence": ["<时间线索1>"]
+  }},
+  "people": [
+    {{
+      "count": <int>,
+      "age_group": "<young|middle-aged|elderly>",
+      "activity": "<用中文描述活动>"
+    }}
+  ],
+  "key_evidence": ["<重要的视觉细节1>", "<重要的视觉细节2>"],
+  "uncertainties": ["<不确定的地方>"]
+}}
+
+{ocr_context}"""
+
+SCENE_ANALYSIS_PROMPT_EN = """\
+You are a visual scene analyst. Carefully analyze this image.
+
+Important rules:
+1. Return ONLY a valid JSON object. No markdown, no extra text.
+2. "scene_type" must be one of: indoor, outdoor, street, restaurant, office, home, transport,
+   event, nature, unknown
+3. "description" must be 2-4 sentences in English.
+4. "location_guess.location" must be a specific place in English.
+5. "time_guess.time_of_day" must be one of: morning, afternoon, evening, night
+6. "time_guess.season" must be one of: spring, summer, autumn, winter
+7. All text fields must be in English.
+
+Return this JSON structure:
+{{
+  "scene_type": "<indoor|outdoor|street|restaurant|office|home|transport|event|nature|unknown>",
+  "description": "<describe scene in English>"
+  "location_guess": {{
+    "location": "<specific location in English>",
     "confidence": <0.0-1.0>,
     "evidence": ["<visual clue 1>", "<visual clue 2>"]
   }},
@@ -89,28 +146,48 @@ the following structure (no markdown, no extra text, pure JSON only):
     {{
       "count": <int>,
       "age_group": "<young|middle-aged|elderly>",
-      "activity": "<what they are doing>"
+      "activity": "<describe activity in English>"
     }}
   ],
-  "key_evidence": ["<important visual detail 1>", "<important visual detail 2>"],
-  "uncertainties": ["<what you are unsure about>"]
+  "key_evidence": ["<important detail 1>", "<important detail 2>"],
+  "uncertainties": ["<uncertain aspects>"]
 }}
 
 {ocr_context}"""
 
-OBJECT_DETECTION_PROMPT = """\
+# Default (backward-compatible) alias
+SCENE_ANALYSIS_PROMPT = SCENE_ANALYSIS_PROMPT_EN
+
+OBJECT_DETECTION_PROMPT_ZH = """\
+检测这张图片中的所有显著对象。返回一个 JSON 数组（纯 JSON，不要 markdown）：
+
+[
+  {{
+    "label": "<对象名称>",
+    "confidence": <0.0-1.0>,
+    "bbox": [x1, y1, x2, y2],
+    "category": "<person|building|food|logo|vehicle|text|sign|other>"
+  }}
+]
+
+如果没有可检测的对象，返回空数组 []。"""
+
+OBJECT_DETECTION_PROMPT_EN = """\
 Detect all notable objects in this image. Return a JSON array (no markdown, pure JSON):
 
 [
-  {
+  {{
     "label": "<object name>",
     "confidence": <0.0-1.0>,
     "bbox": [x1, y1, x2, y2],
     "category": "<person|building|food|logo|vehicle|text|sign|other>"
-  }
+  }}
 ]
 
 If no objects are detectable, return an empty array []."""
+
+# Default (backward-compatible) alias
+OBJECT_DETECTION_PROMPT = OBJECT_DETECTION_PROMPT_EN
 
 
 class OpenAIVLMService(VLMService):
@@ -135,22 +212,36 @@ class OpenAIVLMService(VLMService):
     # ------------------------------------------------------------------
 
     async def analyze(
-        self, image_bytes: bytes, ocr_results: list[OCRResult] | None = None
+        self,
+        image_bytes: bytes,
+        ocr_results: list[OCRResult] | None = None,
+        lang: str = "zh",
     ) -> SceneAnalysis:
         """Send image to GPT-4V and parse structured SceneAnalysis."""
         ocr_context = ""
         if ocr_results:
             texts = [r.text for r in ocr_results]
-            ocr_context = f"\nOCR detected these texts in the image: {texts}\n"
+            if lang == "en":
+                ocr_context = f"\nOCR detected these texts: {texts}\n"
+            else:
+                ocr_context = f"\n图片中检测到的文字：{texts}\n"
 
-        prompt = SCENE_ANALYSIS_PROMPT.format(ocr_context=ocr_context)
+        prompt_tpl = (
+            SCENE_ANALYSIS_PROMPT_EN if lang == "en" else SCENE_ANALYSIS_PROMPT_ZH
+        )
+        prompt = prompt_tpl.format(ocr_context=ocr_context)
         response_text = await self._vision_chat(prompt, image_bytes)
         data = self._parse_json_response(response_text)
         return self._build_scene_analysis(data)
 
-    async def detect_objects(self, image_bytes: bytes) -> list[DetectedObject]:
+    async def detect_objects(
+        self, image_bytes: bytes, lang: str = "en"
+    ) -> list[DetectedObject]:
         """Send image to GPT-4V for object detection."""
-        response_text = await self._vision_chat(OBJECT_DETECTION_PROMPT, image_bytes)
+        prompt = (
+            OBJECT_DETECTION_PROMPT_EN if lang == "en" else OBJECT_DETECTION_PROMPT_ZH
+        )
+        response_text = await self._vision_chat(prompt, image_bytes)
         items = self._parse_json_response(response_text)
         if not isinstance(items, list):
             items = []
@@ -285,22 +376,36 @@ class GeminiVLMService(VLMService):
     # ------------------------------------------------------------------
 
     async def analyze(
-        self, image_bytes: bytes, ocr_results: list[OCRResult] | None = None
+        self,
+        image_bytes: bytes,
+        ocr_results: list[OCRResult] | None = None,
+        lang: str = "zh",
     ) -> SceneAnalysis:
         """Send image to Gemini and parse structured SceneAnalysis."""
         ocr_context = ""
         if ocr_results:
             texts = [r.text for r in ocr_results]
-            ocr_context = f"\nOCR detected these texts in the image: {texts}\n"
+            if lang == "en":
+                ocr_context = f"\nOCR detected these texts: {texts}\n"
+            else:
+                ocr_context = f"\n图片中检测到的文字：{texts}\n"
 
-        prompt = SCENE_ANALYSIS_PROMPT.format(ocr_context=ocr_context)
+        prompt_tpl = (
+            SCENE_ANALYSIS_PROMPT_EN if lang == "en" else SCENE_ANALYSIS_PROMPT_ZH
+        )
+        prompt = prompt_tpl.format(ocr_context=ocr_context)
         response_text = await self._generate(prompt, image_bytes)
         data = OpenAIVLMService._parse_json_response(response_text)
         return OpenAIVLMService._build_scene_analysis(data)
 
-    async def detect_objects(self, image_bytes: bytes) -> list[DetectedObject]:
+    async def detect_objects(
+        self, image_bytes: bytes, lang: str = "en"
+    ) -> list[DetectedObject]:
         """Send image to Gemini for object detection."""
-        response_text = await self._generate(OBJECT_DETECTION_PROMPT, image_bytes)
+        prompt = (
+            OBJECT_DETECTION_PROMPT_EN if lang == "en" else OBJECT_DETECTION_PROMPT_ZH
+        )
+        response_text = await self._generate(prompt, image_bytes)
         items = OpenAIVLMService._parse_json_response(response_text)
         if not isinstance(items, list):
             items = []

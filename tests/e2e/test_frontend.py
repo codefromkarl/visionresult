@@ -9,6 +9,7 @@ from __future__ import annotations
 import http.server
 import io
 import json
+import re
 import threading
 from pathlib import Path
 
@@ -74,15 +75,15 @@ class TestUploadFlow:
         page.goto(local_server)
 
         # 预览默认隐藏
-        preview = page.locator("#preview")
-        expect(preview).not_to_contain_class("show")
+        preview = page.locator("#previewContainer")
+        expect(preview).not_to_have_class(re.compile(".*visible.*"))
 
         # 模拟用户选择文件
         file_input = page.locator("#fileInput")
         file_input.set_input_files(str(test_image))
 
         # 验证预览显示
-        expect(preview).to_contain_class("show")
+        expect(preview).to_have_class(re.compile(".*visible.*"))
         preview_img = page.locator("#previewImg")
         expect(preview_img).to_be_visible()
 
@@ -106,6 +107,7 @@ class TestUploadFlow:
         # 模拟上传
         file_input = page.locator("#fileInput")
         file_input.set_input_files(str(test_image))
+        page.locator("#analyzeBtn").click()
 
         # 等待 API 调用
         page.wait_for_timeout(2000)
@@ -166,15 +168,15 @@ class TestUploadFlow:
         # 上传
         file_input = page.locator("#fileInput")
         file_input.set_input_files(str(test_image))
+        page.locator("#analyzeBtn").click()
 
         # 等待结果显示
-        result = page.locator("#result")
-        expect(result).to_contain_class("show", timeout=10000)
+        result = page.locator("#resultContainer")
+        expect(result).to_have_class(re.compile(".*visible.*"), timeout=10000)
 
         # 验证结果内容
-        expect(result).to_contain_text("日本商业街夜景")
-        expect(result).to_contain_text("东京涩谷")
-        expect(result).to_contain_text("Shibuya")
+        report = page.locator("#reportContent")
+        expect(report).to_contain_text("# 测试报告")
 
     def test_upload_shows_error_on_failure(self, page: Page, test_image: Path, local_server: str):
         """API 失败时应显示错误信息。"""
@@ -192,11 +194,11 @@ class TestUploadFlow:
 
         file_input = page.locator("#fileInput")
         file_input.set_input_files(str(test_image))
+        page.locator("#analyzeBtn").click()
 
-        # 等待错误显示
-        result = page.locator("#result")
-        expect(result).to_contain_class("show", timeout=5000)
-        expect(result).to_contain_text("错误")
+        # 等待错误 toast 显示
+        toast = page.locator("#toast-container")
+        expect(toast).to_contain_text("分析失败", timeout=5000)
 
     def test_upload_no_file_does_nothing(self, page: Page, local_server: str):
         """不选择文件时不应调用 API。"""
@@ -236,13 +238,13 @@ class TestPageStructure:
 
     def test_has_result_container(self, page: Page, local_server: str):
         page.goto(local_server)
-        expect(page.locator("#result")).to_be_attached()
+        expect(page.locator("#resultContainer")).to_be_attached()
 
     def test_has_loading_indicator(self, page: Page, local_server: str):
         page.goto(local_server)
-        expect(page.locator("#loading")).to_be_attached()
+        expect(page.locator("#progressContainer")).to_be_attached()
 
     def test_features_displayed(self, page: Page, local_server: str):
         page.goto(local_server)
-        features = page.locator(".feature")
-        expect(features).to_have_count(3)
+        formats = page.locator(".upload-zone-format")
+        expect(formats).to_have_count(4)

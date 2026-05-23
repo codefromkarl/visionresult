@@ -1,191 +1,153 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Visual Insight Agent</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #e3f2fd, #bbdefb, #e1f5fe);
-      color: #333;
-      min-height: 100vh;
-    }
-    .header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 1rem 2rem; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);
-      box-shadow: 0 2px 20px rgba(0,0,0,0.08);
-    }
-    .logo { font-size: 1.5rem; font-weight: 700; color: #1976d2; }
-    .nav { display: flex; gap: 0.8rem; align-items: center; }
-    .nav-btn { background: #f5f5f5; border: 1px solid #e0e0e0; color: #555; padding: 0.4rem 1rem; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
-    .nav-btn:hover { background: #e3f2fd; color: #1976d2; }
-    .nav-btn.active { background: #1976d2; color: #fff; border-color: #1976d2; }
-    .lang-btn { background: #f5f5f5; border: 1px solid #e0e0e0; color: #666; padding: 0.3rem 0.6rem; border-radius: 15px; cursor: pointer; font-size: 0.8rem; }
-    .lang-btn.active { background: #1976d2; color: #fff; border-color: #1976d2; }
-    .main { max-width: 800px; margin: 0 auto; padding: 2rem; }
-    .page { display: none; }
-    .page.active { display: block; }
-    h1 { font-size: 2rem; text-align: center; margin-bottom: 0.5rem; color: #1976d2; }
-    .subtitle { color: #666; text-align: center; margin-bottom: 2rem; }
-    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2rem; }
-    .feature { background: #fff; border: 1px solid #e8e8e8; border-radius: 16px; padding: 1.5rem 1rem; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: transform 0.2s; }
-    .feature:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
-    .feature-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-    .feature-title { font-size: 0.9rem; color: #555; }
-    .upload-zone { margin-top: 2rem; border: 2px dashed #90caf9; border-radius: 20px; padding: 2.5rem; cursor: pointer; position: relative; text-align: center; background: rgba(255,255,255,0.8); transition: all 0.3s; }
-    .upload-zone:hover { border-color: #1976d2; background: rgba(187,222,251,0.5); transform: scale(1.01); }
-    .upload-zone.dragover { border-color: #1976d2; background: rgba(187,222,251,0.8); }
-    .upload-zone p { color: #888; margin-top: 0.5rem; }
-    .upload-zone input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-    .result { display: none; margin-top: 2rem; }
-    .result.show { display: block; }
-    .result-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-    .result-card h3 { color: #1976d2; margin-bottom: 0.8rem; font-size: 1rem; }
-    .result-card p, .result-card li { color: #555; line-height: 1.6; font-size: 0.9rem; }
-    .result-card ul { padding-left: 1.2rem; }
-    .confidence { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; font-weight: 500; }
-    .confidence.high { background: #e8f5e9; color: #2e7d32; }
-    .confidence.medium { background: #fff8e1; color: #f57f17; }
-    .confidence.low { background: #fbe9e7; color: #d84315; }
-    .loading { display: none; margin-top: 2rem; text-align: center; }
-    .loading.show { display: block; }
-    .spinner { border: 3px solid #e0e0e0; border-top: 3px solid #00897b; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .preview { display: none; margin-top: 1rem; text-align: center; }
-    .preview.show { display: block; }
-    .preview img { max-width: 100%; max-height: 250px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-    .history-list { margin-top: 1rem; }
-    .history-item { background: #fff; border: 1px solid #e8e8e8; border-radius: 16px; padding: 1rem; margin-bottom: 0.8rem; cursor: pointer; display: flex; gap: 1rem; align-items: center; transition: all 0.2s; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    .history-item:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); border-color: #64b5f6; }
-    .history-thumb { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; background: #f5f5f5; }
-    .history-info { flex: 1; min-width: 0; }
-    .history-filename { color: #333; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .history-time { color: #999; font-size: 0.8rem; margin-top: 0.2rem; }
-    .history-meta { display: flex; gap: 0.5rem; margin-top: 0.3rem; }
-    .history-tag { font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 10px; background: #e3f2fd; color: #1976d2; }
-    .history-actions { display: flex; gap: 0.5rem; align-items: center; }
-    .history-status { padding: 0.2rem 0.6rem; border-radius: 10px; font-size: 0.75rem; }
-    .history-status.completed { background: #e8f5e9; color: #2e7d32; }
-    .history-status.processing { background: #fff8e1; color: #f57f17; }
-    .history-delete { background: #ffebee; border: 1px solid #ffcdd2; color: #c62828; padding: 0.2rem 0.5rem; border-radius: 10px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s; }
-    .history-delete:hover { background: #ffcdd2; }
-    .empty-state { text-align: center; padding: 3rem; color: #999; }
-    .result-image { max-width: 100%; max-height: 300px; border-radius: 12px; margin-bottom: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-    .footer { text-align: center; margin-top: 2rem; font-size: 0.75rem; color: #999; padding: 1rem; }
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="多模态图片分析系统 - 视觉分析 + 证据链推理">
+    <title>Visual Insight Agent</title>
+    
+    <!-- 样式表 -->
+    <link rel="stylesheet" href="src/css/base.css">
+    <link rel="stylesheet" href="src/css/toast.css">
+    <link rel="stylesheet" href="src/css/upload.css">
+    <link rel="stylesheet" href="src/css/events.css">
+    <link rel="stylesheet" href="src/css/report.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
 </head>
 <body>
-  <div class="header">
-    <div class="logo">🔍 Visual Insight</div>
-    <div class="nav">
-      <button class="nav-btn active" onclick="showPage('upload')" data-i18n="navUpload">上传分析</button>
-      <button class="nav-btn" onclick="showPage('history')" data-i18n="navHistory">历史记录</button>
-      <button class="lang-btn active" onclick="setLang('zh')">中文</button>
-      <button class="lang-btn" onclick="setLang('en')">EN</button>
+    <div class="container" role="main">
+        <!-- 标题 -->
+        <header>
+            <h1>🔍 Visual Insight Agent</h1>
+            <p class="subtitle text-secondary text-center mb-8">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+        </header>
+
+        <!-- 上传卡片 -->
+        <section class="card" aria-label="图片上传">
+            <div class="upload-zone" 
+                 id="uploadZone" 
+                 role="button" 
+                 tabindex="0"
+                 aria-label="点击或拖拽图片到此处上传">
+                <span class="upload-zone-icon" aria-hidden="true">📸</span>
+                <h3 class="upload-zone-title">拖拽图片到此处或点击上传</h3>
+                <p class="upload-zone-subtitle">支持 JPG、PNG、GIF、WebP 格式</p>
+                <div class="upload-zone-formats">
+                    <span class="upload-zone-format">JPG</span>
+                    <span class="upload-zone-format">PNG</span>
+                    <span class="upload-zone-format">GIF</span>
+                    <span class="upload-zone-format">WebP</span>
+                </div>
+            </div>
+            <input type="file" 
+                   id="fileInput" 
+                   accept="image/*"
+                   aria-label="选择图片文件">
+
+            <!-- 图片预览 -->
+            <div class="preview-container" id="previewContainer" aria-label="图片预览">
+                <img id="previewImg" 
+                     class="preview-img" 
+                     alt="选择的图片预览">
+            </div>
+
+            <!-- 分析选项 -->
+            <div class="analysis-options">
+                <label for="verboseCheck">
+                    <input type="checkbox" id="verboseCheck">
+                    <span>启用详细推理链路（verbose 模式）</span>
+                </label>
+                <div class="analyze-btn-container">
+                    <button class="btn btn-lg" 
+                            id="analyzeBtn" 
+                            disabled
+                            aria-label="开始分析图片">
+                        🚀 开始分析
+                    </button>
+                </div>
+            </div>
+
+            <!-- 进度条 -->
+            <div class="progress-container" id="progressContainer" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">
+                    <span class="progress-stage">准备中...</span>
+                    <span class="progress-percent">0%</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分析过程卡片 -->
+        <section class="card events-container" 
+                 id="eventsContainer" 
+                 aria-label="分析过程"
+                 style="display: none;">
+            <div class="events-header">
+                <h3>🧠 分析过程</h3>
+            </div>
+            <div class="events-stats" id="eventsStats"></div>
+            <div class="events-timeline" 
+                 id="eventsTimeline"
+                 role="log"
+                 aria-live="polite"
+                 aria-label="分析事件时间线"></div>
+        </section>
+
+        <!-- 结果卡片 -->
+        <section class="card result-container" 
+                 id="resultContainer" 
+                 aria-label="分析结果"
+                 style="display: none;">
+            <div class="report-header">
+                <h2>📊 分析报告</h2>
+                <div class="report-actions">
+                    <button class="btn btn-sm btn-outline" 
+                            onclick="downloadMarkdown()"
+                            aria-label="下载 Markdown 格式报告">
+                        📄 Markdown
+                    </button>
+                    <button class="btn btn-sm btn-outline" 
+                            onclick="downloadHTML()"
+                            aria-label="下载 HTML 格式报告">
+                        🌐 HTML
+                    </button>
+                    <button class="btn btn-sm btn-outline" 
+                            id="traceToggleBtn"
+                            aria-label="显示/隐藏推理链路">
+                        🔍 推理链路
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 报告内容 -->
+            <div class="report-content" 
+                 id="reportContent"
+                 role="document"
+                 aria-label="分析报告内容"></div>
+            
+            <!-- 推理链路容器 -->
+            <div class="trace-container" id="traceContainer" aria-label="推理链路详情">
+                <div class="reasoning-section">
+                    <h3>🧠 思考链条与调用证据链</h3>
+                    <div id="reasoningContainer"></div>
+                </div>
+                <h3>⚙️ Pipeline 执行详情</h3>
+                <div class="trace-timeline" id="traceTimeline"></div>
+            </div>
+        </section>
     </div>
-  </div>
 
-  <div class="main">
-    <div id="page-upload" class="page active">
-      <h1>🔍 Visual Insight</h1>
-      <p class="subtitle" data-i18n="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
-      <div class="upload-zone" id="uploadZone">
-        <input type="file" id="fileInput" accept="image/*">
-        <div style="font-size:3rem">📸</div>
-        <p data-i18n="uploadHint">拖拽图片到此处，或点击上传</p>
-        <p style="font-size:0.8rem;color:#aaa;margin-top:0.5rem" data-i18n="uploadSupport">支持 JPG / PNG / WebP</p>
-      </div>
-      <div class="preview" id="preview"><img id="previewImg" alt=""></div>
-      <div class="loading" id="loading"><div class="spinner"></div><p style="color:#666" data-i18n="analyzing">正在分析图片...</p></div>
-      <div class="result" id="result"></div>
-      <div class="features">
-        <div class="feature"><div class="feature-icon">🏷️</div><div class="feature-title" data-i18n="f1">OCR 文字识别</div></div>
-        <div class="feature"><div class="feature-icon">📍</div><div class="feature-title" data-i18n="f2">地点推测</div></div>
-        <div class="feature"><div class="feature-icon">🔗</div><div class="feature-title" data-i18n="f3">证据链推理</div></div>
-      </div>
-    </div>
+    <!-- Toast 容器 -->
+    <div id="toast-container" 
+         class="toast-container" 
+         role="alert" 
+         aria-live="polite"></div>
 
-    <div id="page-history" class="page">
-      <h1>📋 <span data-i18n="historyTitle">历史记录</span></h1>
-      <p class="subtitle" data-i18n="historySub">点击查看详情</p>
-      <div id="historyList" class="history-list"></div>
-    </div>
-    <div class="footer">Powered by Cloudflare Workers AI</div>
-  </div>
-
-<script>
-const API='https://vision-insight-api.1069123094.workers.dev';
-const I18N={zh:{navUpload:'上传分析',navHistory:'历史记录',subtitle:'多模态图片分析系统 — 视觉分析 + 证据链推理',uploadHint:'拖拽图片到此处，或点击上传',uploadSupport:'支持 JPG / PNG / WebP',analyzing:'正在分析图片...',f1:'OCR 文字识别',f2:'地点推测',f3:'证据链推理',historyTitle:'历史记录',historySub:'点击查看详情',scene:'场景分析',loc:'地点推测',time:'时间推测',text:'检测文字',evidence:'关键证据',type:'场景类型',info:'任务信息',sec:'秒',fail:'上传失败',empty:'暂无记录',del:'确定删除？'},en:{navUpload:'Upload',navHistory:'History',subtitle:'Multimodal Image Analysis',uploadHint:'Drag & drop or click',uploadSupport:'JPG / PNG / WebP',analyzing:'Analyzing...',f1:'OCR Text',f2:'Location',f3:'Evidence',historyTitle:'History',historySub:'Click to view',scene:'Scene',loc:'Location',time:'Time',text:'Text',evidence:'Evidence',type:'Type',info:'Info',sec:'s',fail:'Upload failed',empty:'No records',del:'Delete?'}};
-let L=localStorage.getItem('lang')||'zh';
-function t(k){return I18N[L]?.[k]||I18N.zh[k]||k}
-function setLang(l){L=l;localStorage.setItem('lang',l);document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.textContent===(l==='zh'?'中文':'EN')));document.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n))}
-setLang(L);
-
-function showPage(p){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');document.querySelector(`.nav-btn[onclick="showPage('${p}')"]`).classList.add('active');if(p==='history')loadHistory()}
-
-const fi=document.getElementById('fileInput'),uz=document.getElementById('uploadZone'),pv=document.getElementById('preview'),pi=document.getElementById('previewImg'),ld=document.getElementById('loading'),rs=document.getElementById('result');
-fi.addEventListener('change',e=>{const f=e.target.files[0];if(f)handleFile(f)});
-uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('dragover')});
-uz.addEventListener('dragleave',()=>uz.classList.remove('dragover'));
-uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f?.type.startsWith('image/'))handleFile(f)});
-
-async function handleFile(file){
-  const r=new FileReader();r.onload=e=>{pi.src=e.target.result;pv.classList.add('show')};r.readAsDataURL(file);
-  ld.classList.add('show');rs.classList.remove('show');rs.innerHTML='';
-  try{const fd=new FormData();fd.append('file',file);const resp=await fetch(API+'/api/analyze',{method:'POST',body:fd});if(!resp.ok)throw new Error('HTTP '+resp.status);const d=await resp.json();await poll(d.task_id)}catch(e){showErr(t('fail')+': '+e.message)}finally{ld.classList.remove('show')}
-}
-
-async function poll(id,max=30){
-  for(let i=0;i<max;i++){await new Promise(r=>setTimeout(r,2000));try{const resp=await fetch(API+'/api/report/'+id);if(!resp.ok)continue;const rpt=await resp.json();if(rpt.status==='completed'){render(rpt);return}if(rpt.status==='failed'){showErr('Failed');return}}catch{}}
-  showErr('Timeout')
-}
-
-function render(rpt){
-  let h='';const a=rpt.analysis||{};
-  if(rpt.image_url)h+=`<img src="${API}${rpt.image_url}" class="result-image" alt="">`;
-  if(a.description)h+=`<div class="result-card"><h3>🎬 ${t('scene')}</h3><p>${esc(a.description)}</p></div>`;
-  if(a.location_guess){const c=a.location_guess.confidence||0,cls=c>=.7?'high':c>=.4?'medium':'low';h+=`<div class="result-card"><h3>📍 ${t('loc')}</h3><p>${esc(a.location_guess.location)} <span class="confidence ${cls}">${Math.round(c*100)}%</span></p></div>`}
-  if(a.time_guess){const p=[a.time_guess.time_of_day,a.time_guess.season].filter(Boolean);if(p.length)h+=`<div class="result-card"><h3>🕐 ${t('time')}</h3><p>${p.map(esc).join(' · ')}</p></div>`}
-  if(a.detected_text?.length)h+=`<div class="result-card"><h3>📝 ${t('text')}</h3><ul>${a.detected_text.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
-  if(a.key_evidence?.length)h+=`<div class="result-card"><h3>🔗 ${t('evidence')}</h3><ul>${a.key_evidence.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
-  if(a.scene_type)h+=`<div class="result-card"><h3>🏷️ ${t('type')}</h3><p>${esc(a.scene_type)}</p></div>`;
-  const el=Math.round((new Date(rpt.completed_at)-new Date(rpt.created_at))/1000);
-  h+=`<div class="result-card"><h3>ℹ️ ${t('info')}</h3><p>ID: ${rpt.id} · ${el}${t('sec')}</p></div>`;
-  rs.innerHTML=h;rs.classList.add('show')
-}
-
-function showErr(m){rs.innerHTML=`<div class="result-card" style="border-color:#ffcdd2"><h3>❌</h3><p>${esc(m)}</p></div>`;rs.classList.add('show')}
-
-async function loadHistory(){
-  const list=document.getElementById('historyList');list.innerHTML='<div style="text-align:center;color:#999">Loading...</div>';
-  try{const resp=await fetch(API+'/api/history?limit=20');const d=await resp.json();
-  if(!d.items?.length){list.innerHTML=`<div class="empty-state">${t('empty')}</div>`;return}
-  list.innerHTML=d.items.map(i=>{
-    const time=new Date(i.created_at).toLocaleString(L==='zh'?'zh-CN':'en-US');
-    const thumb=i.image_key?`${API}/images/${i.image_key}`:'';
-    const analysis=i.result?JSON.parse(i.result):null;
-    const tags=analysis?[analysis.scene_type,analysis.location_guess?.location].filter(Boolean):[];
-    return `<div class="history-item" onclick="viewReport('${i.id}')">
-      ${thumb?`<img src="${thumb}" class="history-thumb" onerror="this.style.display='none'">`:''}
-      <div class="history-info">
-        <div class="history-filename">${esc(i.filename||'unknown')}</div>
-        <div class="history-time">${time}</div>
-        <div class="history-meta">${tags.map(t=>`<span class="history-tag">${esc(t)}</span>`).join('')}</div>
-      </div>
-      <div class="history-actions">
-        <span class="history-status ${i.status}">${i.status==='completed'?'✓':'⏳'}</span>
-        <button class="history-delete" onclick="event.stopPropagation();del('${i.id}')">×</button>
-      </div>
-    </div>`}).join('')}catch(e){list.innerHTML=`<div class="empty-state">Error: ${e.message}</div>`}
-}
-
-async function viewReport(id){showPage('upload');rs.innerHTML='<div style="text-align:center;color:#999">Loading...</div>';rs.classList.add('show');try{const resp=await fetch(API+'/api/report/'+id);render(await resp.json())}catch(e){showErr(e.message)}}
-
-async function del(id){if(!confirm(t('del')))return;await fetch(API+'/api/delete/'+id,{method:'DELETE'});loadHistory()}
-
-function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
-</script>
+    <!-- 应用脚本 -->
+    <script type="module" src="src/js/app.js"></script>
 </body>
 </html>

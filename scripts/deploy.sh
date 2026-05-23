@@ -5,6 +5,7 @@ set -euo pipefail
 # Usage:
 #   bash scripts/deploy.sh          → 部署到 production
 #   bash scripts/deploy.sh preview  → 部署到 preview
+#   bash scripts/deploy.sh --skip-guard  → 跳过预检（紧急情况）
 
 # 安全地 source ~/.bashrc
 if [[ -f ~/.bashrc ]]; then
@@ -23,6 +24,23 @@ if [[ -f .env ]]; then
   set -a
 fi
 
+# ─── 预检护栏 ─────────────────────────────────────────────
+
+SKIP_GUARD=false
+if [[ "${1:-}" == "--skip-guard" ]] || [[ "${2:-}" == "--skip-guard" ]]; then
+  SKIP_GUARD=true
+fi
+
+if [[ "$SKIP_GUARD" == "false" ]] && [[ -f "scripts/pre-deploy-guard.sh" ]]; then
+  echo "🔍 Running pre-deploy guard..."
+  if ! bash scripts/pre-deploy-guard.sh --quick; then
+    echo "❌ Pre-deploy guard failed. Fix issues before deploying."
+    echo "   Use --skip-guard to bypass (emergency only)"
+    exit 1
+  fi
+  echo ""
+fi
+
 export CLOUDFLARE_API_TOKEN="${VIA_DEPLOY_TOKEN:-${CLOUDFRAME_API_KEY:-}}"
 if [[ -z "$CLOUDFLARE_API_TOKEN" ]]; then
   echo "❌ 请设置 VIA_DEPLOY_TOKEN 或 CLOUDFRAME_API_KEY 环境变量"
@@ -32,7 +50,7 @@ export CLOUDFLARE_ACCOUNT_ID="<REDACTED>"
 
 PROJECT="vision-insight"
 BRANCH="main"
-DIR="frontend/public"
+DIR="frontend/deploy"
 
 if [[ "${1:-}" == "preview" ]]; then
   BRANCH="preview"

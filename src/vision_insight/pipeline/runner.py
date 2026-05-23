@@ -5,110 +5,49 @@ from __future__ import annotations
 import logging
 import time
 
-from vision_insight.core.config import settings
+from vision_insight.core.event_logger import log_event
+from vision_insight.core.service_registry import ServiceRegistry, get_service_registry
 from vision_insight.models.schemas import AnalysisReport, AnalysisStatus, ReasoningTrace
 from vision_insight.pipeline.graph import PipelineState, ProgressCallback, build_pipeline
-from vision_insight.services import (
-    EntityService,
-    EvidenceService,
-    OCRService,
-    SearchService,
-    VLMService,
-)
-from vision_insight.services.entity.llm_entity_service import LLMEntityService
-from vision_insight.services.evidence.fusion_service import FusionService
-from vision_insight.services.search.http_search_service import HttpSearchService
 
 logger = logging.getLogger(__name__)
 
 
 class PipelineRunner:
-    """Manages service lifecycle and executes the analysis pipeline."""
+    """Manages service lifecycle and executes the analysis pipeline.
 
-    def __init__(self) -> None:
-        self._ocr: OCRService | None = None
-        self._vlm: VLMService | None = None
-        self._entity: EntityService | None = None
-        self._search: SearchService | None = None
-        self._evidence: EvidenceService | None = None
+    This module provides a deep interface for pipeline execution:
+    - Simple method to execute the pipeline
+    - Centralized service management via ServiceRegistry
+    - Easy to test with mock registry
+    """
+
+    def __init__(self, registry: ServiceRegistry | None = None) -> None:
+        """Initialize the pipeline runner.
+
+        Args:
+            registry: Service registry to use. If None, uses default singleton.
+        """
+        self._registry = registry or get_service_registry()
         self._pipeline = None
 
-    def _init_services(self) -> None:
-        """Lazy-initialize all services based on config."""
+    def _ensure_pipeline(self) -> None:
+        """Lazy-initialize the pipeline graph."""
         if self._pipeline is not None:
             return
 
-        # OCR
-        from vision_insight.services.ocr.paddle_service import PaddleOCRService
-
-        self._ocr = PaddleOCRService(lang=settings.ocr_lang, use_gpu=False)
-
-        # VLM — select based on config
-        vlm_provider = settings.vlm_provider.lower()
-        if vlm_provider == "openai":
-            from vision_insight.services.vlm.api_service import OpenAIVLMService
-
-            self._vlm = OpenAIVLMService()
-        elif vlm_provider == "gemini":
-            from vision_insight.services.vlm.api_service import GeminiVLMService
-
-            self._vlm = GeminiVLMService()
-        else:
-            # Default: try OpenAI if key available, else Gemini
-            if settings.openai_api_key:
-                from vision_insight.services.vlm.api_service import OpenAIVLMService
-
-                self._vlm = OpenAIVLMService()
-                logger.info("VLM: using OpenAI GPT-4o")
-            elif settings.gemini_api_key:
-                from vision_insight.services.vlm.api_service import GeminiVLMService
-
-                self._vlm = GeminiVLMService()
-                logger.info("VLM: using Gemini")
-            else:
-                raise ValueError(
-                    "No VLM API key configured. Set VIA_OPENAI_API_KEY or VIA_GEMINI_API_KEY"
-                )
-
-        # Entity extraction — use the same provider as VLM
-        if settings.openai_api_key:
-            self._entity = LLMEntityService()
-        elif settings.gemini_api_key:
-            # Use Gemini via OpenAI-compatible endpoint
-            self._entity = LLMEntityService(
-                api_key=settings.gemini_api_key,
-                model="gemini-2.0-flash",
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai",
-            )
-        else:
-            raise ValueError("No API key for entity extraction")
-
-        # Search
-        self._search = HttpSearchService()
-
-        # Evidence fusion — reuse VLM as LLM port for medium-confidence reasoning
-        class _VLMPortAdapter:
-            """Adapt VLM service to the LLMPort interface used by FusionService."""
-
-            def __init__(self, vlm: VLMService):
-                self._vlm = vlm
-
-            async def infer(self, prompt: str) -> str:
-                # Use VLM's analyze method won't work (needs image),
-                # so we use a simple fallback: return empty to skip LLM assist
-                return ""
-
-        self._evidence = FusionService(llm=_VLMPortAdapter(self._vlm))
+        # Get all services from registry
+        services = self._registry.get_all_services()
 
         # Build pipeline graph
         self._pipeline = build_pipeline(
-            ocr_service=self._ocr,
-            vlm_service=self._vlm,
-            entity_service=self._entity,
-            search_service=self._search,
-            evidence_service=self._evidence,
+            ocr_service=services["ocr"],
+            vlm_service=services["vlm"],
+            entity_service=services["entity"],
+            search_service=services["search"],
+            evidence_service=services["evidence"],
         )
-        logger.info("Pipeline services initialized")
+        logger.info("Pipeline graph built")
 
     async def execute(
         self,
@@ -116,6 +55,7 @@ class PipelineRunner:
         image_bytes: bytes,
         progress_callback: ProgressCallback = None,
         verbose: bool = False,
+        lang: str = "zh",
     ) -> AnalysisReport:
         """Execute the full analysis pipeline.
 
@@ -124,17 +64,22 @@ class PipelineRunner:
             image_bytes: Raw image file bytes.
             progress_callback: Optional callback for progress updates.
             verbose: Whether to record detailed pipeline trace.
+            lang: Output language - 'zh' for Chinese, 'en' for English.
 
         Returns:
             The populated AnalysisReport with status COMPLETED or FAILED.
         """
-        self._init_services()
+        self._ensure_pipeline()
 
-        # Set verbose mode on fusion service
-        self._evidence.set_verbose(verbose)
+        # Get evidence service for verbose mode
+        evidence_service = self._registry.get_evidence_service()
+        evidence_service.set_verbose(verbose)
 
+        task_id = report.id
         start_time = time.time()
         report.status = AnalysisStatus.PROCESSING
+
+        log_event(task_id, "pipeline_start", image_bytes=len(image_bytes), verbose=verbose)
 
         state = PipelineState(
             report=report,
@@ -142,6 +87,7 @@ class PipelineRunner:
             progress_callback=progress_callback,
             verbose=verbose,
             pipeline_trace={"steps": [], "reasoning_traces": []} if verbose else {},
+            lang=lang,
         )
 
         try:
@@ -150,16 +96,42 @@ class PipelineRunner:
             result["report"].processing_time_ms = elapsed_ms
 
             # Add reasoning traces to pipeline trace if verbose
-            if verbose and hasattr(self._evidence, 'get_reasoning_traces'):
-                reasoning_traces = self._evidence.get_reasoning_traces()
+            if verbose and hasattr(evidence_service, "get_reasoning_traces"):
+                reasoning_traces = evidence_service.get_reasoning_traces()
                 if result["report"].pipeline_trace:
                     result["report"].pipeline_trace.reasoning_traces = [
                         ReasoningTrace(**t) for t in reasoning_traces
                     ]
 
+            scene_type = (
+                result["report"].scene_analysis.scene_type
+                if result["report"].scene_analysis
+                else "unknown"
+            )
+            num_ocr = len(result["report"].ocr_results)
+            num_conclusions = len(result["report"].conclusions)
+
+            log_event(
+                task_id,
+                "pipeline_end",
+                status="completed",
+                elapsed_ms=elapsed_ms,
+                scene_type=scene_type,
+                num_ocr=num_ocr,
+                num_conclusions=num_conclusions,
+            )
+
             logger.info("Pipeline completed in %dms for task %s", elapsed_ms, report.id)
             return result["report"]
         except Exception as exc:
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            log_event(
+                task_id,
+                "pipeline_fail",
+                elapsed_ms=elapsed_ms,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
             logger.exception("Pipeline failed for task %s", report.id)
             report.status = AnalysisStatus.FAILED
             report.report_markdown = f"# 分析失败\n\n错误: {exc}"
@@ -170,9 +142,22 @@ class PipelineRunner:
 _runner: PipelineRunner | None = None
 
 
-def get_pipeline_runner() -> PipelineRunner:
-    """Get or create the singleton PipelineRunner."""
+def get_pipeline_runner(registry: ServiceRegistry | None = None) -> PipelineRunner:
+    """Get or create the singleton PipelineRunner.
+
+    Args:
+        registry: Optional service registry to use. Only used on first call.
+
+    Returns:
+        The singleton PipelineRunner instance.
+    """
     global _runner
     if _runner is None:
-        _runner = PipelineRunner()
+        _runner = PipelineRunner(registry)
     return _runner
+
+
+def reset_pipeline_runner() -> None:
+    """Reset the singleton runner (for testing)."""
+    global _runner
+    _runner = None

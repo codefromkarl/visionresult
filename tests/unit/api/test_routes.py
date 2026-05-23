@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 from vision_insight.api.routes import (
     _record_to_report,
     _report_to_record,
-    router,
 )
 from vision_insight.core.database import AnalysisRecord
 from vision_insight.models.schemas import (
@@ -22,8 +21,6 @@ from vision_insight.models.schemas import (
     FusedConclusion,
     ImageMetadata,
     OCRResult,
-    QuestionRequest,
-    QuestionResponse,
     SceneAnalysis,
     SearchResult,
 )
@@ -47,10 +44,19 @@ class TestRecordConversion:
             scene_description="A busy street",
             location_guess="Tokyo",
             location_confidence=0.85,
-            ocr_results_json='[{"text": "Hello", "confidence": 0.95, "bbox": [[0,0],[100,0],[100,20],[0,20]]}]',
+            ocr_results_json=(
+                '[{"text": "Hello", "confidence": 0.95, '
+                '"bbox": [[0,0],[100,0],[100,20],[0,20]]}]'
+            ),
             entities_json='{"brands": ["Nike"], "landmarks": []}',
-            conclusions_json='[{"statement": "Location: Tokyo", "probability": 0.85, "category": "location"}]',
-            search_results_json='[{"query": "test", "source": "wikipedia", "title": "Tokyo", "snippet": "desc", "url": "https://wiki.org", "relevance": 0.8}]',
+            conclusions_json=(
+                '[{"statement": "Location: Tokyo", "probability": 0.85, '
+                '"category": "location"}]'
+            ),
+            search_results_json=(
+                '[{"query": "test", "source": "wikipedia", "title": "Tokyo", '
+                '"snippet": "desc", "url": "https://wiki.org", "relevance": 0.8}]'
+            ),
             report_markdown="# Test Report",
         )
 
@@ -122,7 +128,14 @@ class TestRecordConversion:
                 FusedConclusion(statement="Test conclusion", probability=0.8, category="scene"),
             ],
             search_results=[
-                SearchResult(query="test", source="google", title="Test", snippet="desc", url="http://test.com", relevance=0.8),
+                SearchResult(
+                    query="test",
+                    source="google",
+                    title="Test",
+                    snippet="desc",
+                    url="http://test.com",
+                    relevance=0.8,
+                ),
             ],
             report_markdown="# Test",
         )
@@ -365,7 +378,11 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         data = response.json()
         # OCR question should return detected texts
-        assert "Shibuya" in data["answer"] or "109" in data["answer"] or "检测到的文字" in data["answer"]
+        assert (
+            "Shibuya" in data["answer"]
+            or "109" in data["answer"]
+            or "检测到的文字" in data["answer"]
+        )
 
     @patch("vision_insight.api.routes.get_analysis")
     def test_ask_brand_question(self, mock_get_analysis, client):
@@ -448,6 +465,7 @@ class TestAPIEndpoints:
         """DELETE /api/v1/report/{id} should delete existing report."""
         # First create a report
         import io
+
         from PIL import Image
 
         img = Image.new("RGB", (10, 10), color="red")

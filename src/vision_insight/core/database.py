@@ -98,7 +98,16 @@ _SessionLocal = None
 def get_engine():
     global _engine
     if _engine is None:
-        _engine = create_engine(DATABASE_URL, echo=False)
+        # Configure engine with connection pooling
+        _engine = create_engine(
+            DATABASE_URL,
+            echo=False,
+            pool_size=5,  # Number of connections to keep in the pool
+            max_overflow=10,  # Maximum overflow connections beyond pool_size
+            pool_timeout=30,  # Seconds to wait for a connection from the pool
+            pool_recycle=1800,  # Recycle connections after 30 minutes
+            pool_pre_ping=True,  # Verify connections before use
+        )
         Base.metadata.create_all(_engine)
         logger.info("Database initialized: %s", DB_PATH)
     return _engine
@@ -107,7 +116,11 @@ def get_engine():
 def get_session() -> Session:
     global _SessionLocal
     if _SessionLocal is None:
-        _SessionLocal = sessionmaker(bind=get_engine())
+        _SessionLocal = sessionmaker(
+            bind=get_engine(),
+            autocommit=False,
+            autoflush=False,
+        )
     return _SessionLocal()
 
 
@@ -172,22 +185,104 @@ def search_analyses(
     limit: int = 20,
     offset: int = 0,
 ) -> list[AnalysisRecord]:
-    """Search analyses by keyword, scene type, or location."""
+    """Search analyses by keyword, scene type, or location.
+
+    Uses parameterized queries to prevent SQL injection.
+    """
     session = get_session()
     try:
         query = session.query(AnalysisRecord)
 
         if keyword:
+            # Sanitize keyword: escape special characters for LIKE
+            sanitized_keyword = (
+                keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            )
+            search_pattern = f"%{sanitized_keyword}%"
             query = query.filter(
-                AnalysisRecord.report_markdown.ilike(f"%{keyword}%")
-                | AnalysisRecord.scene_description.ilike(f"%{keyword}%")
-                | AnalysisRecord.image_filename.ilike(f"%{keyword}%")
+                AnalysisRecord.report_markdown.ilike(search_pattern)
+                | AnalysisRecord.scene_description.ilike(search_pattern)
+                | AnalysisRecord.image_filename.ilike(search_pattern)
             )
         if scene_type:
+            # Validate scene_type against allowed values
+            allowed_scene_types = {
+                "indoor",
+                "outdoor",
+                "street",
+                "restaurant",
+                "office",
+                "home",
+                "transport",
+                "event",
+                "nature",
+                "unknown",
+            }
+            if scene_type not in allowed_scene_types:
+                logger.warning("Invalid scene_type filter: %s", scene_type)
+                return []
             query = query.filter(AnalysisRecord.scene_type == scene_type)
         if location:
-            query = query.filter(AnalysisRecord.location_guess.ilike(f"%{location}%"))
+            # Sanitize location input
+            sanitized_location = (
+                location.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            )
+            location_pattern = f"%{sanitized_location}%"
+            query = query.filter(AnalysisRecord.location_guess.ilike(location_pattern))
 
         return query.order_by(AnalysisRecord.created_at.desc()).offset(offset).limit(limit).all()
+    finally:
+        session.close()
+
+
+def cleanup_old_analyses(days: int = 30) -> int:
+    """Delete analyses older than specified days.
+
+    Args:
+        days: Number of days to keep records. Older records will be deleted.
+
+    Returns:
+        Number of deleted records.
+    """
+    from datetime import timedelta
+
+    session = get_session()
+    try:
+        cutoff_date = datetime.now() - timedelta(days=days)
+        deleted = session.query(AnalysisRecord).filter(
+            AnalysisRecord.created_at < cutoff_date
+        ).delete()
+        session.commit()
+        if deleted > 0:
+            logger.info("Cleaned up %d old analysis records", deleted)
+        return deleted
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def get_database_stats() -> dict:
+    """Get database statistics.
+
+    Returns:
+        Dictionary with database statistics.
+    """
+    session = get_session()
+    try:
+        total = session.query(AnalysisRecord).count()
+        completed = session.query(AnalysisRecord).filter_by(status="completed").count()
+        failed = session.query(AnalysisRecord).filter_by(status="failed").count()
+        pending = session.query(AnalysisRecord).filter(
+            AnalysisRecord.status.in_(["pending", "processing"])
+        ).count()
+
+        return {
+            "total": total,
+            "completed": completed,
+            "failed": failed,
+            "pending": pending,
+        }
     finally:
         session.close()

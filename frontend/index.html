@@ -3,825 +3,194 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="多模态图片分析系统 - 视觉分析 + 证据链推理">
     <title>Visual Insight Agent</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: #2d3748;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 2.5rem;
-        }
-        .subtitle {
-            color: #718096;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 1.1rem;
-        }
-        .card {
-            background: white;
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            margin-bottom: 24px;
-            border: 1px solid #e2e8f0;
-        }
-        .upload-zone {
-            border: 3px dashed #cbd5e0;
-            border-radius: 12px;
-            padding: 48px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: #f7fafc;
-        }
-        .upload-zone:hover, .upload-zone.dragover {
-            border-color: #43b89c;
-            background: #f0fdf9;
-        }
-        .upload-zone h3 {
-            color: #2d3748;
-            margin-bottom: 8px;
-        }
-        .upload-zone p {
-            color: #718096;
-            font-size: 14px;
-        }
-        .upload-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-        }
-        #fileInput { display: none; }
-        .btn {
-            display: inline-block;
-            padding: 12px 32px;
-            background: linear-gradient(135deg, #43b89c 0%, #3584e4 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(67, 184, 156, 0.4);
-        }
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .preview-container {
-            display: none;
-            margin-top: 20px;
-        }
-        .preview-img {
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .progress-container {
-            display: none;
-            margin-top: 20px;
-        }
-        .progress-bar {
-            height: 8px;
-            background: #e2e8f0;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #43b89c, #3584e4);
-            border-radius: 4px;
-            transition: width 0.3s ease;
-            width: 0%;
-        }
-        .progress-text {
-            font-size: 14px;
-            color: #718096;
-        }
-        .result-container {
-            display: none;
-        }
-        .report-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .report-actions {
-            display: flex;
-            gap: 8px;
-        }
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 14px;
-        }
-        .btn-outline {
-            background: white;
-            color: #43b89c;
-            border: 2px solid #43b89c;
-        }
-        .report-content {
-            background: #f7fafc;
-            border-radius: 8px;
-            padding: 24px;
-            white-space: pre-wrap;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            max-height: 500px;
-            overflow-y: auto;
-            color: #2d3748;
-            border: 1px solid #e2e8f0;
-        }
-        .history-section {
-            margin-top: 32px;
-        }
-        .history-item {
-            display: flex;
-            align-items: center;
-            padding: 16px;
-            border-bottom: 1px solid #e2e8f0;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .history-item:hover {
-            background: #f7fafc;
-        }
-        .history-thumb {
-            width: 60px;
-            height: 60px;
-            border-radius: 8px;
-            object-fit: cover;
-            margin-right: 16px;
-            background: #e2e8f0;
-        }
-        .history-info {
-            flex: 1;
-        }
-        .history-info h4 {
-            color: #2d3748;
-            margin-bottom: 4px;
-        }
-        .history-info p {
-            color: #718096;
-            font-size: 14px;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .status-completed { background: #d1fae5; color: #065f46; }
-        .status-pending { background: #fef3c7; color: #92400e; }
-        .status-failed { background: #fee2e2; color: #991b1b; }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-        .stat-card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            border: 1px solid #e2e8f0;
-        }
-        .stat-number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #43b89c;
-        }
-        .stat-label {
-            font-size: 14px;
-            color: #718096;
-            margin-top: 4px;
-        }
-        @media (max-width: 600px) {
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            h1 { font-size: 1.8rem; }
-        }
+    
+    <!-- 样式表 -->
+    <link rel="stylesheet" href="src/css/base.css">
+    <link rel="stylesheet" href="src/css/toast.css">
+    <link rel="stylesheet" href="src/css/upload.css">
+    <link rel="stylesheet" href="src/css/events.css">
+    <link rel="stylesheet" href="src/css/report.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
 
-        /* Pipeline Trace Styles */
-        .trace-container {
-            display: none;
-            margin-top: 20px;
-        }
-        .trace-toggle {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-        .trace-toggle label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            color: #4a5568;
-        }
-        .trace-timeline {
-            position: relative;
-            padding-left: 30px;
-        }
-        .trace-timeline::before {
-            content: '';
-            position: absolute;
-            left: 15px;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: linear-gradient(to bottom, #43b89c, #3584e4);
-        }
-        .trace-step {
-            position: relative;
-            margin-bottom: 16px;
-            padding: 16px;
-            background: white;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        .trace-step::before {
-            content: '';
-            position: absolute;
-            left: -23px;
-            top: 20px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #43b89c;
-            border: 2px solid white;
-            box-shadow: 0 0 0 2px #43b89c;
-        }
-        .trace-step.failed::before {
-            background: #e53e3e;
-            box-shadow: 0 0 0 2px #e53e3e;
-        }
-        .trace-step-header {
+    <!-- 语言切换按钮样式 -->
+    <style>
+        .header-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 0.5rem;
         }
-        .trace-step-name {
-            font-weight: 600;
-            color: #2d3748;
-            font-size: 14px;
-        }
-        .trace-step-duration {
-            font-size: 12px;
-            color: #718096;
-            background: #f7fafc;
-            padding: 2px 8px;
-            border-radius: 4px;
-        }
-        .trace-step-status {
-            font-size: 12px;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 600;
-        }
-        .trace-step-status.success {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        .trace-step-status.failed {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-        .trace-step-summary {
-            font-size: 13px;
-            color: #4a5568;
-            margin-bottom: 8px;
-        }
-        .trace-step-findings {
-            font-size: 12px;
-            color: #718096;
-            padding-left: 16px;
-        }
-        .trace-step-findings li {
-            margin-bottom: 4px;
-        }
-        .reasoning-section {
-            margin-top: 24px;
-            padding-top: 16px;
-            border-top: 1px solid #e2e8f0;
-        }
-        .reasoning-card {
-            background: #f7fafc;
+        .lang-switch {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-secondary, #f3f4f6);
             border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 12px;
-            border: 1px solid #e2e8f0;
+            padding: 3px;
         }
-        .reasoning-card h4 {
-            color: #2d3748;
-            font-size: 14px;
-            margin-bottom: 8px;
+        .lang-btn {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            background: transparent;
+            color: var(--text-secondary, #6b7280);
+            transition: all 0.2s ease;
         }
-        .reasoning-strategy {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 11px;
+        .lang-btn:hover {
+            color: var(--text-primary, #1f2937);
+        }
+        .lang-btn.active {
+            background: var(--bg-primary, #fff);
+            color: var(--color-primary, #4f46e5);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             font-weight: 600;
-            margin-left: 8px;
-        }
-        .reasoning-strategy.rule {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        .reasoning-strategy.llm {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-        .reasoning-strategy.uncertain {
-            background: #fef3c7;
-            color: #92400e;
-        }
-        .reasoning-probability {
-            font-size: 12px;
-            color: #718096;
-            margin-top: 8px;
-        }
-        .reasoning-steps {
-            margin-top: 12px;
-            padding-left: 16px;
-            border-left: 2px solid #e2e8f0;
-        }
-        .reasoning-step-item {
-            font-size: 13px;
-            color: #4a5568;
-            margin-bottom: 8px;
-            padding-left: 12px;
-        }
-        .reasoning-step-item::before {
-            content: '→';
-            margin-right: 8px;
-            color: #43b89c;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔍 Visual Insight Agent</h1>
-        <p class="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+    <div class="container" role="main">
+        <!-- 标题 -->
+        <header>
+            <div class="header-bar">
+                <h1>🔍 Visual Insight Agent</h1>
+                <div class="lang-switch">
+                    <button class="lang-btn active" data-lang="zh">中文</button>
+                    <button class="lang-btn" data-lang="en">EN</button>
+                </div>
+            </div>
+            <p class="subtitle text-secondary text-center mb-8" data-i18n="subtitle">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+        </header>
 
-        <div class="stats-grid" id="statsGrid">
-            <div class="stat-card">
-                <div class="stat-number" id="statTotal">-</div>
-                <div class="stat-label">总分析数</div>
+        <!-- 上传卡片 -->
+        <section class="card" aria-label="图片上传">
+            <div class="upload-zone" 
+                 id="uploadZone" 
+                 role="button" 
+                 tabindex="0"
+                 aria-label="点击或拖拽图片到此处上传">
+                <span class="upload-zone-icon" aria-hidden="true">📸</span>
+                <h3 class="upload-zone-title" data-i18n="uploadHint">拖拽图片到此处或点击上传</h3>
+                <p class="upload-zone-subtitle" data-i18n="uploadSupport">支持 JPG、PNG、GIF、WebP 格式</p>
+                <div class="upload-zone-formats">
+                    <span class="upload-zone-format">JPG</span>
+                    <span class="upload-zone-format">PNG</span>
+                    <span class="upload-zone-format">GIF</span>
+                    <span class="upload-zone-format">WebP</span>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-number" id="statCompleted">-</div>
-                <div class="stat-label">已完成</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="statPending">-</div>
-                <div class="stat-label">进行中</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="statFailed">-</div>
-                <div class="stat-label">失败</div>
-            </div>
-        </div>
+            <input type="file" 
+                   id="fileInput" 
+                   accept="image/*"
+                   aria-label="选择图片文件">
 
-        <div class="card">
-            <div class="upload-zone" id="uploadZone">
-                <div class="upload-icon">📸</div>
-                <h3>拖拽图片到此处或点击上传</h3>
-                <p>支持 JPG、PNG、GIF、WebP 格式</p>
-            </div>
-            <input type="file" id="fileInput" accept="image/*">
-
-            <div class="preview-container" id="previewContainer">
-                <img id="previewImg" class="preview-img" alt="预览">
+            <!-- 图片预览 -->
+            <div class="preview-container" id="previewContainer" aria-label="图片预览">
+                <img id="previewImg" 
+                     class="preview-img" 
+                     alt="选择的图片预览">
             </div>
 
-            <div style="text-align: center; margin-top: 20px;">
-                <label style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; cursor: pointer; color: #4a5568;">
+            <!-- 分析选项 -->
+            <div class="analysis-options">
+                <label for="verboseCheck">
                     <input type="checkbox" id="verboseCheck">
-                    <span>启用详细推理链路（verbose 模式）</span>
+                    <span data-i18n="uploadVerbose">启用详细推理链路（verbose 模式）</span>
                 </label>
-                <button class="btn" id="analyzeBtn" disabled>开始分析</button>
+                <div class="analyze-btn-container">
+                    <button class="btn btn-lg" 
+                            id="analyzeBtn" 
+                            disabled
+                            aria-label="开始分析图片">
+                        🚀 <span data-i18n="uploadAnalyze">开始分析</span>
+                    </button>
+                </div>
             </div>
 
-            <div class="progress-container" id="progressContainer">
+            <!-- 进度条 -->
+            <div class="progress-container" id="progressContainer" role="progressbar" aria-valuemin="0" aria-valuemax="100">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
-                <div class="progress-text" id="progressText">准备中...</div>
-            </div>
-        </div>
-
-        <div class="card result-container" id="resultContainer">
-            <div class="report-header">
-                <h2>📊 分析报告</h2>
-                <div class="report-actions">
-                    <button class="btn btn-sm btn-outline" onclick="downloadMarkdown()">📄 Markdown</button>
-                    <button class="btn btn-sm btn-outline" onclick="downloadHTML()">🌐 HTML</button>
-                    <button class="btn btn-sm btn-outline" id="traceToggleBtn" onclick="toggleTrace()">🔍 推理链路</button>
+                <div class="progress-text" id="progressText">
+                    <span class="progress-stage" data-i18n="loading">准备中...</span>
+                    <span class="progress-percent">0%</span>
                 </div>
             </div>
-            <div class="report-content" id="reportContent"></div>
+        </section>
+
+        <!-- 分析过程卡片 -->
+        <section class="card events-container" 
+                 id="eventsContainer" 
+                 aria-label="分析过程"
+                 style="display: none;">
+            <div class="events-header">
+                <h3 data-i18n="eventsTitle">📋 分析过程</h3>
+            </div>
+            <div class="events-stats" id="eventsStats"></div>
+            <div class="events-timeline" 
+                 id="eventsTimeline"
+                 role="log"
+                 aria-live="polite"
+                 aria-label="分析事件时间线"></div>
+        </section>
+
+        <!-- 结果卡片 -->
+        <section class="card result-container" 
+                 id="resultContainer" 
+                 aria-label="分析结果"
+                 style="display: none;">
+            <div class="report-header">
+                <h2 data-i18n="reportTitle">📊 分析报告</h2>
+                <div class="report-actions">
+                    <button class="btn btn-sm btn-outline" 
+                            onclick="downloadMarkdown()"
+                            aria-label="下载 Markdown 格式报告">
+                        📄 <span data-i18n="reportMarkdown">Markdown</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline" 
+                            onclick="downloadHTML()"
+                            aria-label="下载 HTML 格式报告">
+                        🌐 <span data-i18n="reportHTML">HTML</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline" 
+                            id="traceToggleBtn"
+                            aria-label="显示/隐藏推理链路">
+                        🔍 <span data-i18n="reportTrace">推理链路</span>
+                    </button>
+                </div>
+            </div>
             
-            <!-- Pipeline Trace Container -->
-            <div class="trace-container" id="traceContainer">
+            <!-- 报告内容 -->
+            <div class="report-content" 
+                 id="reportContent"
+                 role="document"
+                 aria-label="分析报告内容"></div>
+            
+            <!-- 推理链路容器 -->
+            <div class="trace-container" id="traceContainer" aria-label="推理链路详情">
                 <div class="reasoning-section">
-                    <h3 style="color: #2d3748; margin-bottom: 16px;">🧠 思考链条与调用证据链</h3>
+                    <h3 data-i18n="traceTitle">🧠 思考链条与调用证据链</h3>
                     <div id="reasoningContainer"></div>
                 </div>
-                <h3 style="color: #2d3748; margin: 16px 0;">⚙️ Pipeline 执行详情</h3>
+                <h3 data-i18n="tracePipeline">⚙️ Pipeline 执行详情</h3>
                 <div class="trace-timeline" id="traceTimeline"></div>
             </div>
-        </div>
-
-        <div class="card history-section">
-            <h2 style="margin-bottom: 16px;">📋 历史记录</h2>
-            <div id="historyList">
-                <p style="color: #666; text-align: center; padding: 20px;">暂无历史记录</p>
-            </div>
-        </div>
+        </section>
     </div>
 
-    <script>
-        const API_BASE = '/api/v1';
-        let currentTaskId = null;
+    <!-- Toast 容器 -->
+    <div id="toast-container" 
+         class="toast-container" 
+         role="alert" 
+         aria-live="polite"></div>
 
-        // DOM elements
-        const uploadZone = document.getElementById('uploadZone');
-        const fileInput = document.getElementById('fileInput');
-        const previewContainer = document.getElementById('previewContainer');
-        const previewImg = document.getElementById('previewImg');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        const resultContainer = document.getElementById('resultContainer');
-        const reportContent = document.getElementById('reportContent');
-
-        // Load stats and history on page load
-        loadStats();
-        loadHistory();
-
-        // Upload zone events
-        uploadZone.addEventListener('click', () => fileInput.click());
-        uploadZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadZone.classList.add('dragover');
-        });
-        uploadZone.addEventListener('dragleave', () => {
-            uploadZone.classList.remove('dragover');
-        });
-        uploadZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadZone.classList.remove('dragover');
-            if (e.dataTransfer.files.length) {
-                handleFile(e.dataTransfer.files[0]);
-            }
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) {
-                handleFile(e.target.files[0]);
-            }
-        });
-
-        analyzeBtn.addEventListener('click', startAnalysis);
-
-        function handleFile(file) {
-            if (!file.type.startsWith('image/')) {
-                alert('请选择图片文件');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImg.src = e.target.result;
-                previewContainer.style.display = 'block';
-                analyzeBtn.disabled = false;
-                analyzeBtn.dataset.file = file.name;
-                window.selectedFile = file;
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function startAnalysis() {
-            const file = window.selectedFile;
-            if (!file) return;
-
-            analyzeBtn.disabled = true;
-            progressContainer.style.display = 'block';
-            resultContainer.style.display = 'none';
-            document.getElementById('traceContainer').style.display = 'none';
-            progressFill.style.width = '0%';
-            progressText.textContent = '上传中...';
-            currentTraceData = null;
-
-            const verbose = document.getElementById('verboseCheck').checked;
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const url = verbose ? `${API_BASE}/analyze?verbose=true` : `${API_BASE}/analyze`;
-                const resp = await fetch(url, {
-                    method: 'POST',
-                    body: formData,
-                });
-                const data = await resp.json();
-                currentTaskId = data.task_id;
-
-                // Update trace toggle button visibility
-                document.getElementById('traceToggleBtn').style.display = verbose ? 'inline-block' : 'none';
-
-                // Start SSE progress stream
-                streamProgress(currentTaskId);
-            } catch (err) {
-                progressText.textContent = '上传失败: ' + err.message;
-                analyzeBtn.disabled = false;
-            }
-        }
-
-        function streamProgress(taskId) {
-            const eventSource = new EventSource(`${API_BASE}/analyze/${taskId}/stream`);
-
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                progressFill.style.width = data.progress + '%';
-
-                const stageNames = {
-                    'preprocess': '预处理',
-                    'ocr': '文字识别',
-                    'vlm_analysis': '场景分析',
-                    'entity_extraction': '实体抽取',
-                    'web_search': '联网验证',
-                    'evidence_fusion': '证据融合',
-                    'report_generation': '生成报告',
-                    'done': '完成',
-                };
-                progressText.textContent = stageNames[data.stage] || data.stage;
-
-                if (data.stage === 'done') {
-                    eventSource.close();
-                    loadReport(taskId);
-                }
-            };
-
-            eventSource.onerror = () => {
-                eventSource.close();
-                // Fallback to polling
-                setTimeout(() => loadReport(taskId), 1000);
-            };
-        }
-
-        async function loadReport(taskId) {
-            try {
-                const resp = await fetch(`${API_BASE}/report/${taskId}`);
-                const data = await resp.json();
-
-                if (data.status === 'completed') {
-                    reportContent.textContent = data.report_markdown;
-                    resultContainer.style.display = 'block';
-                    progressText.textContent = '分析完成！';
-                } else if (data.status === 'failed') {
-                    reportContent.textContent = data.report_markdown || '分析失败';
-                    resultContainer.style.display = 'block';
-                    progressText.textContent = '分析失败';
-                } else {
-                    // Still processing
-                    setTimeout(() => loadReport(taskId), 2000);
-                    return;
-                }
-
-                analyzeBtn.disabled = false;
-                loadStats();
-                loadHistory();
-            } catch (err) {
-                progressText.textContent = '加载报告失败: ' + err.message;
-                analyzeBtn.disabled = false;
-            }
-        }
-
-        async function loadStats() {
-            try {
-                const resp = await fetch(`${API_BASE}/stats`);
-                const data = await resp.json();
-                document.getElementById('statTotal').textContent = data.total_analyses;
-                document.getElementById('statCompleted').textContent = data.completed;
-                document.getElementById('statPending').textContent = data.pending;
-                document.getElementById('statFailed').textContent = data.failed;
-            } catch (err) {
-                console.error('Failed to load stats:', err);
-            }
-        }
-
-        async function loadHistory() {
-            try {
-                const resp = await fetch(`${API_BASE}/reports?limit=10`);
-                const data = await resp.json();
-                const container = document.getElementById('historyList');
-
-                if (!data.length) {
-                    container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">暂无历史记录</p>';
-                    return;
-                }
-
-                container.innerHTML = data.map(item => `
-                    <div class="history-item" onclick="viewReport('${item.id}')">
-                        <div class="history-thumb">📷</div>
-                        <div class="history-info">
-                            <h4>${item.image?.filename || '未知文件'}</h4>
-                            <p>${item.scene?.description?.substring(0, 50) || '暂无描述'}...</p>
-                        </div>
-                        <span class="status-badge status-${item.status}">${item.status}</span>
-                    </div>
-                `).join('');
-            } catch (err) {
-                console.error('Failed to load history:', err);
-            }
-        }
-
-        async function viewReport(taskId) {
-            try {
-                const resp = await fetch(`${API_BASE}/report/${taskId}`);
-                const data = await resp.json();
-                reportContent.textContent = data.report_markdown;
-                resultContainer.style.display = 'block';
-                resultContainer.scrollIntoView({ behavior: 'smooth' });
-            } catch (err) {
-                alert('加载报告失败');
-            }
-        }
-
-        function downloadMarkdown() {
-            const content = reportContent.textContent;
-            const blob = new Blob([content], { type: 'text/markdown' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `report-${currentTaskId || 'unknown'}.md`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        async function downloadHTML() {
-            if (!currentTaskId) return;
-            try {
-                const resp = await fetch(`${API_BASE}/report/${currentTaskId}?format=html`);
-                const html = await resp.text();
-                const blob = new Blob([html], { type: 'text/html' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `report-${currentTaskId}.html`;
-                a.click();
-                URL.revokeObjectURL(url);
-            } catch (err) {
-                alert('下载失败');
-            }
-        }
-
-        // Pipeline Trace Functions
-        let traceVisible = false;
-        let currentTraceData = null;
-
-        function toggleTrace() {
-            traceVisible = !traceVisible;
-            const container = document.getElementById('traceContainer');
-            const btn = document.getElementById('traceToggleBtn');
-            
-            if (traceVisible) {
-                container.style.display = 'block';
-                btn.textContent = '❌ 隐藏链路';
-                if (currentTaskId && !currentTraceData) {
-                    loadTrace(currentTaskId);
-                }
-            } else {
-                container.style.display = 'none';
-                btn.textContent = '🔍 推理链路';
-            }
-        }
-
-        async function loadTrace(taskId) {
-            try {
-                const resp = await fetch(`${API_BASE}/report/${taskId}?include_trace=true`);
-                const data = await resp.json();
-                
-                if (data.pipeline_trace) {
-                    currentTraceData = data.pipeline_trace;
-                    renderTrace(data.pipeline_trace);
-                } else {
-                    document.getElementById('traceTimeline').innerHTML = 
-                        '<p style="color: #718096; text-align: center; padding: 20px;">此报告未记录推理链路（需要 verbose 模式）</p>';
-                }
-            } catch (err) {
-                console.error('Failed to load trace:', err);
-                document.getElementById('traceTimeline').innerHTML = 
-                    '<p style="color: #e53e3e; text-align: center; padding: 20px;">加载推理链路失败</p>';
-            }
-        }
-
-        function renderTrace(trace) {
-            // Render reasoning traces
-            const reasoningContainer = document.getElementById('reasoningContainer');
-            if (trace.reasoning_traces && trace.reasoning_traces.length > 0) {
-                reasoningContainer.innerHTML = trace.reasoning_traces.map(rt => `
-                    <div class="reasoning-card">
-                        <h4>
-                            ${rt.conclusion_category === 'location' ? '📍' : rt.conclusion_category === 'scene' ? '🏞️' : rt.conclusion_category === 'time' ? '⏰' : '📝'}
-                            ${rt.conclusion_statement}
-                            <span class="reasoning-strategy ${rt.strategy_used}">${rt.strategy_used === 'rule' ? '规则匹配' : rt.strategy_used === 'llm' ? 'LLM推理' : '不确定'}</span>
-                        </h4>
-                        <div class="reasoning-probability">置信度: ${(rt.final_probability * 100).toFixed(1)}%</div>
-                        ${rt.steps.length > 0 ? `
-                            <div class="reasoning-steps">
-                                ${rt.steps.map(step => `
-                                    <div class="reasoning-step-item">
-                                        <strong>${step.action === 'rule_match' ? '规则匹配' : step.action === 'llm_inference' ? 'LLM推理' : step.action}:</strong>
-                                        ${step.description}
-                                        ${step.metadata && step.metadata.llm_reasoning ? `<br><em style="color: #718096;">推理过程: ${step.metadata.llm_reasoning}</em>` : ''}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('');
-            } else {
-                reasoningContainer.innerHTML = '<p style="color: #718096; padding: 10px;">无推理链路数据</p>';
-            }
-
-            // Render pipeline steps
-            const timeline = document.getElementById('traceTimeline');
-            if (trace.steps && trace.steps.length > 0) {
-                timeline.innerHTML = trace.steps.map(step => `
-                    <div class="trace-step ${step.status === 'failed' ? 'failed' : ''}">
-                        <div class="trace-step-header">
-                            <span class="trace-step-name">${getStageIcon(step.stage_name)} ${getStageName(step.stage_name)}</span>
-                            <div>
-                                <span class="trace-step-status ${step.status}">${step.status === 'success' ? '成功' : step.status === 'failed' ? '失败' : '跳过'}</span>
-                                <span class="trace-step-duration">${step.duration_ms}ms</span>
-                            </div>
-                        </div>
-                        ${step.input_summary ? `<div class="trace-step-summary">📥 ${step.input_summary}</div>` : ''}
-                        ${step.output_summary ? `<div class="trace-step-summary">📤 ${step.output_summary}</div>` : ''}
-                        ${step.key_findings && step.key_findings.length > 0 ? `
-                            <ul class="trace-step-findings">
-                                ${step.key_findings.map(f => `<li>${f}</li>`).join('')}
-                            </ul>
-                        ` : ''}
-                        ${step.error_message ? `<div style="color: #e53e3e; font-size: 12px; margin-top: 8px;">❌ ${step.error_message}</div>` : ''}
-                    </div>
-                `).join('');
-            } else {
-                timeline.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">无 Pipeline 执行数据</p>';
-            }
-        }
-
-        function getStageIcon(stage) {
-            const icons = {
-                'preprocess': '🖼️',
-                'ocr': '📝',
-                'vlm_analysis': '👁️',
-                'entity_extraction': '🏷️',
-                'web_search': '🌐',
-                'evidence_fusion': '🔬',
-                'report_generation': '📊',
-            };
-            return icons[stage] || '⚙️';
-        }
-
-        function getStageName(stage) {
-            const names = {
-                'preprocess': '图片预处理',
-                'ocr': 'OCR文字识别',
-                'vlm_analysis': 'VLM场景分析',
-                'entity_extraction': '实体抽取',
-                'web_search': '联网验证',
-                'evidence_fusion': '证据融合',
-                'report_generation': '报告生成',
-            };
-            return names[stage] || stage;
-        }
-    </script>
+    <!-- 应用脚本 -->
+    <script type="module" src="src/js/app.js?v=9"></script>
 </body>
 </html>
