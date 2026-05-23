@@ -192,6 +192,9 @@ class HttpSearchService(SearchService):
         return []
 
 
+_RE_HTML_TAG = re.compile(r"<[^>]+>")
+
+
 def _strip_html(text: str) -> str:
     """Remove simple HTML tags from a string."""
-    return re.sub(r"<[^>]+>", "", text)
+    return _RE_HTML_TAG.sub("", text)

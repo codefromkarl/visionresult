@@ -22,6 +22,8 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
+      - name: Type check (mypy)
+        run: mypy src/vision_insight
 
   # ─── 2. 单元测试 + 覆盖率 ─────────────────────────────────
   unit-test:

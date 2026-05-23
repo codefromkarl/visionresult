@@ -43,9 +43,3 @@ def test_verify_api_key_allows_any_key_when_no_keys_configured(mock_settings):
     assert auth.verify_api_key(api_key_header=None, api_key_query="dev-key") == "dev-key"
 
 
-def test_generate_api_key_is_urlsafe_and_unique():
-    key1 = auth.generate_api_key()
-    key2 = auth.generate_api_key()
-
-    assert key1 != key2
-    assert len(key1) >= 32

@@ -1,18 +1,12 @@
 """Tesseract-based OCR service implementation."""
 
-from __future__ import annotations
-
 import io
 import logging
-from typing import TYPE_CHECKING
 
 from PIL import Image
 
 from vision_insight.models.schemas import OCRResult
 from vision_insight.services import OCRService
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 

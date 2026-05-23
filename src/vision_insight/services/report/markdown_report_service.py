@@ -1,7 +1,5 @@
 """Markdown report generation service."""
 
-from __future__ import annotations
-
 import logging
 
 from vision_insight.models.schemas import AnalysisReport
@@ -115,8 +113,8 @@ class MarkdownReportService(ReportService):
                 sections.append(f"## {labels['location']}\n{loc.location} {bar}\n")
                 if loc.evidence:
                     sections.append(f"### {labels['evidence']}")
-                    for e in loc.evidence:
-                        sections.append(f"- {e}")
+                    for ev in loc.evidence:
+                        sections.append(f"- {ev}")
                     sections.append("")
 
             # Time
@@ -187,12 +185,12 @@ class MarkdownReportService(ReportService):
                 if c.evidence:
                     sections.append("")
                     sections.append(f"**{labels['evidence_source']}**")
-                    for e in c.evidence:
-                        icon = self._evidence_icon(e.source)
-                        conf = int(e.confidence * 100)
-                        supporting = "✅" if e.supporting else "❌"
+                    for ev_item in c.evidence:
+                        icon = self._evidence_icon(ev_item.source)
+                        conf = int(ev_item.confidence * 100)
+                        supporting = "✅" if ev_item.supporting else "❌"
                         sections.append(
-                            f"- {icon} [{e.source}] {e.content} ({labels['confidence']}: {conf}%) {supporting}"  # noqa: E501
+                            f"- {icon} [{ev_item.source}] {ev_item.content} ({labels['confidence']}: {conf}%) {supporting}"  # noqa: E501
                         )
                 sections.append("")
 

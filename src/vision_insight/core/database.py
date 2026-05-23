@@ -1,20 +1,23 @@
 """Database models and connection using SQLAlchemy + SQLite."""
 
-from __future__ import annotations
-
 import json
 import logging
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 logger = logging.getLogger(__name__)
 
-# Database path
+# Database path — SQLite is the only supported backend.
+# PostgreSQL was considered but adds operational complexity for a single-node
+# analysis agent.  If multi-node is needed in the future, add a second engine
+# factory rather than branching inside get_engine().
 DB_PATH = Path("data/vision_insight.db")
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 
@@ -83,9 +86,9 @@ class AnalysisRecord(Base):
                 "confidence": self.location_confidence,
             },
             "time_guess": self.time_guess,
-            "ocr_results": json.loads(self.ocr_results_json or "[]"),
-            "entities": json.loads(self.entities_json or "{}"),
-            "conclusions": json.loads(self.conclusions_json or "[]"),
+            "ocr_results": json.loads(str(self.ocr_results_json or "[]")),
+            "entities": json.loads(str(self.entities_json or "{}")),
+            "conclusions": json.loads(str(self.conclusions_json or "[]")),
             "report_markdown": self.report_markdown,
         }
 
@@ -98,15 +101,14 @@ _SessionLocal = None
 def get_engine():
     global _engine
     if _engine is None:
-        # Configure engine with connection pooling
+        # SQLite uses StaticPool to allow concurrent reads from the same
+        # connection; check_same_thread=False is required for FastAPI's
+        # async context which may call the engine from different threads.
         _engine = create_engine(
             DATABASE_URL,
             echo=False,
-            pool_size=5,  # Number of connections to keep in the pool
-            max_overflow=10,  # Maximum overflow connections beyond pool_size
-            pool_timeout=30,  # Seconds to wait for a connection from the pool
-            pool_recycle=1800,  # Recycle connections after 30 minutes
-            pool_pre_ping=True,  # Verify connections before use
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
         )
         Base.metadata.create_all(_engine)
         logger.info("Database initialized: %s", DB_PATH)
@@ -124,12 +126,24 @@ def get_session() -> Session:
     return _SessionLocal()
 
 
-def save_analysis(record: AnalysisRecord) -> None:
-    """Save or update an analysis record."""
+@contextmanager
+def get_session_ctx() -> Generator[Session, None, None]:
+    """Context manager for database sessions.
+
+    Automatically handles session lifecycle:
+    - Yields a session
+    - Rolls back on exception
+    - Always closes the session
+    - Does NOT auto-commit (callers must commit explicitly when needed)
+
+    Usage:
+        with get_session_ctx() as session:
+            session.merge(record)
+            session.commit()
+    """
     session = get_session()
     try:
-        session.merge(record)
-        session.commit()
+        yield session
     except Exception:
         session.rollback()
         raise
@@ -137,19 +151,22 @@ def save_analysis(record: AnalysisRecord) -> None:
         session.close()
 
 
+def save_analysis(record: AnalysisRecord) -> None:
+    """Save or update an analysis record."""
+    with get_session_ctx() as session:
+        session.merge(record)
+        session.commit()
+
+
 def get_analysis(analysis_id: str) -> AnalysisRecord | None:
     """Get an analysis record by ID."""
-    session = get_session()
-    try:
+    with get_session_ctx() as session:
         return session.query(AnalysisRecord).filter_by(id=analysis_id).first()
-    finally:
-        session.close()
 
 
 def list_analyses(limit: int = 20, offset: int = 0) -> list[AnalysisRecord]:
     """List recent analyses."""
-    session = get_session()
-    try:
+    with get_session_ctx() as session:
         return (
             session.query(AnalysisRecord)
             .order_by(AnalysisRecord.created_at.desc())
@@ -157,31 +174,32 @@ def list_analyses(limit: int = 20, offset: int = 0) -> list[AnalysisRecord]:
             .limit(limit)
             .all()
         )
-    finally:
-        session.close()
 
 
 def delete_analysis(analysis_id: str) -> bool:
     """Delete an analysis record."""
-    session = get_session()
-    try:
+    with get_session_ctx() as session:
         record = session.query(AnalysisRecord).filter_by(id=analysis_id).first()
         if record:
             session.delete(record)
             session.commit()
             return True
         return False
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+
+
+def _sanitize_like_pattern(value: str) -> str:
+    """Escape special characters for SQL LIKE pattern.
+
+    Escapes backslash, percent, and underscore so they are treated as
+    literal characters rather than wildcards.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def search_analyses(
-    keyword: str = None,
-    scene_type: str = None,
-    location: str = None,
+    keyword: str | None = None,
+    scene_type: str | None = None,
+    location: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> list[AnalysisRecord]:
@@ -189,16 +207,11 @@ def search_analyses(
 
     Uses parameterized queries to prevent SQL injection.
     """
-    session = get_session()
-    try:
+    with get_session_ctx() as session:
         query = session.query(AnalysisRecord)
 
         if keyword:
-            # Sanitize keyword: escape special characters for LIKE
-            sanitized_keyword = (
-                keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            )
-            search_pattern = f"%{sanitized_keyword}%"
+            search_pattern = f"%{_sanitize_like_pattern(keyword)}%"
             query = query.filter(
                 AnalysisRecord.report_markdown.ilike(search_pattern)
                 | AnalysisRecord.scene_description.ilike(search_pattern)
@@ -223,16 +236,10 @@ def search_analyses(
                 return []
             query = query.filter(AnalysisRecord.scene_type == scene_type)
         if location:
-            # Sanitize location input
-            sanitized_location = (
-                location.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            )
-            location_pattern = f"%{sanitized_location}%"
+            location_pattern = f"%{_sanitize_like_pattern(location)}%"
             query = query.filter(AnalysisRecord.location_guess.ilike(location_pattern))
 
         return query.order_by(AnalysisRecord.created_at.desc()).offset(offset).limit(limit).all()
-    finally:
-        session.close()
 
 
 def cleanup_old_analyses(days: int = 30) -> int:
@@ -246,8 +253,7 @@ def cleanup_old_analyses(days: int = 30) -> int:
     """
     from datetime import timedelta
 
-    session = get_session()
-    try:
+    with get_session_ctx() as session:
         cutoff_date = datetime.now() - timedelta(days=days)
         deleted = session.query(AnalysisRecord).filter(
             AnalysisRecord.created_at < cutoff_date
@@ -256,11 +262,6 @@ def cleanup_old_analyses(days: int = 30) -> int:
         if deleted > 0:
             logger.info("Cleaned up %d old analysis records", deleted)
         return deleted
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
 
 
 def get_database_stats() -> dict:
@@ -269,8 +270,7 @@ def get_database_stats() -> dict:
     Returns:
         Dictionary with database statistics.
     """
-    session = get_session()
-    try:
+    with get_session_ctx() as session:
         total = session.query(AnalysisRecord).count()
         completed = session.query(AnalysisRecord).filter_by(status="completed").count()
         failed = session.query(AnalysisRecord).filter_by(status="failed").count()
@@ -284,5 +284,3 @@ def get_database_stats() -> dict:
             "failed": failed,
             "pending": pending,
         }
-    finally:
-        session.close()

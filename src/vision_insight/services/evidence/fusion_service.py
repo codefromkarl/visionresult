@@ -1,8 +1,7 @@
 """Evidence fusion service — rule + LLM hybrid strategy."""
 
-from __future__ import annotations
-
 import logging
+import time
 from abc import ABC, abstractmethod
 
 from vision_insight.models.schemas import (
@@ -229,6 +228,13 @@ class FusionService(EvidenceService):
 
     async def _fuse_time_from_vlm(self, scene: SceneAnalysis) -> FusedConclusion:
         tg = scene.time_guess
+        if tg is None:
+            return FusedConclusion(
+                statement="无法确定拍摄时间",
+                probability=0.0,
+                evidence=[],
+                category="time",
+            )
         parts = [f"时段: {tg.time_of_day}"] if tg.time_of_day else []
         if tg.season:
             parts.append(f"季节: {tg.season}")
@@ -290,8 +296,7 @@ class FusionService(EvidenceService):
         label: str,
     ) -> FusedConclusion:
         """Apply the hybrid rule + LLM strategy to produce a conclusion."""
-        import time as _time
-        start_time = _time.time()
+        start_time = time.time()
         steps = []
         strategy_used = "none"
 
@@ -309,7 +314,7 @@ class FusionService(EvidenceService):
                     "final_probability": 0.0,
                     "steps": [],
                     "strategy_used": "none",
-                    "total_duration_ms": int((_time.time() - start_time) * 1000),
+                    "total_duration_ms": int((time.time() - start_time) * 1000),
                 })
             return result
 
@@ -329,7 +334,7 @@ class FusionService(EvidenceService):
                 "output_summary": f"Best match: [{best.source}] {best.content[:50]}...",
                 "confidence_before": max_conf,
                 "confidence_after": prob,
-                "duration_ms": int((_time.time() - start_time) * 1000),
+                "duration_ms": int((time.time() - start_time) * 1000),
                 "metadata": {"best_source": best.source, "num_supporting": len(supporting)},
             })
             result = FusedConclusion(
@@ -356,7 +361,7 @@ class FusionService(EvidenceService):
                     "output_summary": f"LLM response: {llm_response[:100]}...",
                     "confidence_before": max_conf,
                     "confidence_after": prob,
-                    "duration_ms": int((_time.time() - start_time) * 1000),
+                    "duration_ms": int((time.time() - start_time) * 1000),
                     "metadata": {"llm_reasoning": reasoning, "prompt_length": len(prompt)},
                 })
                 result = FusedConclusion(
@@ -376,7 +381,7 @@ class FusionService(EvidenceService):
                     "output_summary": str(exc),
                     "confidence_before": max_conf,
                     "confidence_after": max_conf * 0.5,
-                    "duration_ms": int((_time.time() - start_time) * 1000),
+                    "duration_ms": int((time.time() - start_time) * 1000),
                     "metadata": {"error": str(exc)},
                 })
                 result = FusedConclusion(
@@ -399,7 +404,7 @@ class FusionService(EvidenceService):
                 "output_summary": "Marked as uncertain",
                 "confidence_before": max_conf,
                 "confidence_after": max_conf * 0.5,
-                "duration_ms": int((_time.time() - start_time) * 1000),
+                "duration_ms": int((time.time() - start_time) * 1000),
                 "metadata": {},
             })
             result = FusedConclusion(
@@ -417,7 +422,7 @@ class FusionService(EvidenceService):
                 "final_probability": result.probability,
                 "steps": steps,
                 "strategy_used": strategy_used,
-                "total_duration_ms": int((_time.time() - start_time) * 1000),
+                "total_duration_ms": int((time.time() - start_time) * 1000),
             })
 
         return result

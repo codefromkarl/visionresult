@@ -17,6 +17,8 @@ from vision_insight.services.vlm.api_service import (
     GeminiVLMService,
     OpenAIVLMService,
 )
+from vision_insight.utils.json_helpers import parse_llm_json
+from vision_insight.utils.scene_builders import build_scene_analysis
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -381,34 +383,34 @@ class TestGeminiVLMService:
 
 
 class TestParseJsonResponse:
-    """Tests for _parse_json_response static method."""
+    """Tests for parse_llm_json free function."""
 
     def test_plain_json(self):
-        assert OpenAIVLMService._parse_json_response('{"a": 1}') == {"a": 1}
+        assert parse_llm_json('{"a": 1}') == {"a": 1}
 
     def test_json_with_fences(self):
-        result = OpenAIVLMService._parse_json_response('```json\n{"a": 1}\n```')
+        result = parse_llm_json('```json\n{"a": 1}\n```')
         assert result == {"a": 1}
 
     def test_json_with_leading_whitespace(self):
-        assert OpenAIVLMService._parse_json_response('  \n{"a": 1}\n  ') == {"a": 1}
+        assert parse_llm_json('  \n{"a": 1}\n  ') == {"a": 1}
 
     def test_invalid_json_raises(self):
         with pytest.raises(json.JSONDecodeError):
-            OpenAIVLMService._parse_json_response("not json at all")
+            parse_llm_json("not json at all")
 
 
 class TestBuildSceneAnalysis:
-    """Tests for _build_scene_analysis static method."""
+    """Tests for build_scene_analysis free function."""
 
     def test_full_data(self):
-        result = OpenAIVLMService._build_scene_analysis(VALID_SCENE_JSON)
+        result = build_scene_analysis(VALID_SCENE_JSON)
         assert result.scene_type == "restaurant"
         assert result.location_guess.location == "Rome, Italy"
         assert len(result.people) == 1
 
     def test_empty_data(self):
-        result = OpenAIVLMService._build_scene_analysis({})
+        result = build_scene_analysis({})
         assert result.scene_type == "unknown"
         assert result.location_guess is None
         assert result.people == []

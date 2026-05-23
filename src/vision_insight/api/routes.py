@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-import uuid
+import time
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +15,7 @@ from vision_insight.core.database import (
     AnalysisRecord,
     delete_analysis,
     get_analysis,
+    get_database_stats,
     list_analyses,
     save_analysis,
     search_analyses,
@@ -29,13 +30,28 @@ from vision_insight.models.schemas import (
     QuestionResponse,
 )
 from vision_insight.pipeline.runner import get_pipeline_runner
+from vision_insight.utils import generate_task_id
+from vision_insight.utils.image import detect_image_format
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # In-memory progress store for SSE (not persisted)
-_progress: dict[str, list[tuple[str, int]]] = {}
+# Each entry: task_id -> (timestamp, list[(stage, percent)])
+_progress: dict[str, tuple[float, list[tuple[str, int]]]] = {}
+_PROGRESS_TTL_SECONDS = 3600  # 1 hour
+
+
+def _cleanup_progress() -> None:
+    """Remove progress entries older than _PROGRESS_TTL_SECONDS."""
+    now = time.time()
+    expired = [k for k, (ts, _) in _progress.items() if now - ts > _PROGRESS_TTL_SECONDS]
+    for k in expired:
+        del _progress[k]
+    if expired:
+        logger.debug("Cleaned up %d expired progress entries", len(expired))
+
 
 # File upload constraints
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
@@ -44,16 +60,6 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 # Image storage directory
 IMAGES_DIR = Path("data/images")
-IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-
-# Magic bytes for image format validation
-IMAGE_MAGIC_BYTES = {
-    b"\xff\xd8\xff": "jpeg",
-    b"\x89PNG\r\n\x1a\n": "png",
-    b"GIF87a": "gif",
-    b"GIF89a": "gif",
-    b"RIFF": "webp",  # WebP starts with RIFF
-}
 
 
 def _validate_image_file(file: UploadFile, image_bytes: bytes) -> None:
@@ -96,17 +102,9 @@ def _validate_image_file(file: UploadFile, image_bytes: bytes) -> None:
             )
 
     # Validate magic bytes (file signature)
-    is_valid_image = False
-    for magic, format_name in IMAGE_MAGIC_BYTES.items():
-        if image_bytes[: len(magic)] == magic:
-            is_valid_image = True
-            break
-
-    # Additional check for WebP (RIFF....WEBP)
-    if not is_valid_image and image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
-        is_valid_image = True
-
-    if not is_valid_image:
+    detected_format = detect_image_format(image_bytes)
+    # JPEG is the default fallback; verify it actually starts with JPEG magic
+    if detected_format == "jpeg" and not image_bytes[:3] == b"\xff\xd8\xff":
         raise HTTPException(
             status_code=400,
             detail="Invalid image file: file signature does not match any supported format",
@@ -124,39 +122,39 @@ def _record_to_report(record: AnalysisRecord) -> AnalysisReport:
     )
 
     # Parse JSON fields
-    ocr_results = [OCRResult(**r) for r in json.loads(record.ocr_results_json or "[]")]
-    entities_data = json.loads(record.entities_json or "{}")
+    ocr_results = [OCRResult(**r) for r in json.loads(str(record.ocr_results_json or "[]"))]
+    entities_data = json.loads(str(record.entities_json or "{}"))
     entities = EntityExtraction(**entities_data) if entities_data else None
-    conclusions_data = json.loads(record.conclusions_json or "[]")
+    conclusions_data = json.loads(str(record.conclusions_json or "[]"))
     conclusions = [FusedConclusion(**c) for c in conclusions_data]
-    search_data = json.loads(record.search_results_json or "[]")
+    search_data = json.loads(str(record.search_results_json or "[]"))
     search_results = [SearchResult(**s) for s in search_data]
 
     # Build image metadata
     image_metadata = None
     if record.image_width:
         image_metadata = ImageMetadata(
-            width=record.image_width,
-            height=record.image_height,
-            format=record.image_format or "unknown",
-            file_size=record.image_file_size or 0,
+            width=int(record.image_width),
+            height=int(record.image_height),
+            format=str(record.image_format or "unknown"),
+            file_size=int(record.image_file_size or 0),
         )
 
     return AnalysisReport(
-        id=record.id,
-        status=AnalysisStatus(record.status),
-        created_at=record.created_at or datetime.now(),
-        processing_time_ms=record.processing_time_ms or 0,
+        id=str(record.id),
+        status=AnalysisStatus(str(record.status)),
+        created_at=record.created_at if isinstance(record.created_at, datetime) else datetime.now(),
+        processing_time_ms=int(record.processing_time_ms or 0),
         image_metadata=image_metadata,
         ocr_results=ocr_results,
         entities=entities,
         conclusions=conclusions,
         search_results=search_results,
-        report_markdown=record.report_markdown or "",
+        report_markdown=str(record.report_markdown or ""),
     )
 
 
-def _report_to_record(report: AnalysisReport, filename: str = None) -> AnalysisRecord:
+def _report_to_record(report: AnalysisReport, filename: str | None = None) -> AnalysisRecord:
     """Convert AnalysisReport to database record."""
     record = AnalysisRecord(
         id=report.id,
@@ -210,7 +208,11 @@ def _report_to_record(report: AnalysisReport, filename: str = None) -> AnalysisR
 
 
 async def _run_analysis(
-    task_id: str, image_bytes: bytes, filename: str = None, verbose: bool = False, lang: str = "zh"
+    task_id: str,
+    image_bytes: bytes,
+    filename: str | None = None,
+    verbose: bool = False,
+    lang: str = "zh",
 ) -> None:
     """Background task: run the analysis pipeline with progress tracking."""
     runner = get_pipeline_runner()
@@ -221,10 +223,13 @@ async def _run_analysis(
         status=AnalysisStatus.PENDING,
         created_at=datetime.now(),
     )
-    _progress[task_id] = []
+    # Cleanup old entries before adding new one
+    _cleanup_progress()
+    _progress[task_id] = (time.time(), [])
 
     def progress_callback(stage: str, percent: int):
-        _progress[task_id].append((stage, percent))
+        _, entries = _progress[task_id]
+        entries.append((stage, percent))
         log_event(task_id, "progress", stage=stage, percent=percent)
 
     log_event(
@@ -259,7 +264,12 @@ async def _run_analysis(
         )
         save_analysis(record)
     finally:
-        _progress[task_id].append(("done", 100))
+        if task_id in _progress:
+            _, entries = _progress[task_id]
+            entries.append(("done", 100))
+            # Delete entry to free memory; DB is the source of truth.
+            # SSE clients already connected have their own event queue.
+            del _progress[task_id]
 
 
 @router.post(
@@ -284,9 +294,9 @@ async def create_analysis(
     # Validate file (size, type, magic bytes)
     _validate_image_file(file, image_bytes)
 
-    task_id = str(uuid.uuid4())[:8]
+    task_id = generate_task_id()
 
-    client_ip = request.client.host if request else "unknown"
+    client_ip = request.client.host if request and request.client else "unknown"
     log_event(
         task_id,
         "request_received",
@@ -312,7 +322,9 @@ async def create_analysis(
     image_path.write_bytes(image_bytes)
     log_event(task_id, "image_saved", path=str(image_path))
 
-    background_tasks.add_task(_run_analysis, task_id, image_bytes, file.filename, verbose, lang)
+    background_tasks.add_task(
+        _run_analysis, task_id, image_bytes, file.filename, verbose, lang
+    )
 
     log_event(task_id, "task_created", status="pending", lang=lang)
 
@@ -324,7 +336,10 @@ async def create_analysis(
 
 
 @router.post(
-    "/analyze/url", response_model=AnalysisTaskResponse, tags=["analysis"], summary="URL图片分析"
+    "/analyze/url",
+    response_model=AnalysisTaskResponse,
+    tags=["analysis"],
+    summary="URL图片分析",
 )
 async def create_analysis_from_url(
     background_tasks: BackgroundTasks,
@@ -341,10 +356,12 @@ async def create_analysis_from_url(
             resp = await client.get(request.image_url)
             resp.raise_for_status()
             image_bytes = resp.content
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to download image: {exc}")
 
-    task_id = str(uuid.uuid4())[:8]
+    task_id = generate_task_id()
     record = AnalysisRecord(
         id=task_id,
         status="pending",
@@ -395,7 +412,7 @@ async def get_report(
     if include_trace and record.pipeline_trace_json:
         import json
 
-        result["pipeline_trace"] = json.loads(record.pipeline_trace_json)
+        result["pipeline_trace"] = json.loads(str(record.pipeline_trace_json))
 
     return result
 
@@ -404,9 +421,9 @@ async def get_report(
 async def list_reports(
     limit: int = 20,
     offset: int = 0,
-    keyword: str = None,
-    scene_type: str = None,
-    location: str = None,
+    keyword: str | None = None,
+    scene_type: str | None = None,
+    location: str | None = None,
 ):
     """List recent analysis reports with optional filters.
 
@@ -479,7 +496,7 @@ async def create_batch_analysis(
             results.append({"filename": file.filename, "error": e.detail})
             continue
 
-        task_id = str(uuid.uuid4())[:8]
+        task_id = generate_task_id()
         record = AnalysisRecord(
             id=task_id,
             status="pending",
@@ -539,7 +556,7 @@ async def stream_progress(task_id: str):
                         yield f"data: {json.dumps(data)}\n\n"
                         break
 
-                except asyncio.Timeout:
+                except TimeoutError:
                     # Send heartbeat to keep connection alive
                     yield ": heartbeat\n\n"
 
@@ -597,17 +614,12 @@ async def get_task_events(task_id: str):
 @router.get("/stats", tags=["system"], summary="系统统计")
 async def get_stats():
     """Get database statistics."""
-    records = list_analyses(limit=1000)
-    total = len(records)
-    completed = sum(1 for r in records if r.status == "completed")
-    failed = sum(1 for r in records if r.status == "failed")
-    pending = sum(1 for r in records if r.status in ("pending", "processing"))
-
+    stats = get_database_stats()
     return {
-        "total_analyses": total,
-        "completed": completed,
-        "failed": failed,
-        "pending": pending,
+        "total_analyses": stats["total"],
+        "completed": stats["completed"],
+        "failed": stats["failed"],
+        "pending": stats["pending"],
     }
 
 
@@ -624,32 +636,6 @@ async def ask_question(request: QuestionRequest):
     if record.status != "completed":
         raise HTTPException(status_code=400, detail="Analysis not completed yet")
 
-    # Build context from the analysis
-    context_parts = []
-    if record.scene_description:
-        context_parts.append(f"场景描述: {record.scene_description}")
-    if record.location_guess:
-        context_parts.append(
-            f"地点推测: {record.location_guess} (置信度: {record.location_confidence})"
-        )
-    if record.time_guess:
-        context_parts.append(f"时间推测: {record.time_guess}")
-    if record.ocr_results_json:
-        ocr = json.loads(record.ocr_results_json)
-        if ocr:
-            texts = [r.get("text", "") for r in ocr]
-            context_parts.append(f"OCR文字: {', '.join(texts)}")
-    if record.entities_json:
-        ent = json.loads(record.entities_json)
-        if ent.get("brands"):
-            context_parts.append(f"品牌: {', '.join(ent['brands'])}")
-        if ent.get("landmarks"):
-            context_parts.append(f"地标: {', '.join(ent['landmarks'])}")
-    if record.report_markdown:
-        context_parts.append(f"完整报告:\n{record.report_markdown[:1000]}")
-
-    "\n".join(context_parts)
-
     # Simple rule-based QA (could be enhanced with LLM)
     question = request.question.lower()
     answer = ""
@@ -658,7 +644,7 @@ async def ask_question(request: QuestionRequest):
 
     if any(kw in question for kw in ["地点", "位置", "哪里", "where", "location"]):
         answer = f"根据分析，拍摄地点推测为: {record.location_guess or '未知'}"
-        confidence = record.location_confidence or 0.5
+        confidence = float(record.location_confidence or 0.5)
         sources = ["VLM场景分析", "实体抽取"]
 
     elif any(kw in question for kw in ["时间", "什么时候", "when", "time"]):
@@ -672,7 +658,7 @@ async def ask_question(request: QuestionRequest):
         sources = ["VLM场景分析"]
 
     elif any(kw in question for kw in ["文字", "OCR", "text", "写了什么"]):
-        ocr = json.loads(record.ocr_results_json or "[]")
+        ocr = json.loads(str(record.ocr_results_json or "[]"))
         if ocr:
             texts = [r.get("text", "") for r in ocr]
             answer = f"检测到的文字: {', '.join(texts)}"
@@ -683,7 +669,7 @@ async def ask_question(request: QuestionRequest):
         sources = ["OCR文字识别"]
 
     elif any(kw in question for kw in ["品牌", "logo", "brand"]):
-        ent = json.loads(record.entities_json or "{}")
+        ent = json.loads(str(record.entities_json or "{}"))
         brands = ent.get("brands", [])
         if brands:
             answer = f"检测到的品牌: {', '.join(brands)}"

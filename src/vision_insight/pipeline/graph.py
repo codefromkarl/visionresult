@@ -5,12 +5,12 @@ Pipeline stages:
   Web Search → Evidence Fusion → Report Generation
 """
 
-from __future__ import annotations
-
 import logging
+from datetime import datetime as dt
 from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from vision_insight.core.config import settings
 from vision_insight.core.event_logger import log_event
@@ -80,7 +80,6 @@ def _start_pipeline_step(state: PipelineState, stage_name: str) -> dict:
     """Record the start of a pipeline step if verbose mode is enabled."""
     if not state.get("verbose"):
         return {}
-    from datetime import datetime as dt
 
     return {
         "stage_name": stage_name,
@@ -100,14 +99,13 @@ def _end_pipeline_step(
     step_info: dict,
     status: str = "success",
     output_summary: str = "",
-    key_findings: list[str] = None,
-    error_message: str = None,
-    output_data: dict = None,
+    key_findings: list[str] | None = None,
+    error_message: str | None = None,
+    output_data: dict[Any, Any] | None = None,
 ) -> None:
     """Complete a pipeline step recording."""
     if not step_info or not state.get("verbose"):
         return
-    from datetime import datetime as dt
 
     step_info["end_time"] = dt.now().isoformat()
     step_info["status"] = status
@@ -154,7 +152,6 @@ def make_preprocess_node():
 
             # Extract metadata
             meta_dict = get_image_metadata(raw_bytes)
-            from datetime import datetime as dt
 
             capture_time = None
             if meta_dict.get("capture_time"):
@@ -326,7 +323,7 @@ def make_vlm_node(vlm_service: VLMService):
                 else None,
             )
             # Send insight event with actual results
-            results_items = [
+            results_items: list[dict[str, Any]] = [
                 {"label": "场景类型", "value": scene.scene_type},
                 {"label": "场景描述", "value": scene.description},
             ]
@@ -432,7 +429,7 @@ def make_entity_node(entity_service: EntityService):
             if entities.location_keywords:
                 findings.append(f"Location keywords: {', '.join(entities.location_keywords[:3])}")
             # Send insight event with actual results
-            results_items = []
+            results_items: list[dict[str, Any]] = []
             if entities.brands:
                 results_items.append({"label": "品牌", "value": entities.brands})
             if entities.landmarks:
@@ -519,7 +516,7 @@ def make_search_node(search_service: SearchService):
         logger.info("Web search done: %d results from %d queries", len(all_results), len(queries))
 
         # Send insight event with actual results
-        results_items = [
+        results_items: list[dict[str, Any]] = [
             {"label": "搜索词", "value": queries[:3]},
             {"label": "结果数量", "value": f"{len(all_results)} 条"},
         ]
@@ -593,7 +590,7 @@ def make_fusion_node(evidence_service: EvidenceService):
             for c in conclusions[:3]:
                 findings.append(f"{c.category}: {c.statement[:50]}... (prob={c.probability:.2f})")
             # Send insight event with actual results
-            results_items = [
+            results_items: list[dict[str, Any]] = [
                 {"label": "结论数量", "value": f"{len(conclusions)} 条"},
             ]
             if conclusions:
@@ -710,7 +707,7 @@ def build_pipeline(
     entity_service: EntityService,
     search_service: SearchService,
     evidence_service: EvidenceService,
-) -> StateGraph:
+) -> CompiledStateGraph:
     """Build the analysis pipeline graph with injected services."""
     graph = StateGraph(PipelineState)
 

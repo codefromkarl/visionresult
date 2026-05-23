@@ -8,6 +8,7 @@ import httpx
 from vision_insight.core.config import settings
 from vision_insight.models.schemas import EntityExtraction, OCRResult, SceneAnalysis
 from vision_insight.services import EntityService
+from vision_insight.utils import extract_entities_rule_based
 from vision_insight.utils.json_helpers import parse_llm_json
 from vision_insight.utils.retry import retry_with_backoff
 
@@ -126,16 +127,4 @@ class LLMEntityService(EntityService):
         ocr_results: list[OCRResult], scene: SceneAnalysis
     ) -> EntityExtraction:
         """Rule-based fallback when LLM parsing fails."""
-        location_keywords: list[str] = []
-        if scene.location_guess and scene.location_guess.location:
-            location_keywords.append(scene.location_guess.location)
-
-        # Extract text entities from OCR results with high confidence
-        text_entities = [r.text for r in ocr_results if r.confidence >= 0.8]
-
-        return EntityExtraction(
-            location_keywords=location_keywords,
-            brands=[],
-            landmarks=[],
-            text_entities=text_entities,
-        )
+        return extract_entities_rule_based(scene, ocr_results)

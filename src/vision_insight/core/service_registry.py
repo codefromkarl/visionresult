@@ -4,8 +4,6 @@ This module provides a centralized way to discover and initialize services
 based on configuration, reducing the complexity of PipelineRunner.
 """
 
-from __future__ import annotations
-
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
@@ -205,71 +203,15 @@ class DefaultServiceFactory(ServiceFactory):
 
     def create_evidence_service(self, vlm_service: VLMService) -> EvidenceService:
         """Create evidence fusion service with LLM port adapter."""
-        import httpx
-
         from vision_insight.services.evidence.fusion_service import FusionService, LLMPort
-
-        class ZhipuLLMPort(LLMPort):
-            """Use Zhipu GLM-4-Flash for text-only LLM inference."""
-
-            def __init__(self, api_key: str):
-                self._api_key = api_key
-                self._base_url = "https://open.bigmodel.cn/api/coding/paas/v4"
-                self._model = "glm-4-flash"
-
-            async def infer(self, prompt: str) -> str:
-                """Send prompt to Zhipu LLM and return response."""
-                try:
-                    payload = {
-                        "model": self._model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": 512,
-                        "temperature": 0.3,
-                    }
-                    headers = {
-                        "Authorization": f"Bearer {self._api_key}",
-                        "Content-Type": "application/json",
-                    }
-                    async with httpx.AsyncClient(timeout=30.0) as client:
-                        resp = await client.post(
-                            f"{self._base_url}/chat/completions",
-                            json=payload,
-                            headers=headers,
-                        )
-                        resp.raise_for_status()
-                        body = resp.json()
-                    return body["choices"][0]["message"]["content"].strip()
-                except Exception as e:
-                    logger.warning("LLM inference failed: %s", e)
-                    return ""
-
-            async def infer_with_reasoning(self, prompt: str) -> tuple[str, str]:
-                """Return (response, reasoning_trace)."""
-                # Add reasoning instruction to prompt
-                reasoning_prompt = (
-                    prompt
-                    + "\n\n请先用一句话回答结论，然后另起一行以'推理过程:'开头，"
-                    + "详细说明你的推理步骤。"
-                )
-                response = await self.infer(reasoning_prompt)
-
-                # Split response into answer and reasoning
-                if "推理过程:" in response:
-                    parts = response.split("推理过程:", 1)
-                    return parts[0].strip(), parts[1].strip()
-                return response, ""
+        from vision_insight.services.evidence.llm_ports import EmptyLLMPort, ZhipuLLMPort
 
         # Use Zhipu LLM if available, otherwise fallback to empty
+        llm: LLMPort
         if _setting_string("zhipu_api_key"):
             llm = ZhipuLLMPort(api_key=_setting_string("zhipu_api_key"))
             logger.info("Evidence fusion: using Zhipu GLM-4-Flash for LLM reasoning")
         else:
-            # Fallback: empty LLM (will skip medium-confidence reasoning)
-            class EmptyLLMPort(LLMPort):
-                async def infer(self, prompt: str) -> str:
-                    return ""
-                async def infer_with_reasoning(self, prompt: str) -> tuple[str, str]:
-                    return "", ""
             llm = EmptyLLMPort()
             logger.warning(
                 "No LLM API key for evidence fusion, medium-confidence reasoning disabled"

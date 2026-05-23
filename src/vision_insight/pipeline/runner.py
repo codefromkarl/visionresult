@@ -1,9 +1,8 @@
 """Pipeline runner — wires services and executes the analysis pipeline."""
 
-from __future__ import annotations
-
 import logging
 import time
+from typing import Any
 
 from vision_insight.core.event_logger import log_event
 from vision_insight.core.service_registry import ServiceRegistry, get_service_registry
@@ -29,7 +28,7 @@ class PipelineRunner:
             registry: Service registry to use. If None, uses default singleton.
         """
         self._registry = registry or get_service_registry()
-        self._pipeline = None
+        self._pipeline: Any = None
 
     def _ensure_pipeline(self) -> None:
         """Lazy-initialize the pipeline graph."""
@@ -73,7 +72,8 @@ class PipelineRunner:
 
         # Get evidence service for verbose mode
         evidence_service = self._registry.get_evidence_service()
-        evidence_service.set_verbose(verbose)
+        if hasattr(evidence_service, 'set_verbose'):
+            evidence_service.set_verbose(verbose)
 
         task_id = report.id
         start_time = time.time()

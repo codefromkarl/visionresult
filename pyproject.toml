@@ -75,3 +75,38 @@ exclude_lines = [
     "raise NotImplementedError",
     "pass",
 ]
+
+# ─── mypy 配置（渐进式严格化）──────────────────────────────
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+no_implicit_optional = true
+warn_unused_ignores = true
+# no-any-return 暂时关闭，历史代码中 httpx/json 返回 Any 穿透太多
+disable_error_code = ["no-any-return"]
+
+# 第三方库缺 stubs
+[[tool.mypy.overrides]]
+module = [
+    "paddleocr.*",
+    "pytesseract",
+    "cv2",
+    "langgraph.*",
+    "langchain_core.*",
+]
+ignore_missing_imports = true
+
+# SQLAlchemy Column 动态类型 — 允许 ORM 赋值
+[[tool.mypy.overrides]]
+module = "vision_insight.api.routes"
+disable_error_code = ["assignment", "arg-type"]
+
+[[tool.mypy.overrides]]
+module = "vision_insight.core.database"
+disable_error_code = ["assignment", "arg-type"]
+
+# PIL Exif 类型不是标准 dict
+[[tool.mypy.overrides]]
+module = "vision_insight.utils.image"
+disable_error_code = ["arg-type"]

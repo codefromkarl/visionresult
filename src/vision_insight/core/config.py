@@ -35,8 +35,9 @@ class Settings(BaseSettings):
     baidu_ocr_secret_key: str = ""
     baidu_ocr_accurate: bool = True  # Use high-accuracy mode
 
-    # Database
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/vision_insight"
+    # Database — unused: the project uses SQLite (see core/database.py).
+    # Kept here so that VIA_DATABASE_URL in .env doesn't cause a validation error.
+    database_url: str = ""
 
     # Search
     google_api_key: str = ""
@@ -61,6 +62,13 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Ensure directories exist
-settings.upload_dir.mkdir(parents=True, exist_ok=True)
-settings.cache_dir.mkdir(parents=True, exist_ok=True)
+
+def ensure_directories() -> None:
+    """Ensure required directories exist.
+
+    Call this at application startup, not at import time.
+    """
+    settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    settings.cache_dir.mkdir(parents=True, exist_ok=True)
+    Path("data/images").mkdir(parents=True, exist_ok=True)
+    Path("data").mkdir(parents=True, exist_ok=True)

@@ -13,8 +13,6 @@ Usage:
     log_event("task_id", "vlm_call_end", status="timeout", duration_ms=60123, attempt=1)
 """
 
-from __future__ import annotations
-
 import asyncio
 import json
 import logging

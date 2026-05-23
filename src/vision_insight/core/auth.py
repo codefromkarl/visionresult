@@ -1,10 +1,7 @@
 """API Key authentication middleware."""
 
-from __future__ import annotations
-
 import hashlib
 import hmac
-import secrets
 
 from fastapi import HTTPException, Request, Security
 from fastapi.security import APIKeyHeader, APIKeyQuery
@@ -52,6 +49,40 @@ def _hash_api_key(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()
 
 
+# Cached hashes — computed once on first use, avoids rehashing on every request
+_valid_key_hashes: list[str] | None = None
+
+
+def _get_valid_key_hashes() -> list[str]:
+    """Get pre-computed hashes of configured API keys (cached).
+
+    Returns:
+        List of SHA-256 hashes for all configured API keys.
+    """
+    global _valid_key_hashes
+    if _valid_key_hashes is None:
+        keys = _get_configured_api_keys()
+        _valid_key_hashes = [_hash_api_key(k) for k in keys]
+    return _valid_key_hashes
+
+
+def _validate_api_key(api_key: str) -> bool:
+    """Validate an API key against configured keys.
+
+    Args:
+        api_key: Raw API key to validate.
+
+    Returns:
+        True if the key is valid (or no keys are configured).
+    """
+    valid_keys = _get_configured_api_keys()
+    if not valid_keys:
+        return True
+    hashed_key = _hash_api_key(api_key)
+    valid_hashes = _get_valid_key_hashes()
+    return any(hmac.compare_digest(hashed_key, vh) for vh in valid_hashes)
+
+
 def verify_api_key(
     api_key_header: str | None = Security(api_key_header),
     api_key_query: str | None = Security(api_key_query),
@@ -84,26 +115,13 @@ def verify_api_key(
     if not valid_keys:
         return api_key
 
-    # Check if key matches any valid key
-    hashed_key = _hash_api_key(api_key)
-    valid_hashes = [_hash_api_key(k) for k in valid_keys]
-
-    if not any(hmac.compare_digest(hashed_key, vh) for vh in valid_hashes):
+    if not _validate_api_key(api_key):
         raise HTTPException(
             status_code=403,
             detail="Invalid API key",
         )
 
     return api_key
-
-
-def generate_api_key() -> str:
-    """Generate a new secure API key.
-
-    Returns:
-        New API key string.
-    """
-    return secrets.token_urlsafe(32)
 
 
 def setup_api_key_auth(app, enabled: bool = True):
@@ -145,17 +163,12 @@ def setup_api_key_auth(app, enabled: bool = True):
                 content={"detail": "API key required"},
             )
 
-        # Verify key
-        valid_keys = _get_configured_api_keys()
-        if valid_keys:
-            hashed_key = _hash_api_key(api_key)
-            valid_hashes = [_hash_api_key(k) for k in valid_keys]
-            if not any(hmac.compare_digest(hashed_key, vh) for vh in valid_hashes):
-                from starlette.responses import JSONResponse
-                return JSONResponse(
-                    status_code=403,
-                    content={"detail": "Invalid API key"},
-                )
+        if not _validate_api_key(api_key):
+            from starlette.responses import JSONResponse
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Invalid API key"},
+            )
 
         # Process request
         response = await call_next(request)

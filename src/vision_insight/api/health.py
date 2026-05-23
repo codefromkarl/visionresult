@@ -1,13 +1,12 @@
 """Enhanced health check endpoints for monitoring."""
 
-from __future__ import annotations
-
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from vision_insight import __version__
 from vision_insight.core.config import settings
@@ -44,7 +43,7 @@ def _check_database() -> ComponentHealth:
         engine = get_engine()
         # Try to execute a simple query
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
 
         # Get stats
         stats = get_database_stats()
@@ -134,7 +133,7 @@ async def detailed_health_check():
         status=overall_status,
         version=__version__,
         uptime_seconds=round(uptime, 2),
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         checks={
             "database": db_health.model_dump(),
             "vlm_service": vlm_health.model_dump(),
@@ -165,4 +164,4 @@ async def readiness_check():
 @router.get("/health/live", summary="Liveness check")
 async def liveness_check():
     """Kubernetes liveness probe endpoint."""
-    return {"status": "alive", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "alive", "timestamp": datetime.now(UTC).isoformat()}

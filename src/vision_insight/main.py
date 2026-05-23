@@ -10,7 +10,7 @@ from vision_insight import __version__
 from vision_insight.api.health import router as health_router
 from vision_insight.api.routes import router
 from vision_insight.core.auth import setup_api_key_auth
-from vision_insight.core.config import settings
+from vision_insight.core.config import ensure_directories, settings
 from vision_insight.core.rate_limiter import setup_rate_limiting
 from vision_insight.core.request_id import setup_request_id
 
@@ -78,6 +78,13 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api/v1")
 app.include_router(health_router)
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    """Initialize application on startup."""
+    ensure_directories()
+
 
 # Serve frontend
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"

@@ -1,13 +1,12 @@
 """Request ID middleware for request tracing."""
 
-from __future__ import annotations
-
-import uuid
 from contextvars import ContextVar
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
+from vision_insight.utils import generate_request_id
 
 # Context variable to store request ID
 request_id_var: ContextVar[str] = ContextVar("request_id", default="unknown")
@@ -28,7 +27,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Get or generate request ID
         request_id = request.headers.get("X-Request-ID")
         if not request_id:
-            request_id = str(uuid.uuid4())[:16]
+            request_id = generate_request_id()
 
         # Set in context variable
         request_id_var.set(request_id)

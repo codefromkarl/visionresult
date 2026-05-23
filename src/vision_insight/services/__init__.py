@@ -4,8 +4,6 @@ Each service handles one stage of the pipeline.
 Implementations are in their respective subdirectories.
 """
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 
 from vision_insight.models.schemas import (

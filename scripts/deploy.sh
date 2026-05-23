@@ -41,9 +41,9 @@ if [[ "$SKIP_GUARD" == "false" ]] && [[ -f "scripts/pre-deploy-guard.sh" ]]; the
   echo ""
 fi
 
-export CLOUDFLARE_API_TOKEN="${VIA_DEPLOY_TOKEN:-${CLOUDFRAME_API_KEY:-}}"
+export CLOUDFLARE_API_TOKEN="${VIA_DEPLOY_TOKEN:-${CLOUDFLARE_API_KEY:-}}"
 if [[ -z "$CLOUDFLARE_API_TOKEN" ]]; then
-  echo "❌ 请设置 VIA_DEPLOY_TOKEN 或 CLOUDFRAME_API_KEY 环境变量"
+  echo "❌ 请设置 VIA_DEPLOY_TOKEN 或 CLOUDFLARE_API_KEY 环境变量"
   exit 1
 fi
 export CLOUDFLARE_ACCOUNT_ID="<REDACTED>"

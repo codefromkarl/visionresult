@@ -1,7 +1,5 @@
 """Log sanitization utilities to prevent sensitive data leakage."""
 
-from __future__ import annotations
-
 import re
 from typing import Any
 
@@ -57,7 +55,7 @@ def sanitize_dict(data: dict[str, Any]) -> dict[str, Any]:
     if not data:
         return data
 
-    sanitized = {}
+    sanitized: dict[str, Any] = {}
     sensitive_keys = {
         'api_key', 'apikey', 'api-key', 'secret', 'token',
         'password', 'passwd', 'pwd', 'credentials', 'authorization',
@@ -100,7 +98,7 @@ def sanitize_log_message(message: str, *args: Any) -> str:
     """
     try:
         # Format message with sanitized arguments
-        sanitized_args = []
+        sanitized_args: list[Any] = []
         for arg in args:
             if isinstance(arg, str):
                 sanitized_args.append(sanitize_string(arg))
@@ -116,41 +114,4 @@ def sanitize_log_message(message: str, *args: Any) -> str:
         return sanitize_string(message)
 
 
-class SanitizedLogger:
-    """Logger wrapper that automatically sanitizes sensitive data."""
 
-    def __init__(self, logger):
-        """Initialize with a standard logger.
-
-        Args:
-            logger: Standard Python logger instance.
-        """
-        self._logger = logger
-
-    def _sanitize_message(self, msg: str, args: tuple) -> str:
-        """Format and sanitize a logger message with its positional arguments."""
-        return sanitize_log_message(msg, *args)
-
-    def debug(self, msg: str, *args: Any, **kwargs: Any):
-        """Log debug message with sanitized data."""
-        self._logger.debug(self._sanitize_message(msg, args), **kwargs)
-
-    def info(self, msg: str, *args: Any, **kwargs: Any):
-        """Log info message with sanitized data."""
-        self._logger.info(self._sanitize_message(msg, args), **kwargs)
-
-    def warning(self, msg: str, *args: Any, **kwargs: Any):
-        """Log warning message with sanitized data."""
-        self._logger.warning(self._sanitize_message(msg, args), **kwargs)
-
-    def error(self, msg: str, *args: Any, **kwargs: Any):
-        """Log error message with sanitized data."""
-        self._logger.error(self._sanitize_message(msg, args), **kwargs)
-
-    def critical(self, msg: str, *args: Any, **kwargs: Any):
-        """Log critical message with sanitized data."""
-        self._logger.critical(self._sanitize_message(msg, args), **kwargs)
-
-    def exception(self, msg: str, *args: Any, **kwargs: Any):
-        """Log exception with sanitized data."""
-        self._logger.exception(self._sanitize_message(msg, args), **kwargs)

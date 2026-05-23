@@ -1,7 +1,5 @@
 """Rate limiting middleware for API endpoints."""
 
-from __future__ import annotations
-
 import time
 from collections import defaultdict
 
@@ -15,6 +13,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     Tracks requests per IP address and enforces limits.
     """
+
+    _MAX_TRACKED_IPS = 10_000  # Cap memory usage under DDoS
 
     def __init__(
         self,
@@ -51,7 +51,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return "unknown"
 
     def _cleanup_old_entries(self) -> None:
-        """Remove entries older than 1 hour."""
+        """Remove entries older than 1 hour and cap total tracked IPs."""
         now = time.time()
         if now - self._last_cleanup < self.cleanup_interval:
             return
@@ -62,6 +62,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 (ts, ep) for ts, ep in self._requests[ip] if ts > cutoff
             ]
             if not self._requests[ip]:
+                del self._requests[ip]
+
+        # Evict oldest IPs if we exceed the cap
+        if len(self._requests) > self._MAX_TRACKED_IPS:
+            # Sort by most recent request timestamp, keep newest
+            sorted_ips = sorted(
+                self._requests.keys(),
+                key=lambda ip: self._requests[ip][-1][0] if self._requests[ip] else 0,
+            )
+            # Remove oldest entries until we're under the limit
+            excess = len(self._requests) - self._MAX_TRACKED_IPS
+            for ip in sorted_ips[:excess]:
                 del self._requests[ip]
 
         self._last_cleanup = now

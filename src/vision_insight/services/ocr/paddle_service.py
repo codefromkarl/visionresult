@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import Any
 
 from vision_insight.models.schemas import OCRResult
 from vision_insight.services import OCRService
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +42,7 @@ class PaddleOCRService(OCRService):
         self._lang = lang
         self._use_gpu = use_gpu
         self._enable_mkldnn = enable_mkldnn
-        self._engine = None
+        self._engine: Any = None
         self._initialized = False
 
     def _ensure_engine(self):

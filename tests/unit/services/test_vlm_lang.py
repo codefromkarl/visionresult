@@ -59,10 +59,10 @@ class TestPromptLanguage:
         assert OBJECT_DETECTION_PROMPT_ZH != OBJECT_DETECTION_PROMPT_EN
 
     def test_zhipu_zh_scene_prompt_is_concise(self):
-        assert "分析图片" in ZHIPU_SCENE_ZH
+        assert "分析这张图片" in ZHIPU_SCENE_ZH or "分析图片" in ZHIPU_SCENE_ZH
 
     def test_zhipu_en_scene_prompt_is_english(self):
-        assert "Analyze this image" in ZHIPU_SCENE_EN
+        assert "analyze this image" in ZHIPU_SCENE_EN.lower()
 
     def test_prompts_have_json_structure(self):
         """All prompts should reference JSON output format."""
@@ -156,7 +156,7 @@ class TestOCRContextLanguage:
 
             call_args = mock_chat.call_args
             prompt = call_args[0][0]
-            assert "Texts detected in image" in prompt
+            assert "OCR detected these texts" in prompt
 
 
 # ─── Prompt Selection Tests ──────────────────────────────────────

@@ -5,8 +5,6 @@ outages/rate limits. They deliberately return explicit "degraded" data instead
 of pretending an AI analysis succeeded.
 """
 
-from __future__ import annotations
-
 import logging
 from collections.abc import Iterable
 
@@ -17,6 +15,7 @@ from vision_insight.models.schemas import (
     SceneAnalysis,
 )
 from vision_insight.services import EntityService, OCRService, VLMService
+from vision_insight.utils import extract_entities_rule_based
 
 logger = logging.getLogger(__name__)
 
@@ -137,28 +136,4 @@ class RuleBasedEntityService(EntityService):
 
     async def extract(self, scene: SceneAnalysis, ocr_results: list[OCRResult]) -> EntityExtraction:
         """Extract conservative entities without an LLM call."""
-        location_keywords: list[str] = []
-        if scene.location_guess and scene.location_guess.location:
-            location_keywords.append(scene.location_guess.location)
-
-        text_entities = [result.text for result in ocr_results if result.confidence >= 0.8]
-
-        return EntityExtraction(
-            location_keywords=_dedupe(location_keywords),
-            brands=[],
-            landmarks=[],
-            text_entities=_dedupe(text_entities),
-        )
-
-
-def _dedupe(values: list[str]) -> list[str]:
-    """Deduplicate strings while preserving order."""
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for value in values:
-        normalized = value.strip()
-        key = normalized.lower()
-        if normalized and key not in seen:
-            seen.add(key)
-            deduped.append(normalized)
-    return deduped
+        return extract_entities_rule_based(scene, ocr_results)
