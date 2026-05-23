@@ -1,7 +1,5 @@
 """LLM-based entity extraction service."""
 
-from __future__ import annotations
-
 import json
 import logging
 
@@ -10,6 +8,8 @@ import httpx
 from vision_insight.core.config import settings
 from vision_insight.models.schemas import EntityExtraction, OCRResult, SceneAnalysis
 from vision_insight.services import EntityService
+from vision_insight.utils.json_helpers import parse_llm_json
+from vision_insight.utils.retry import retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class LLMEntityService(EntityService):
 
         try:
             response_text = await self._chat(prompt)
-            data = self._parse_json_response(response_text)
+            data = parse_llm_json(response_text)
             return self._build_entity_extraction(data)
         except (json.JSONDecodeError, ValueError, KeyError) as exc:
             logger.warning("Entity extraction failed, returning empty result: %s", exc)
@@ -86,7 +86,7 @@ class LLMEntityService(EntityService):
     # ------------------------------------------------------------------
 
     async def _chat(self, prompt: str) -> str:
-        """Make a chat completion request (no image)."""
+        """Make a chat completion request with retry."""
         payload = {
             "model": self._model,
             "messages": [{"role": "user", "content": prompt}],
@@ -97,26 +97,19 @@ class LLMEntityService(EntityService):
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base_url}/chat/completions",
-                json=payload,
-                headers=headers,
-            )
-            resp.raise_for_status()
-            body = resp.json()
 
+        async def _do_request():
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.post(
+                    f"{self._base_url}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                return resp.json()
+
+        body = await retry_with_backoff(_do_request)
         return body["choices"][0]["message"]["content"]
-
-    @staticmethod
-    def _parse_json_response(text: str) -> dict:
-        """Extract JSON from model response, handling markdown fences."""
-        text = text.strip()
-        if text.startswith("```"):
-            lines = text.split("\n")
-            lines = [ln for ln in lines if not ln.strip().startswith("```")]
-            text = "\n".join(lines)
-        return json.loads(text)
 
     @staticmethod
     def _build_entity_extraction(data: dict) -> EntityExtraction:
