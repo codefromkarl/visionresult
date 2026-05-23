@@ -65,7 +65,7 @@ class AnalysisRecord(Base):
     pipeline_trace_json = Column(Text, nullable=True)
 
     @staticmethod
-    def _parse_json_field(value: str | None, default: Any = None) -> Any:
+    def parse_json_field(value: str | None, default: Any = None) -> Any:
         """Parse a JSON field from the database, handling SQLAlchemy Column types.
 
         Args:
@@ -108,9 +108,9 @@ class AnalysisRecord(Base):
                 "confidence": self.location_confidence,
             },
             "time_guess": self.time_guess,
-            "ocr_results": self._parse_json_field(self.ocr_results_json, []),
-            "entities": self._parse_json_field(self.entities_json, {}),
-            "conclusions": self._parse_json_field(self.conclusions_json, []),
+            "ocr_results": self.parse_json_field(self.ocr_results_json, []),
+            "entities": self.parse_json_field(self.entities_json, {}),
+            "conclusions": self.parse_json_field(self.conclusions_json, []),
             "report_markdown": self.report_markdown,
         }
 
@@ -275,9 +275,7 @@ def get_database_stats() -> dict[str, int]:
     with get_session_ctx() as session:
         # Single query with GROUP BY instead of 4 separate COUNT queries
         rows = (
-            session.query(AnalysisRecord.status, func.count())
-            .group_by(AnalysisRecord.status)
-            .all()
+            session.query(AnalysisRecord.status, func.count()).group_by(AnalysisRecord.status).all()
         )
         counts: dict[str, int] = {status: count for status, count in rows}
 

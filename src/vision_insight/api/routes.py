@@ -186,14 +186,13 @@ def _record_to_report(record: AnalysisRecord) -> AnalysisReport:
 
     # Parse JSON fields using AnalysisRecord helper
     ocr_results = [
-        OCRResult(**r)
-        for r in AnalysisRecord._parse_json_field(record.ocr_results_json, [])
+        OCRResult(**r) for r in AnalysisRecord.parse_json_field(record.ocr_results_json, [])
     ]
-    entities_data = AnalysisRecord._parse_json_field(record.entities_json, {})
+    entities_data = AnalysisRecord.parse_json_field(record.entities_json, {})
     entities = EntityExtraction(**entities_data) if entities_data else None
-    conclusions_data = AnalysisRecord._parse_json_field(record.conclusions_json, [])
+    conclusions_data = AnalysisRecord.parse_json_field(record.conclusions_json, [])
     conclusions = [FusedConclusion(**c) for c in conclusions_data]
-    search_data = AnalysisRecord._parse_json_field(record.search_results_json, [])
+    search_data = AnalysisRecord.parse_json_field(record.search_results_json, [])
     search_results = [SearchResult(**s) for s in search_data]
 
     # Build image metadata
@@ -210,9 +209,7 @@ def _record_to_report(record: AnalysisRecord) -> AnalysisReport:
         id=str(record.id),
         status=AnalysisStatus(str(record.status)),
         created_at=(
-            record.created_at
-            if isinstance(record.created_at, datetime)
-            else datetime.now(UTC)
+            record.created_at if isinstance(record.created_at, datetime) else datetime.now(UTC)
         ),
         processing_time_ms=int(record.processing_time_ms or 0),
         image_metadata=image_metadata,
@@ -392,9 +389,7 @@ async def create_analysis(
     image_path.write_bytes(image_bytes)
     log_event(task_id, "image_saved", path=str(image_path))
 
-    background_tasks.add_task(
-        _run_analysis, task_id, image_bytes, file.filename, verbose, lang
-    )
+    background_tasks.add_task(_run_analysis, task_id, image_bytes, file.filename, verbose, lang)
 
     log_event(task_id, "task_created", status="pending", lang=lang)
 
@@ -480,7 +475,7 @@ async def get_report(
 
     # Include pipeline trace if requested and available
     if include_trace and record.pipeline_trace_json:
-        result["pipeline_trace"] = AnalysisRecord._parse_json_field(record.pipeline_trace_json, {})
+        result["pipeline_trace"] = AnalysisRecord.parse_json_field(record.pipeline_trace_json, {})
 
     return result
 
@@ -720,7 +715,7 @@ async def ask_question(request: QuestionRequest):
         sources = ["VLM场景分析"]
 
     elif any(kw in question for kw in ["文字", "OCR", "text", "写了什么"]):
-        ocr = AnalysisRecord._parse_json_field(record.ocr_results_json, [])
+        ocr = AnalysisRecord.parse_json_field(record.ocr_results_json, [])
         if ocr:
             texts = [r.get("text", "") for r in ocr]
             answer = f"检测到的文字: {', '.join(texts)}"
@@ -731,7 +726,7 @@ async def ask_question(request: QuestionRequest):
         sources = ["OCR文字识别"]
 
     elif any(kw in question for kw in ["品牌", "logo", "brand"]):
-        ent = AnalysisRecord._parse_json_field(record.entities_json, {})
+        ent = AnalysisRecord.parse_json_field(record.entities_json, {})
         brands = ent.get("brands", [])
         if brands:
             answer = f"检测到的品牌: {', '.join(brands)}"
