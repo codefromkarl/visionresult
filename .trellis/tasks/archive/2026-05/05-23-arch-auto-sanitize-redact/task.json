@@ -1,7 +1,7 @@
 {
-  "id": "arch-auto-dead-code",
-  "name": "arch-auto-dead-code",
-  "title": "arch-auto: Remove dead code (cleanup_old_analyses, sanitize_log_message, clear_task_events)",
+  "id": "arch-auto-sanitize-redact",
+  "name": "arch-auto-sanitize-redact",
+  "title": "arch-auto: Fix sanitize_dict to fully redact secrets",
   "description": "",
   "status": "completed",
   "dev_type": null,

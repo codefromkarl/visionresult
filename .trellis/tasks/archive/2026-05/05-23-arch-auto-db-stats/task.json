@@ -1,7 +1,7 @@
 {
-  "id": "arch-auto-dead-code",
-  "name": "arch-auto-dead-code",
-  "title": "arch-auto: Remove dead code (cleanup_old_analyses, sanitize_log_message, clear_task_events)",
+  "id": "arch-auto-db-stats",
+  "name": "arch-auto-db-stats",
+  "title": "arch-auto: Optimize get_database_stats to single query",
   "description": "",
   "status": "completed",
   "dev_type": null,

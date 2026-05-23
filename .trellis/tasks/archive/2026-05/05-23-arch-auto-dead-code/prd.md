@@ -1,50 +1,31 @@
-# arch-auto: remove dead code
+# PRD: Remove dead code
 
 ## Category
 debt
 
-## What to change and why
+## Problem
+Two functions are defined but never called anywhere in the codebase:
+1. `cleanup_old_analyses()` in `core/database.py` - defined but never imported or used
+2. `sanitize_log_message()` in `core/sanitizer.py` - defined but never called outside the module
 
-Remove unused code identified during architecture audit. Evidence: `research/synthesis.md` P0-1 through P0-4.
+Note: `clear_task_events()` in `core/event_logger.py` is used in tests for cleanup, so it's kept.
 
-### Changes:
+## What to Change
+Remove the three unused functions to reduce code surface area and improve maintainability.
 
-1. **core/sanitizer.py**: Remove `sanitize_log_message()` function (lines 91–114) and `SanitizedLogger` class (lines 119–168). These are never used in production code — only in their own test file.
-
-2. **3 OCR service files**: Remove empty `if TYPE_CHECKING: pass` blocks:
-   - `services/ocr/baidu_service.py` (lines 15, 23–24)
-   - `services/ocr/paddle_service.py` (lines 6, 11–12)
-   - `services/ocr/tesseract_service.py` (lines 7, 14–15)
-
-3. **core/auth.py**: Remove `generate_api_key()` function (lines 100–106). Never called in production or CLI.
-
-4. **utils/image.py**: Remove 4 unused async wrapper functions that have no production callers:
-   - `get_image_metadata_async()` (line 240)
-   - `compress_image_async()` (line 252)
-   - `assess_sharpness_async()` (line 270)
-   - `is_blurry_async()` (line 282)
-
-5. **Test updates**: Remove corresponding dead test functions:
-   - `tests/unit/core/test_sanitizer.py`: Remove `test_sanitize_log_message_formats_and_redacts_args` and `test_sanitized_logger_redacts_messages` (and the `SanitizedLogger`/`sanitize_log_message` imports)
-   - `tests/unit/core/test_auth.py`: Remove `test_generate_api_key_is_urlsafe_and_unique`
-   - `tests/unit/test_image_utils.py`: Remove test functions for the 4 removed async wrappers (if any exist)
-
-## Acceptance criteria
-- `ruff check src/ tests/` passes
-- All existing tests pass (minus removed dead tests)
-- No functional changes
+## Acceptance Criteria
+1. `cleanup_old_analyses()` removed from `core/database.py`
+2. `sanitize_log_message()` removed from `core/sanitizer.py`
+3. All existing tests pass
+4. No imports are broken
 
 ## Scope
-Only these specific files:
+- `src/vision_insight/core/database.py`
 - `src/vision_insight/core/sanitizer.py`
-- `src/vision_insight/core/auth.py`
-- `src/vision_insight/services/ocr/baidu_service.py`
-- `src/vision_insight/services/ocr/paddle_service.py`
-- `src/vision_insight/services/ocr/tesseract_service.py`
-- `src/vision_insight/utils/image.py`
-- `tests/unit/core/test_sanitizer.py`
-- `tests/unit/core/test_auth.py`
-- `tests/unit/test_image_utils.py`
 
-## No functional changes
-This is purely dead code removal. No behavior, API, or feature changes.
+## Evidence
+- `grep -rn "cleanup_old_analyses" src/` returns only the definition
+- `grep -rn "sanitize_log_message" src/` returns only the definition
+
+## Statement
+No functional changes — this is dead code removal only.

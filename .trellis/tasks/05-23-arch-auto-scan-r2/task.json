@@ -1,9 +1,9 @@
 {
-  "id": "arch-auto-debt-cleanup-r2",
-  "name": "arch-auto-debt-cleanup-r2",
-  "title": "arch-auto: debt/perf cleanup round 2",
+  "id": "arch-auto-scan-r2",
+  "name": "arch-auto-scan-r2",
+  "title": "arch-auto: deepening opportunity scan round 2",
   "description": "",
-  "status": "in_progress",
+  "status": "planning",
   "dev_type": null,
   "scope": null,
   "package": "backend",

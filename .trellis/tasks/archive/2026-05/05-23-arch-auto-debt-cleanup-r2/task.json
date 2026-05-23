@@ -1,7 +1,7 @@
 {
-  "id": "arch-auto-dead-code",
-  "name": "arch-auto-dead-code",
-  "title": "arch-auto: remove dead code",
+  "id": "arch-auto-debt-cleanup-r2",
+  "name": "arch-auto-debt-cleanup-r2",
+  "title": "arch-auto: debt/perf cleanup round 2",
   "description": "",
   "status": "completed",
   "dev_type": null,

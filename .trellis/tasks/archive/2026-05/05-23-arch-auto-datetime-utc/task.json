@@ -1,7 +1,7 @@
 {
-  "id": "arch-auto-dead-code",
-  "name": "arch-auto-dead-code",
-  "title": "arch-auto: Remove dead code (cleanup_old_analyses, sanitize_log_message, clear_task_events)",
+  "id": "arch-auto-datetime-utc",
+  "name": "arch-auto-datetime-utc",
+  "title": "arch-auto: add UTC timezone to datetime.now()",
   "description": "",
   "status": "completed",
   "dev_type": null,

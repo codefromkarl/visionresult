@@ -1,7 +1,7 @@
 {
-  "id": "arch-auto-dead-code",
-  "name": "arch-auto-dead-code",
-  "title": "arch-auto: Remove dead code (cleanup_old_analyses, sanitize_log_message, clear_task_events)",
+  "id": "arch-auto-progress-callback-type",
+  "name": "arch-auto-progress-callback-type",
+  "title": "arch-auto: fix ProgressCallback type alias",
   "description": "",
   "status": "completed",
   "dev_type": null,
