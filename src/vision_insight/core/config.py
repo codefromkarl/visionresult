@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Paths
     upload_dir: Path = Path("data/uploads")
     cache_dir: Path = Path("data/cache")
+    images_dir: Path = Path("data/images")
 
     # VLM
     vlm_provider: str = "zhipu"  # qwen2-vl | openai | gemini | zhipu
@@ -70,5 +71,5 @@ def ensure_directories() -> None:
     """
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     settings.cache_dir.mkdir(parents=True, exist_ok=True)
-    Path("data/images").mkdir(parents=True, exist_ok=True)
+    settings.images_dir.mkdir(parents=True, exist_ok=True)
     Path("data").mkdir(parents=True, exist_ok=True)

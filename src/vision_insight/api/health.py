@@ -146,6 +146,10 @@ async def detailed_health_check():
                 "status": "ok" if settings.cache_dir.exists() else "error",
                 "message": str(settings.cache_dir),
             },
+            "images_dir": {
+                "status": "ok" if settings.images_dir.exists() else "error",
+                "message": str(settings.images_dir),
+            },
         },
     )
 

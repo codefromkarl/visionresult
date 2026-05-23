@@ -5,12 +5,14 @@ import json
 import logging
 import time
 from collections.abc import AsyncGenerator
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 
+from vision_insight.core.config import settings
 from vision_insight.core.database import (
     AnalysisRecord,
     delete_analysis,
@@ -20,16 +22,29 @@ from vision_insight.core.database import (
     save_analysis,
     search_analyses,
 )
-from vision_insight.core.event_logger import log_event
+from vision_insight.core.event_logger import (
+    get_task_events as _get_events,
+)
+from vision_insight.core.event_logger import (
+    log_event,
+    register_sse_queue,
+    unregister_sse_queue,
+)
 from vision_insight.models.schemas import (
     AnalysisReport,
     AnalysisStatus,
     AnalysisTaskResponse,
+    EntityExtraction,
+    FusedConclusion,
+    ImageMetadata,
     ImageUploadRequest,
+    OCRResult,
     QuestionRequest,
     QuestionResponse,
+    SearchResult,
 )
 from vision_insight.pipeline.runner import get_pipeline_runner
+from vision_insight.services.report.markdown_report_service import MarkdownReportService
 from vision_insight.utils import generate_task_id
 from vision_insight.utils.image import detect_image_format
 
@@ -59,7 +74,7 @@ ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "ima
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 # Image storage directory
-IMAGES_DIR = Path("data/images")
+IMAGES_DIR = settings.images_dir
 
 
 def _validate_image_file(file: UploadFile, image_bytes: bytes) -> None:
@@ -113,21 +128,17 @@ def _validate_image_file(file: UploadFile, image_bytes: bytes) -> None:
 
 def _record_to_report(record: AnalysisRecord) -> AnalysisReport:
     """Convert database record to AnalysisReport."""
-    from vision_insight.models.schemas import (
-        EntityExtraction,
-        FusedConclusion,
-        ImageMetadata,
-        OCRResult,
-        SearchResult,
-    )
 
-    # Parse JSON fields
-    ocr_results = [OCRResult(**r) for r in json.loads(str(record.ocr_results_json or "[]"))]
-    entities_data = json.loads(str(record.entities_json or "{}"))
+    # Parse JSON fields using AnalysisRecord helper
+    ocr_results = [
+        OCRResult(**r)
+        for r in AnalysisRecord._parse_json_field(record.ocr_results_json, [])
+    ]
+    entities_data = AnalysisRecord._parse_json_field(record.entities_json, {})
     entities = EntityExtraction(**entities_data) if entities_data else None
-    conclusions_data = json.loads(str(record.conclusions_json or "[]"))
+    conclusions_data = AnalysisRecord._parse_json_field(record.conclusions_json, [])
     conclusions = [FusedConclusion(**c) for c in conclusions_data]
-    search_data = json.loads(str(record.search_results_json or "[]"))
+    search_data = AnalysisRecord._parse_json_field(record.search_results_json, [])
     search_results = [SearchResult(**s) for s in search_data]
 
     # Build image metadata
@@ -143,7 +154,11 @@ def _record_to_report(record: AnalysisRecord) -> AnalysisReport:
     return AnalysisReport(
         id=str(record.id),
         status=AnalysisStatus(str(record.status)),
-        created_at=record.created_at if isinstance(record.created_at, datetime) else datetime.now(),
+        created_at=(
+            record.created_at
+            if isinstance(record.created_at, datetime)
+            else datetime.now(UTC)
+        ),
         processing_time_ms=int(record.processing_time_ms or 0),
         image_metadata=image_metadata,
         ocr_results=ocr_results,
@@ -160,7 +175,7 @@ def _report_to_record(report: AnalysisReport, filename: str | None = None) -> An
         id=report.id,
         status=report.status.value,
         created_at=report.created_at,
-        completed_at=datetime.now() if report.status == AnalysisStatus.COMPLETED else None,
+        completed_at=datetime.now(UTC) if report.status == AnalysisStatus.COMPLETED else None,
         processing_time_ms=report.processing_time_ms,
         image_filename=filename,
         report_markdown=report.report_markdown,
@@ -221,7 +236,7 @@ async def _run_analysis(
     report = AnalysisReport(
         id=task_id,
         status=AnalysisStatus.PENDING,
-        created_at=datetime.now(),
+        created_at=datetime.now(UTC),
     )
     # Cleanup old entries before adding new one
     _cleanup_progress()
@@ -259,7 +274,7 @@ async def _run_analysis(
         record = AnalysisRecord(
             id=task_id,
             status="failed",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             report_markdown=f"# 分析失败\n\n错误: {exc}",
         )
         save_analysis(record)
@@ -312,7 +327,7 @@ async def create_analysis(
     record = AnalysisRecord(
         id=task_id,
         status="pending",
-        created_at=datetime.now(),
+        created_at=datetime.now(UTC),
         image_filename=file.filename,
     )
     save_analysis(record)
@@ -349,8 +364,6 @@ async def create_analysis_from_url(
     if not request.image_url:
         raise HTTPException(status_code=400, detail="image_url is required")
 
-    import httpx
-
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(request.image_url)
@@ -365,7 +378,7 @@ async def create_analysis_from_url(
     record = AnalysisRecord(
         id=task_id,
         status="pending",
-        created_at=datetime.now(),
+        created_at=datetime.now(UTC),
         image_filename=request.image_url.split("/")[-1][:100],
     )
     save_analysis(record)
@@ -400,7 +413,6 @@ async def get_report(
             raise HTTPException(
                 status_code=400, detail=f"Report not ready (status: {report.status.value})"
             )
-        from vision_insight.services.report.markdown_report_service import MarkdownReportService
 
         service = MarkdownReportService()
         html = await service.generate_html_report(report, lang=lang)
@@ -410,9 +422,7 @@ async def get_report(
 
     # Include pipeline trace if requested and available
     if include_trace and record.pipeline_trace_json:
-        import json
-
-        result["pipeline_trace"] = json.loads(str(record.pipeline_trace_json))
+        result["pipeline_trace"] = AnalysisRecord._parse_json_field(record.pipeline_trace_json, {})
 
     return result
 
@@ -460,8 +470,6 @@ async def get_image(task_id: str):
     for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"]:
         image_path = IMAGES_DIR / f"{task_id}{ext}"
         if image_path.exists():
-            from fastapi.responses import FileResponse
-
             media_type = {
                 ".jpg": "image/jpeg",
                 ".jpeg": "image/jpeg",
@@ -500,7 +508,7 @@ async def create_batch_analysis(
         record = AnalysisRecord(
             id=task_id,
             status="pending",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             image_filename=file.filename,
         )
         save_analysis(record)
@@ -516,8 +524,6 @@ async def stream_progress(task_id: str):
     record = get_analysis(task_id)
     if not record:
         raise HTTPException(status_code=404, detail="Task not found")
-
-    from vision_insight.core.event_logger import register_sse_queue, unregister_sse_queue
 
     log_event(task_id, "sse_connect")
 
@@ -594,8 +600,6 @@ async def get_task_events(task_id: str):
     Returns all recorded events for the task's execution lifecycle,
     including pipeline stages, VLM retries, timeouts, etc.
     """
-    from vision_insight.core.event_logger import get_task_events as _get_events
-
     events = _get_events(task_id)
     if not events:
         # Also check if task exists in DB
@@ -658,7 +662,7 @@ async def ask_question(request: QuestionRequest):
         sources = ["VLM场景分析"]
 
     elif any(kw in question for kw in ["文字", "OCR", "text", "写了什么"]):
-        ocr = json.loads(str(record.ocr_results_json or "[]"))
+        ocr = AnalysisRecord._parse_json_field(record.ocr_results_json, [])
         if ocr:
             texts = [r.get("text", "") for r in ocr]
             answer = f"检测到的文字: {', '.join(texts)}"
@@ -669,7 +673,7 @@ async def ask_question(request: QuestionRequest):
         sources = ["OCR文字识别"]
 
     elif any(kw in question for kw in ["品牌", "logo", "brand"]):
-        ent = json.loads(str(record.entities_json or "{}"))
+        ent = AnalysisRecord._parse_json_field(record.entities_json, {})
         brands = ent.get("brands", [])
         if brands:
             answer = f"检测到的品牌: {', '.join(brands)}"
