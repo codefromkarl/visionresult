@@ -65,10 +65,7 @@ def sanitize_dict(data: dict[str, Any]) -> dict[str, Any]:
     for key, value in data.items():
         # Check if key name indicates sensitive data
         if any(s in key.lower() for s in sensitive_keys):
-            if isinstance(value, str) and len(value) > 4:
-                sanitized[key] = value[:2] + '***' + value[-2:]
-            else:
-                sanitized[key] = '***'
+            sanitized[key] = '***'
         elif isinstance(value, str):
             sanitized[key] = sanitize_string(value)
         elif isinstance(value, dict):
@@ -84,34 +81,6 @@ def sanitize_dict(data: dict[str, Any]) -> dict[str, Any]:
             sanitized[key] = value
 
     return sanitized
-
-
-def sanitize_log_message(message: str, *args: Any) -> str:
-    """Sanitize a log message and its arguments.
-
-    Args:
-        message: Log message format string.
-        *args: Format arguments.
-
-    Returns:
-        Sanitized log message.
-    """
-    try:
-        # Format message with sanitized arguments
-        sanitized_args: list[Any] = []
-        for arg in args:
-            if isinstance(arg, str):
-                sanitized_args.append(sanitize_string(arg))
-            elif isinstance(arg, dict):
-                sanitized_args.append(sanitize_dict(arg))
-            else:
-                sanitized_args.append(arg)
-
-        formatted = message % tuple(sanitized_args) if sanitized_args else message
-        return sanitize_string(formatted)
-    except Exception:
-        # If formatting fails, just sanitize the message
-        return sanitize_string(message)
 
 
 

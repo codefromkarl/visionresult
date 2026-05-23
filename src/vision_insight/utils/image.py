@@ -121,7 +121,7 @@ def _extract_capture_time(exif: dict[str, Any]) -> datetime | None:
     return None
 
 
-def get_image_metadata(image_bytes: bytes) -> dict:
+def get_image_metadata(image_bytes: bytes) -> dict[str, Any]:
     """Extract image metadata including EXIF GPS and capture time."""
     img = Image.open(io.BytesIO(image_bytes))
     metadata: dict[str, Any] = {

@@ -5,10 +5,12 @@ Implementations are in their respective subdirectories.
 """
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from vision_insight.models.schemas import (
     DetectedObject,
     EntityExtraction,
+    FusedConclusion,
     ImageMetadata,
     OCRResult,
     SceneAnalysis,
@@ -81,7 +83,7 @@ class EvidenceService(ABC):
         entities: EntityExtraction,
         search_results: list[SearchResult],
         metadata: ImageMetadata | None,
-    ) -> list:
+    ) -> list[FusedConclusion]:
         """Fuse evidence into weighted conclusions."""
         ...
 
@@ -95,6 +97,6 @@ class ReportService(ABC):
         ...
 
     @abstractmethod
-    async def generate_structured_report(self, report) -> dict:
+    async def generate_structured_report(self, report) -> dict[str, Any]:
         """Generate structured JSON report."""
         ...

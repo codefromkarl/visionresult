@@ -3,7 +3,7 @@
 import time
 from collections import defaultdict
 
-from fastapi import HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
@@ -151,7 +151,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def setup_rate_limiting(app, requests_per_minute: int = 60, requests_per_hour: int = 1000):
+def setup_rate_limiting(
+    app: FastAPI,
+    requests_per_minute: int = 60,
+    requests_per_hour: int = 1000,
+) -> None:
     """Setup rate limiting middleware for the FastAPI app.
 
     Args:

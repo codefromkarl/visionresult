@@ -3,6 +3,8 @@
 import asyncio
 import logging
 import random
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
 import httpx
 
@@ -13,8 +15,13 @@ MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0  # seconds
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
+T = TypeVar("T")
 
-async def retry_with_backoff(coro_factory, max_retries: int = MAX_RETRIES):
+
+async def retry_with_backoff(
+    coro_factory: Callable[[], Awaitable[T]],
+    max_retries: int = MAX_RETRIES,
+) -> T:
     """Retry an async operation with exponential backoff."""
     last_exc: BaseException | None = None
     for attempt in range(max_retries):

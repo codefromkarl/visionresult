@@ -2,6 +2,7 @@
 
 from contextvars import ContextVar
 
+from fastapi import FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -53,7 +54,7 @@ def get_request_id() -> str:
     return request_id_var.get()
 
 
-def setup_request_id(app):
+def setup_request_id(app: FastAPI) -> None:
     """Setup request ID middleware for the FastAPI app.
 
     Args:

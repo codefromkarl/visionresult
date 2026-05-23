@@ -3,7 +3,7 @@
 import hashlib
 import hmac
 
-from fastapi import HTTPException, Request, Security
+from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader, APIKeyQuery
 
 from vision_insight.core.config import settings
@@ -124,7 +124,7 @@ def verify_api_key(
     return api_key
 
 
-def setup_api_key_auth(app, enabled: bool = True):
+def setup_api_key_auth(app: FastAPI, enabled: bool = True) -> None:
     """Setup API key authentication for the FastAPI app.
 
     Args:

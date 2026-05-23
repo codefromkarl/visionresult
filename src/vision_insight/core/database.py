@@ -6,8 +6,10 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -62,6 +64,26 @@ class AnalysisRecord(Base):
     # Pipeline trace (JSON)
     pipeline_trace_json = Column(Text, nullable=True)
 
+    @staticmethod
+    def _parse_json_field(value: str | None, default: Any = None) -> Any:
+        """Parse a JSON field from the database, handling SQLAlchemy Column types.
+
+        Args:
+            value: The raw column value (may be str, Column, or None).
+            default: Default value if the field is None or empty.
+
+        Returns:
+            Parsed JSON data, or *default* if the field is empty.
+        """
+        if default is None:
+            default = {}
+        if not value:
+            return default
+        try:
+            return json.loads(str(value))
+        except (json.JSONDecodeError, TypeError):
+            return default
+
     def to_dict(self) -> dict:
         """Convert to API-compatible dict."""
         return {
@@ -86,19 +108,19 @@ class AnalysisRecord(Base):
                 "confidence": self.location_confidence,
             },
             "time_guess": self.time_guess,
-            "ocr_results": json.loads(str(self.ocr_results_json or "[]")),
-            "entities": json.loads(str(self.entities_json or "{}")),
-            "conclusions": json.loads(str(self.conclusions_json or "[]")),
+            "ocr_results": self._parse_json_field(self.ocr_results_json, []),
+            "entities": self._parse_json_field(self.entities_json, {}),
+            "conclusions": self._parse_json_field(self.conclusions_json, []),
             "report_markdown": self.report_markdown,
         }
 
 
 # Database engine and session factory
-_engine = None
-_SessionLocal = None
+_engine: Engine | None = None
+_SessionLocal: sessionmaker | None = None
 
 
-def get_engine():
+def get_engine() -> Engine:
     global _engine
     if _engine is None:
         # SQLite uses StaticPool to allow concurrent reads from the same
@@ -242,41 +264,27 @@ def search_analyses(
         return query.order_by(AnalysisRecord.created_at.desc()).offset(offset).limit(limit).all()
 
 
-def cleanup_old_analyses(days: int = 30) -> int:
-    """Delete analyses older than specified days.
-
-    Args:
-        days: Number of days to keep records. Older records will be deleted.
-
-    Returns:
-        Number of deleted records.
-    """
-    from datetime import timedelta
-
-    with get_session_ctx() as session:
-        cutoff_date = datetime.now() - timedelta(days=days)
-        deleted = session.query(AnalysisRecord).filter(
-            AnalysisRecord.created_at < cutoff_date
-        ).delete()
-        session.commit()
-        if deleted > 0:
-            logger.info("Cleaned up %d old analysis records", deleted)
-        return deleted
-
-
-def get_database_stats() -> dict:
+def get_database_stats() -> dict[str, int]:
     """Get database statistics.
 
     Returns:
         Dictionary with database statistics.
     """
+    from sqlalchemy import func
+
     with get_session_ctx() as session:
-        total = session.query(AnalysisRecord).count()
-        completed = session.query(AnalysisRecord).filter_by(status="completed").count()
-        failed = session.query(AnalysisRecord).filter_by(status="failed").count()
-        pending = session.query(AnalysisRecord).filter(
-            AnalysisRecord.status.in_(["pending", "processing"])
-        ).count()
+        # Single query with GROUP BY instead of 4 separate COUNT queries
+        rows = (
+            session.query(AnalysisRecord.status, func.count())
+            .group_by(AnalysisRecord.status)
+            .all()
+        )
+        counts: dict[str, int] = {status: count for status, count in rows}
+
+        total = sum(counts.values())
+        completed = counts.get("completed", 0)
+        failed = counts.get("failed", 0)
+        pending = counts.get("pending", 0) + counts.get("processing", 0)
 
         return {
             "total": total,

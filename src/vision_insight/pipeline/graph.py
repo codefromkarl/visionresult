@@ -6,6 +6,7 @@ Pipeline stages:
 """
 
 import logging
+from collections.abc import Callable
 from datetime import datetime as dt
 from typing import Any, TypedDict
 
@@ -35,7 +36,7 @@ from vision_insight.utils.image import compress_image, get_image_metadata
 logger = logging.getLogger(__name__)
 
 # Progress callback type: (stage_name, progress_percent)
-ProgressCallback = Any  # Callable[[str, int], None] | None
+ProgressCallback = Callable[[str, int], None] | None
 
 # Stage progress mapping
 STAGE_PROGRESS = {

@@ -1,6 +1,7 @@
 """Markdown report generation service."""
 
 import logging
+from typing import Any
 
 from vision_insight.models.schemas import AnalysisReport
 from vision_insight.services import ReportService
@@ -318,7 +319,7 @@ h2 { color: #374151; margin-top: 24px; }
 
         return "\n".join(html_lines)
 
-    async def generate_structured_report(self, report: AnalysisReport) -> dict:
+    async def generate_structured_report(self, report: AnalysisReport) -> dict[str, Any]:
         """Generate a structured JSON report."""
         result: dict = {
             "id": report.id,

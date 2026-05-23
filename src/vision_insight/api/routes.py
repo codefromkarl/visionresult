@@ -1,12 +1,15 @@
 """API routes for Visual Insight Agent."""
 
 import asyncio
+import ipaddress
 import json
 import logging
+import socket
 import time
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile
@@ -75,6 +78,58 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 # Image storage directory
 IMAGES_DIR = settings.images_dir
+
+
+def _validate_url_for_ssrf(url: str) -> None:
+    """Validate URL to prevent SSRF attacks.
+
+    Args:
+        url: The URL to validate.
+
+    Raises:
+        HTTPException: If the URL is potentially dangerous.
+    """
+    parsed = urlparse(url)
+
+    # Only allow http and https schemes
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid URL scheme: {parsed.scheme}. Only http and https are allowed.",
+        )
+
+    # Check for localhost
+    hostname = parsed.hostname
+    if not hostname:
+        raise HTTPException(status_code=400, detail="Invalid URL: no hostname")
+
+    if hostname in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid URL: localhost is not allowed",
+        )
+
+    # Check if hostname is an IP address
+    try:
+        ip = ipaddress.ip_address(hostname)
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid URL: private/internal IP addresses are not allowed",
+            )
+    except ValueError:
+        # Not an IP address, check via DNS resolution
+        try:
+            resolved = socket.getaddrinfo(hostname, None)
+            for _, _, _, _, sockaddr in resolved:
+                resolved_ip = ipaddress.ip_address(sockaddr[0])
+                if resolved_ip.is_private or resolved_ip.is_loopback or resolved_ip.is_link_local:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Invalid URL: resolves to private/internal IP",
+                    )
+        except socket.gaierror:
+            raise HTTPException(status_code=400, detail="Invalid URL: hostname cannot be resolved")
 
 
 def _validate_image_file(file: UploadFile, image_bytes: bytes) -> None:
@@ -363,6 +418,9 @@ async def create_analysis_from_url(
     """Submit an image URL for analysis."""
     if not request.image_url:
         raise HTTPException(status_code=400, detail="image_url is required")
+
+    # Validate URL to prevent SSRF attacks
+    _validate_url_for_ssrf(request.image_url)
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:

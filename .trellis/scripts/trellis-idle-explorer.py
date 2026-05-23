@@ -28,6 +28,7 @@ EXCLUDED_TASK_IDS = {"trellis-idle-explorer"}
 SKIP_DIRS = {"archive", "archives", "archived"}
 DEFAULT_INTERVAL_S = 3600        # 1h
 DEFAULT_COOLDOWN_S = 86400       # 24h
+ZOMBIE_THRESHOLD_S = 7200        # 2h — auto-archive stuck tasks after this
 RUNTIME_DIR = ".trellis/.runtime/idle-explorer"
 STATE_FILE = os.path.join(RUNTIME_DIR, "state.json")
 LOCK_FILE = os.path.join(RUNTIME_DIR, "lock")
@@ -88,6 +89,45 @@ def is_idle(tasks: list[dict]) -> tuple[bool, list[dict]]:
     return len(busy) == 0, busy
 
 
+def detect_zombies(repo_root: Path, tasks: list[dict], now: float, threshold_s: float) -> list[dict]:
+    """Find in_progress tasks that have been stuck longer than threshold."""
+    zombies = []
+    for t in tasks:
+        if t["status"] not in BUSY_STATUSES:
+            continue
+        task_dir = repo_root / t["path"]
+        task_json = task_dir / "task.json"
+        if not task_json.is_file():
+            continue
+        mtime = task_json.stat().st_mtime
+        age_s = now - mtime
+        if age_s > threshold_s:
+            t["age_s"] = age_s
+            zombies.append(t)
+    return zombies
+
+
+def auto_archive_zombies(repo_root: Path, zombies: list[dict]) -> list[str]:
+    """Archive zombie tasks via task.py archive --no-commit. Returns archived names."""
+    archived = []
+    for t in zombies:
+        task_name = t["path"].split("/")[-1]
+        print(f"[idle-explorer] zombie detected: {task_name} (stuck {int(t['age_s'] // 3600)}h), auto-archiving...")
+        try:
+            result = subprocess.run(
+                ["python3", "./.trellis/scripts/task.py", "archive", task_name, "--no-commit"],
+                cwd=str(repo_root), capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0:
+                print(f"[idle-explorer] archived: {task_name}")
+                archived.append(task_name)
+            else:
+                print(f"[idle-explorer] archive failed for {task_name}: {result.stderr.strip()}")
+        except Exception as e:
+            print(f"[idle-explorer] archive error for {task_name}: {e}")
+    return archived
+
+
 # ── State / Cooldown / Lock ─────────────────────────────────────────────────
 
 def read_state(repo_root: Path) -> dict:
@@ -146,13 +186,21 @@ def build_prompt(repo_root: Path) -> str:
     rr = str(repo_root)
     return f"""You are running a safe Trellis idle exploration + auto-implementation pass for repository: {rr}.
 
-## Scope (STRICT — never violate)
+## CRITICAL: Session lifecycle
+
+You MUST complete ALL phases before your session ends. Do NOT exit early.
+- After dispatching a subagent, WAIT for it to finish. Do not assume it succeeded.
+- After subagent completes, YOU run the archive command yourself.
+- If any step fails, log the failure and continue to the next candidate.
+- At the end, output a final summary of what was done.
+
+## Scope (STRICT \u2014 never violate)
 
 ONLY these four categories are in scope:
-1. **Historical debt cleanup** — remove dead code, deduplicate patterns, extract shared utilities
-2. **Architecture standardization** — align modules to proper depth/seam/adapter patterns per improve-codebase-architecture
-3. **Performance optimization** — reduce unnecessary allocations, cache misses, redundant calls
-4. **Security hardening** — fix unsafe patterns, input validation, secret handling, dependency risks
+1. **Historical debt cleanup** \u2014 remove dead code, deduplicate patterns, extract shared utilities
+2. **Architecture standardization** \u2014 align modules to proper depth/seam/adapter patterns per improve-codebase-architecture
+3. **Performance optimization** \u2014 reduce unnecessary allocations, cache misses, redundant calls
+4. **Security hardening** \u2014 fix unsafe patterns, input validation, secret handling, dependency risks
 
 OUT OF SCOPE (never touch):
 - Business logic, feature behavior, user-facing functionality
@@ -161,7 +209,7 @@ OUT OF SCOPE (never touch):
 - UI components, routes, pages, styling
 - Test expectations (may refactor test infra, not assertions)
 
-If a candidate touches anything out of scope, demote it to P1+ for user review — never auto-implement.
+If a candidate touches anything out of scope, demote it to P1+ for user review \u2014 never auto-implement.
 
 ## Phase 1: Explore
 
@@ -169,14 +217,15 @@ Use skill:improve-codebase-architecture explicitly. Follow its vocabulary and co
 - Use the architecture terms Module, Interface, Depth, Seam, Adapter, Leverage, and Locality.
 - Explore and identify deepening opportunities in the existing codebase.
 
-Dispatch one or more trellis-research subagents to inspect the codebase and existing Trellis specs.
-Ask the subagents to find architecture problems, repeated Modules, weak Seams, misplaced Adapters, low-Leverage abstractions, and Locality/Depth issues.
+Dispatch ONE trellis-research subagent to inspect the codebase and existing Trellis specs.
+WAIT for the subagent to complete before continuing.
 Persist ALL findings into the task's research/ directory.
 Synthesize into a ranked list of deepening opportunities with evidence paths.
 Classify each as P0 (trivial/low-risk, high leverage), P1 (medium), P2 (high effort), or P3 (design decision).
 
-## Phase 2: Auto-implement P0 candidates
+## Phase 2: Auto-implement P0 candidates (max 3 per session)
 
+Process at most 3 P0 candidates to avoid session timeout.
 For EACH P0 candidate that is strictly within scope (debt/arch/perf/security only):
 
 1. Create a Trellis task:
@@ -190,10 +239,12 @@ For EACH P0 candidate that is strictly within scope (debt/arch/perf/security onl
 3. Start the task:
    python3 ./.trellis/scripts/task.py start <task-dir>
 4. Dispatch the trellis-implement subagent to execute the code change.
-5. After implementation, dispatch the trellis-check subagent to verify quality.
-6. If check passes, archive:
+5. WAIT for the subagent to complete. Do not proceed until it finishes.
+6. After implementation, dispatch the trellis-check subagent to verify quality.
+7. WAIT for the check subagent to complete.
+8. YOU run the archive command directly (do NOT rely on subagent):
    python3 ./.trellis/scripts/task.py archive <task-dir> --no-commit
-7. If check fails, leave the task in_progress for manual review.
+9. If archive fails (e.g. merge conflict), leave the task in_progress and note it in your report.
 
 ## Phase 3: Report
 
@@ -238,6 +289,13 @@ def tick(repo_root: Path, *, dry_run: bool, cooldown_s: float,
     """Run one check cycle. Returns status string."""
     ts = datetime.fromtimestamp(now, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     tasks = scan_tasks(repo_root)
+
+    # Zombie detection: auto-archive stuck tasks before idle check
+    zombies = detect_zombies(repo_root, tasks, now, ZOMBIE_THRESHOLD_S)
+    if zombies:
+        auto_archive_zombies(repo_root, zombies)
+        tasks = scan_tasks(repo_root)
+
     idle, busy = is_idle(tasks)
     busy_summary = ", ".join(f"{t['path']}:{t['status']}" for t in busy)
     print(f"[idle-explorer] {ts} status={'idle' if idle else 'busy'} tasks={len(tasks)}"
