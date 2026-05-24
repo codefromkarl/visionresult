@@ -170,9 +170,7 @@ class TestFusionServiceTrace:
             scene_type="street",
             description="A busy street",
             location_guess=LocationGuess(
-                location="Tokyo Shibuya",
-                confidence=0.95,
-                evidence=["Japanese signs"]
+                location="Tokyo Shibuya", confidence=0.95, evidence=["Japanese signs"]
             ),
         )
 
@@ -267,9 +265,7 @@ class TestFusionServiceTrace:
             scene_type="street",
             description="A busy street",
             location_guess=LocationGuess(
-                location="Tokyo Shibuya",
-                confidence=0.95,
-                evidence=["Japanese signs"]
+                location="Tokyo Shibuya", confidence=0.95, evidence=["Japanese signs"]
             ),
         )
 

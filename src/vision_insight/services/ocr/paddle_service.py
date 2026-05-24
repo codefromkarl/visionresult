@@ -93,7 +93,7 @@ class PaddleOCRService(OCRService):
             import tempfile
 
             # Save bytes to temporary file
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
                 tmp.write(image_bytes)
                 tmp_path = tmp.name
 

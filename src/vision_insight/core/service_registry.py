@@ -1,11 +1,17 @@
 """Service registry for managing VLM, OCR, and other service providers.
 
-This module provides a centralized way to discover and initialize services
-based on configuration, reducing the complexity of PipelineRunner.
+This module provides a deep interface for service management:
+- Single entry point: `get_services()` returns all services
+- Centralized configuration handling
+- Easy to test with mock factories
+
+The Services dataclass bundles all pipeline services into one structure,
+reducing the interface from 6 getters to 1 entry point.
 """
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
 from vision_insight.core.config import settings
@@ -30,6 +36,31 @@ def _setting_bool(name: str, default: bool = False) -> bool:
     """Return a real boolean setting, ignoring MagicMock/unset test attributes."""
     value = getattr(settings, name, default)
     return value if isinstance(value, bool) else default
+
+
+@dataclass(frozen=True)
+class Services:
+    """Bundle of all pipeline services.
+
+    This is the single return type of ServiceRegistry, providing
+    a deep interface: one call gets all services.
+    """
+
+    vlm: VLMService
+    ocr: OCRService
+    entity: EntityService
+    search: SearchService
+    evidence: EvidenceService
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for backward compatibility."""
+        return {
+            "vlm": self.vlm,
+            "ocr": self.ocr,
+            "entity": self.entity,
+            "search": self.search,
+            "evidence": self.evidence,
+        }
 
 
 class ServiceFactory(ABC):
@@ -199,6 +230,7 @@ class DefaultServiceFactory(ServiceFactory):
     def create_search_service(self) -> SearchService:
         """Create search service based on configuration."""
         from vision_insight.services.search.http_search_service import HttpSearchService
+
         return HttpSearchService()
 
     def create_evidence_service(self, vlm_service: VLMService) -> EvidenceService:
@@ -223,9 +255,9 @@ class DefaultServiceFactory(ServiceFactory):
 class ServiceRegistry:
     """Registry for managing service instances and their lifecycle.
 
-    This module provides a deep interface for service management:
-    - Simple method to get all services
-    - Centralized configuration handling
+    Deep interface: single entry point to get all services.
+    - `get_services()` returns a Services dataclass with all service instances
+    - Centralized configuration handling via ServiceFactory
     - Easy to test with mock factories
     """
 
@@ -236,65 +268,65 @@ class ServiceRegistry:
             factory: Service factory to use. If None, uses DefaultServiceFactory.
         """
         self._factory = factory or DefaultServiceFactory()
-        self._services: dict[str, Any] = {}
-        self._initialized = False
+        self._services: Services | None = None
 
-    def get_all_services(self) -> dict[str, Any]:
+    def get_services(self) -> Services:
         """Get all service instances, initializing if needed.
 
         Returns:
-            Dictionary with service names as keys and service instances as values.
+            Services dataclass with all service instances.
         """
-        if not self._initialized:
-            self._initialize_services()
-        return self._services.copy()
+        if self._services is None:
+            self._services = self._initialize_services()
+        return self._services
 
-    def get_vlm_service(self) -> VLMService:
-        """Get the VLM service instance."""
-        if not self._initialized:
-            self._initialize_services()
-        return self._services["vlm"]
-
-    def get_ocr_service(self) -> OCRService:
-        """Get the OCR service instance."""
-        if not self._initialized:
-            self._initialize_services()
-        return self._services["ocr"]
-
-    def get_entity_service(self) -> EntityService:
-        """Get the entity extraction service instance."""
-        if not self._initialized:
-            self._initialize_services()
-        return self._services["entity"]
-
-    def get_search_service(self) -> SearchService:
-        """Get the search service instance."""
-        if not self._initialized:
-            self._initialize_services()
-        return self._services["search"]
-
-    def get_evidence_service(self) -> EvidenceService:
-        """Get the evidence fusion service instance."""
-        if not self._initialized:
-            self._initialize_services()
-        return self._services["evidence"]
-
-    def _initialize_services(self) -> None:
+    def _initialize_services(self) -> Services:
         """Initialize all services using the factory."""
         logger.info("Initializing services...")
 
         # Create VLM service first (needed for evidence service)
         vlm_service = self._factory.create_vlm_service()
-        self._services["vlm"] = vlm_service
 
         # Create other services
-        self._services["ocr"] = self._factory.create_ocr_service()
-        self._services["entity"] = self._factory.create_entity_service()
-        self._services["search"] = self._factory.create_search_service()
-        self._services["evidence"] = self._factory.create_evidence_service(vlm_service)
+        ocr_service = self._factory.create_ocr_service()
+        entity_service = self._factory.create_entity_service()
+        search_service = self._factory.create_search_service()
+        evidence_service = self._factory.create_evidence_service(vlm_service)
 
-        self._initialized = True
         logger.info("All services initialized successfully")
+
+        return Services(
+            vlm=vlm_service,
+            ocr=ocr_service,
+            entity=entity_service,
+            search=search_service,
+            evidence=evidence_service,
+        )
+
+    # Backward compatibility methods (deprecated)
+    def get_all_services(self) -> dict[str, Any]:
+        """Get all service instances as dict (deprecated, use get_services())."""
+        return self.get_services().to_dict()
+
+    def get_vlm_service(self) -> VLMService:
+        """Get the VLM service instance (deprecated, use get_services().vlm)."""
+        return self.get_services().vlm
+
+    def get_ocr_service(self) -> OCRService:
+        """Get the OCR service instance (deprecated, use get_services().ocr)."""
+        return self.get_services().ocr
+
+    def get_entity_service(self) -> EntityService:
+        """Get the entity extraction service instance (deprecated, use get_services().entity)."""
+        return self.get_services().entity
+
+    def get_search_service(self) -> SearchService:
+        """Get the search service instance (deprecated, use get_services().search)."""
+        return self.get_services().search
+
+    def get_evidence_service(self) -> EvidenceService:
+        """Get the evidence fusion service instance (deprecated, use get_services().evidence)."""
+        return self.get_services().evidence
 
 
 # Singleton registry

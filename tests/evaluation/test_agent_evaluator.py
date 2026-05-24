@@ -30,11 +30,11 @@ class TestJsonParsing:
         assert result["strengths"] == ["good"]
 
     def test_parse_json_in_code_block(self):
-        text = '''Here is the analysis:
+        text = """Here is the analysis:
 ```json
 {"score": 70, "weaknesses": ["missing error tests"]}
 ```
-Hope this helps!'''
+Hope this helps!"""
         result = _parse_json_response(text)
         assert result["score"] == 70
 
@@ -126,21 +126,25 @@ def test_upload():
 ''')
 
         # Mock LLM 响应
-        mock_response = json.dumps({
-            "score": 75,
-            "strengths": ["覆盖了上传功能"],
-            "weaknesses": ["缺少错误路径测试"],
-            "gaps": [{
-                "requirement": "错误处理",
-                "expected_behavior": "API 失败时显示错误",
-                "current_coverage": "未覆盖",
-                "gap_description": "缺少上传失败测试",
-                "suggested_test": "def test_upload_error(): ...",
-                "severity": "high"
-            }],
-            "recommendations": ["添加错误路径测试"],
-            "suggested_tests": ["def test_upload_error(): ..."]
-        })
+        mock_response = json.dumps(
+            {
+                "score": 75,
+                "strengths": ["覆盖了上传功能"],
+                "weaknesses": ["缺少错误路径测试"],
+                "gaps": [
+                    {
+                        "requirement": "错误处理",
+                        "expected_behavior": "API 失败时显示错误",
+                        "current_coverage": "未覆盖",
+                        "gap_description": "缺少上传失败测试",
+                        "suggested_test": "def test_upload_error(): ...",
+                        "severity": "high",
+                    }
+                ],
+                "recommendations": ["添加错误路径测试"],
+                "suggested_tests": ["def test_upload_error(): ..."],
+            }
+        )
 
         with patch(
             "tests.evaluation.agent_evaluator._call_llm",
@@ -166,25 +170,27 @@ def test_upload():
         requirements = ["用户上传图片", "显示预览", "错误处理"]
         tests = ["test_upload: 上传成功", "test_preview: 预览显示"]
 
-        mock_response = json.dumps({
-            "alignments": [
-                {
-                    "requirement": "用户上传图片",
-                    "aligned_tests": ["test_upload"],
-                    "missing_tests": [],
-                    "alignment_score": 1.0
-                },
-                {
-                    "requirement": "错误处理",
-                    "aligned_tests": [],
-                    "missing_tests": ["test_upload_error"],
-                    "alignment_score": 0.0
-                }
-            ],
-            "uncovered_requirements": ["错误处理"],
-            "orphan_tests": [],
-            "overall_alignment": 0.67
-        })
+        mock_response = json.dumps(
+            {
+                "alignments": [
+                    {
+                        "requirement": "用户上传图片",
+                        "aligned_tests": ["test_upload"],
+                        "missing_tests": [],
+                        "alignment_score": 1.0,
+                    },
+                    {
+                        "requirement": "错误处理",
+                        "aligned_tests": [],
+                        "missing_tests": ["test_upload_error"],
+                        "alignment_score": 0.0,
+                    },
+                ],
+                "uncovered_requirements": ["错误处理"],
+                "orphan_tests": [],
+                "overall_alignment": 0.67,
+            }
+        )
 
         with patch(
             "tests.evaluation.agent_evaluator._call_llm",

@@ -263,4 +263,3 @@ def detect_image_format(image_bytes: bytes) -> str:
     if image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
         return "webp"
     return "jpeg"
-

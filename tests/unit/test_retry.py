@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-
 import httpx
 import pytest
 
@@ -38,7 +36,9 @@ class TestRetryWithBackoff:
             attempts.append(1)
             if len(attempts) < 3:
                 raise httpx.HTTPStatusError(
-                    "retryable", request=httpx.Request("GET", "http://x"), response=_make_response(503)
+                    "retryable",
+                    request=httpx.Request("GET", "http://x"),
+                    response=_make_response(503),
                 )
             return "recovered"
 

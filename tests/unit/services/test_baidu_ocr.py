@@ -35,6 +35,7 @@ def baidu_service_standard():
 def _clear_token_cache():
     """Clear the global token cache between tests."""
     import vision_insight.services.ocr.baidu_service as baidu_mod
+
     original = baidu_mod._token_cache
     baidu_mod._token_cache = None
     yield
@@ -116,6 +117,7 @@ class TestBaiduOCRToken:
         import time
 
         import vision_insight.services.ocr.baidu_service as baidu_mod
+
         baidu_mod._token_cache = ("cached_token", time.time() + 86400)
 
         token = await baidu_service._get_access_token()
@@ -346,6 +348,7 @@ class TestBaiduOCRExtract:
         import time
 
         import vision_insight.services.ocr.baidu_service as baidu_mod
+
         baidu_mod._token_cache = ("cached_token", time.time() + 86400)
 
         ocr_resp = _mock_ocr_response([{"words": "test"}])

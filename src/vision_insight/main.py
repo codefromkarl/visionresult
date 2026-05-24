@@ -1,5 +1,7 @@
 """FastAPI application entry point."""
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -13,6 +15,14 @@ from vision_insight.core.auth import setup_api_key_auth
 from vision_insight.core.config import ensure_directories, settings
 from vision_insight.core.rate_limiter import setup_rate_limiting
 from vision_insight.core.request_id import setup_request_id
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan handler."""
+    ensure_directories()
+    yield
+
 
 app = FastAPI(
     title="Visual Insight Agent",
@@ -34,6 +44,7 @@ app = FastAPI(
 - ReDoc: `/redoc`
 """,
     version=__version__,
+    lifespan=lifespan,
     tags_metadata=[
         {
             "name": "analysis",
@@ -80,14 +91,8 @@ app.include_router(router, prefix="/api/v1")
 app.include_router(health_router)
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Initialize application on startup."""
-    ensure_directories()
-
-
 # Serve frontend
-FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
+FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend" / "public"
 
 
 @app.get("/")

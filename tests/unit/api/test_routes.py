@@ -45,13 +45,11 @@ class TestRecordConversion:
             location_guess="Tokyo",
             location_confidence=0.85,
             ocr_results_json=(
-                '[{"text": "Hello", "confidence": 0.95, '
-                '"bbox": [[0,0],[100,0],[100,20],[0,20]]}]'
+                '[{"text": "Hello", "confidence": 0.95, "bbox": [[0,0],[100,0],[100,20],[0,20]]}]'
             ),
             entities_json='{"brands": ["Nike"], "landmarks": []}',
             conclusions_json=(
-                '[{"statement": "Location: Tokyo", "probability": 0.85, '
-                '"category": "location"}]'
+                '[{"statement": "Location: Tokyo", "probability": 0.85, "category": "location"}]'
             ),
             search_results_json=(
                 '[{"query": "test", "source": "wikipedia", "title": "Tokyo", '
@@ -320,7 +318,7 @@ class TestAPIEndpoints:
         mock_record.location_guess = "Tokyo, Japan"
         mock_record.location_confidence = 0.85
         mock_record.time_guess = "night winter"
-        mock_record.ocr_results_json = '[]'
+        mock_record.ocr_results_json = "[]"
         mock_record.entities_json = '{"brands": [], "landmarks": ["Shibuya 109"]}'
         mock_record.report_markdown = "# Test Report"
         mock_get_analysis.return_value = mock_record
@@ -344,8 +342,8 @@ class TestAPIEndpoints:
         mock_record.location_guess = "Tokyo"
         mock_record.location_confidence = 0.8
         mock_record.time_guess = "night winter 2024"
-        mock_record.ocr_results_json = '[]'
-        mock_record.entities_json = '{}'
+        mock_record.ocr_results_json = "[]"
+        mock_record.entities_json = "{}"
         mock_record.report_markdown = "# Test"
         mock_get_analysis.return_value = mock_record
 
@@ -393,7 +391,7 @@ class TestAPIEndpoints:
         mock_record.location_guess = "New York"
         mock_record.location_confidence = 0.7
         mock_record.time_guess = "day"
-        mock_record.ocr_results_json = '[]'
+        mock_record.ocr_results_json = "[]"
         mock_record.entities_json = '{"brands": ["Nike", "Adidas"], "landmarks": []}'
         mock_record.report_markdown = "# Test"
         mock_get_analysis.return_value = mock_record
@@ -416,8 +414,8 @@ class TestAPIEndpoints:
         mock_record.location_guess = "Hawaii"
         mock_record.location_confidence = 0.6
         mock_record.time_guess = "evening"
-        mock_record.ocr_results_json = '[]'
-        mock_record.entities_json = '{}'
+        mock_record.ocr_results_json = "[]"
+        mock_record.entities_json = "{}"
         mock_record.report_markdown = "# Test"
         mock_get_analysis.return_value = mock_record
 

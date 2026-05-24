@@ -168,13 +168,17 @@ class MarkdownReportService(ReportService):
             if any([ent.location_keywords, ent.brands, ent.landmarks, ent.text_entities]):
                 sections.append(f"## {labels['entities']}")
                 if ent.location_keywords:
-                    sections.append(f"- **{labels['location_kw']}**: {', '.join(ent.location_keywords)}")  # noqa: E501
+                    sections.append(
+                        f"- **{labels['location_kw']}**: {', '.join(ent.location_keywords)}"
+                    )  # noqa: E501
                 if ent.brands:
                     sections.append(f"- **{labels['brands']}**: {', '.join(ent.brands)}")
                 if ent.landmarks:
                     sections.append(f"- **{labels['landmarks']}**: {', '.join(ent.landmarks)}")
                 if ent.text_entities:
-                    sections.append(f"- **{labels['text_entities']}**: {', '.join(ent.text_entities)}")  # noqa: E501
+                    sections.append(
+                        f"- **{labels['text_entities']}**: {', '.join(ent.text_entities)}"
+                    )  # noqa: E501
                 sections.append("")
 
         # Conclusions with evidence chain

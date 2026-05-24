@@ -58,9 +58,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         cutoff = now - 3600  # 1 hour ago
         for ip in list(self._requests.keys()):
-            self._requests[ip] = [
-                (ts, ep) for ts, ep in self._requests[ip] if ts > cutoff
-            ]
+            self._requests[ip] = [(ts, ep) for ts, ep in self._requests[ip] if ts > cutoff]
             if not self._requests[ip]:
                 del self._requests[ip]
 

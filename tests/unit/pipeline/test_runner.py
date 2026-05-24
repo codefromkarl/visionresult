@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from vision_insight.core.service_registry import ServiceRegistry
+from vision_insight.core.service_registry import ServiceRegistry, Services
 from vision_insight.models.schemas import (
     AnalysisReport,
     AnalysisStatus,
@@ -16,6 +16,28 @@ from vision_insight.pipeline.runner import (
     get_pipeline_runner,
     reset_pipeline_runner,
 )
+from vision_insight.services import (
+    EntityService,
+    EvidenceService,
+    OCRService,
+    SearchService,
+    VLMService,
+)
+
+
+def _create_mock_services() -> Services:
+    """Create a Services instance with mock services."""
+    evidence = MagicMock(spec=EvidenceService)
+    evidence.set_verbose = MagicMock()
+    evidence.get_reasoning_traces = MagicMock(return_value=[])
+
+    return Services(
+        vlm=MagicMock(spec=VLMService),
+        ocr=MagicMock(spec=OCRService),
+        entity=MagicMock(spec=EntityService),
+        search=MagicMock(spec=SearchService),
+        evidence=evidence,
+    )
 
 
 class TestPipelineRunner:
@@ -37,30 +59,18 @@ class TestPipelineRunner:
     def test_ensure_pipeline_builds_graph(self):
         """_ensure_pipeline should build the pipeline graph."""
         mock_registry = MagicMock(spec=ServiceRegistry)
-        mock_registry.get_all_services.return_value = {
-            "ocr": MagicMock(),
-            "vlm": MagicMock(),
-            "entity": MagicMock(),
-            "search": MagicMock(),
-            "evidence": MagicMock(),
-        }
+        mock_registry.get_services.return_value = _create_mock_services()
 
         runner = PipelineRunner(registry=mock_registry)
         runner._ensure_pipeline()
 
         assert runner._pipeline is not None
-        mock_registry.get_all_services.assert_called_once()
+        mock_registry.get_services.assert_called_once()
 
     def test_ensure_pipeline_idempotent(self):
         """_ensure_pipeline should not rebuild if already initialized."""
         mock_registry = MagicMock(spec=ServiceRegistry)
-        mock_registry.get_all_services.return_value = {
-            "ocr": MagicMock(),
-            "vlm": MagicMock(),
-            "entity": MagicMock(),
-            "search": MagicMock(),
-            "evidence": MagicMock(),
-        }
+        mock_registry.get_services.return_value = _create_mock_services()
 
         runner = PipelineRunner(registry=mock_registry)
         runner._ensure_pipeline()
@@ -69,8 +79,8 @@ class TestPipelineRunner:
         # Call again - should not rebuild
         runner._ensure_pipeline()
         assert runner._pipeline is first_pipeline
-        # get_all_services should only be called once
-        mock_registry.get_all_services.assert_called_once()
+        # get_services should only be called once
+        mock_registry.get_services.assert_called_once()
 
 
 class TestPipelineRunnerExecute:
@@ -80,8 +90,8 @@ class TestPipelineRunnerExecute:
     async def test_execute_success(self):
         """Should return completed report on success."""
         mock_registry = MagicMock(spec=ServiceRegistry)
-        mock_evidence = MagicMock()
-        mock_registry.get_evidence_service.return_value = mock_evidence
+        mock_services = _create_mock_services()
+        mock_registry.get_services.return_value = mock_services
 
         runner = PipelineRunner(registry=mock_registry)
 
@@ -101,14 +111,14 @@ class TestPipelineRunnerExecute:
         assert result.status == AnalysisStatus.COMPLETED
         assert result.report_markdown == "# Test Report"
         assert result.processing_time_ms >= 0
-        mock_evidence.set_verbose.assert_called_once_with(False)
+        mock_services.evidence.set_verbose.assert_called_once_with(False)
 
     @pytest.mark.asyncio
     async def test_execute_with_progress_callback(self):
         """Should call progress callback during execution."""
         mock_registry = MagicMock(spec=ServiceRegistry)
-        mock_evidence = MagicMock()
-        mock_registry.get_evidence_service.return_value = mock_evidence
+        mock_services = _create_mock_services()
+        mock_registry.get_services.return_value = mock_services
 
         runner = PipelineRunner(registry=mock_registry)
 
@@ -140,8 +150,8 @@ class TestPipelineRunnerExecute:
     async def test_execute_failure_returns_failed_report(self):
         """Should return FAILED status when pipeline raises exception."""
         mock_registry = MagicMock(spec=ServiceRegistry)
-        mock_evidence = MagicMock()
-        mock_registry.get_evidence_service.return_value = mock_evidence
+        mock_services = _create_mock_services()
+        mock_registry.get_services.return_value = mock_services
 
         runner = PipelineRunner(registry=mock_registry)
 
@@ -159,8 +169,8 @@ class TestPipelineRunnerExecute:
     async def test_execute_sets_processing_status(self):
         """Should set status to PROCESSING during execution."""
         mock_registry = MagicMock(spec=ServiceRegistry)
-        mock_evidence = MagicMock()
-        mock_registry.get_evidence_service.return_value = mock_evidence
+        mock_services = _create_mock_services()
+        mock_registry.get_services.return_value = mock_services
 
         runner = PipelineRunner(registry=mock_registry)
 
@@ -184,8 +194,8 @@ class TestPipelineRunnerExecute:
     async def test_execute_with_verbose_mode(self):
         """Should set verbose mode on evidence service."""
         mock_registry = MagicMock(spec=ServiceRegistry)
-        mock_evidence = MagicMock()
-        mock_registry.get_evidence_service.return_value = mock_evidence
+        mock_services = _create_mock_services()
+        mock_registry.get_services.return_value = mock_services
 
         runner = PipelineRunner(registry=mock_registry)
 
@@ -200,7 +210,7 @@ class TestPipelineRunnerExecute:
         report = AnalysisReport(id="test-005", status=AnalysisStatus.PENDING)
         await runner.execute(report, b"fake-image", verbose=True)
 
-        mock_evidence.set_verbose.assert_called_once_with(True)
+        mock_services.evidence.set_verbose.assert_called_once_with(True)
 
 
 class TestGetPipelineRunner:

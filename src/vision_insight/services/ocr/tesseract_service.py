@@ -46,6 +46,7 @@ class TesseractOCRService(OCRService):
 
         try:
             import pytesseract
+
             self._pytesseract = pytesseract
             self._initialized = True
             logger.info("Tesseract OCR engine initialized (lang=%s)", self._tesseract_lang)
@@ -88,21 +89,21 @@ class TesseractOCRService(OCRService):
     def _parse_results(self, data: dict) -> list[OCRResult]:
         """Parse raw Tesseract output into OCRResult list."""
         results = []
-        n_boxes = len(data['text'])
+        n_boxes = len(data["text"])
 
         for i in range(n_boxes):
-            text = data['text'][i].strip()
-            conf = int(data['conf'][i])
+            text = data["text"][i].strip()
+            conf = int(data["conf"][i])
 
             # Skip empty text or low confidence
             if not text or conf < 0:
                 continue
 
             # Get bounding box
-            x = data['left'][i]
-            y = data['top'][i]
-            w = data['width'][i]
-            h = data['height'][i]
+            x = data["left"][i]
+            y = data["top"][i]
+            w = data["width"][i]
+            h = data["height"][i]
 
             # Convert to polygon format [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
             bbox = [

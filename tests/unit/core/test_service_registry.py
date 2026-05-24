@@ -8,6 +8,7 @@ from vision_insight.core.service_registry import (
     DefaultServiceFactory,
     ServiceFactory,
     ServiceRegistry,
+    Services,
     get_service_registry,
     reset_service_registry,
 )
@@ -28,14 +29,14 @@ class TestServiceRegistry:
         mock_factory = MagicMock(spec=ServiceFactory)
         registry = ServiceRegistry(factory=mock_factory)
         assert registry._factory is mock_factory
-        assert not registry._initialized
+        assert registry._services is None
 
     def test_init_with_default_factory(self):
         """Should use DefaultServiceFactory when none provided."""
         registry = ServiceRegistry()
         assert isinstance(registry._factory, DefaultServiceFactory)
 
-    def test_get_all_services_initializes_once(self):
+    def test_get_services_initializes_once(self):
         """Should initialize services only once."""
         mock_factory = MagicMock(spec=ServiceFactory)
         mock_factory.create_vlm_service.return_value = MagicMock(spec=VLMService)
@@ -47,12 +48,12 @@ class TestServiceRegistry:
         registry = ServiceRegistry(factory=mock_factory)
 
         # First call should initialize
-        services1 = registry.get_all_services()
-        assert registry._initialized
+        services1 = registry.get_services()
+        assert registry._services is not None
 
         # Second call should not reinitialize
-        services2 = registry.get_all_services()
-        assert services1 == services2
+        services2 = registry.get_services()
+        assert services1 is services2
 
         # Factory methods should only be called once
         mock_factory.create_vlm_service.assert_called_once()
@@ -61,26 +62,58 @@ class TestServiceRegistry:
         mock_factory.create_search_service.assert_called_once()
         mock_factory.create_evidence_service.assert_called_once()
 
-    def test_get_all_services_returns_copy(self):
-        """Should return a copy of services dictionary."""
+    def test_get_services_returns_services_dataclass(self):
+        """Should return a Services dataclass with all service instances."""
         mock_factory = MagicMock(spec=ServiceFactory)
-        mock_factory.create_vlm_service.return_value = MagicMock(spec=VLMService)
-        mock_factory.create_ocr_service.return_value = MagicMock(spec=OCRService)
-        mock_factory.create_entity_service.return_value = MagicMock(spec=EntityService)
-        mock_factory.create_search_service.return_value = MagicMock(spec=SearchService)
-        mock_factory.create_evidence_service.return_value = MagicMock(spec=EvidenceService)
+        mock_vlm = MagicMock(spec=VLMService)
+        mock_ocr = MagicMock(spec=OCRService)
+        mock_entity = MagicMock(spec=EntityService)
+        mock_search = MagicMock(spec=SearchService)
+        mock_evidence = MagicMock(spec=EvidenceService)
+
+        mock_factory.create_vlm_service.return_value = mock_vlm
+        mock_factory.create_ocr_service.return_value = mock_ocr
+        mock_factory.create_entity_service.return_value = mock_entity
+        mock_factory.create_search_service.return_value = mock_search
+        mock_factory.create_evidence_service.return_value = mock_evidence
 
         registry = ServiceRegistry(factory=mock_factory)
+        services = registry.get_services()
 
-        services1 = registry.get_all_services()
-        services2 = registry.get_all_services()
+        assert isinstance(services, Services)
+        assert services.vlm is mock_vlm
+        assert services.ocr is mock_ocr
+        assert services.entity is mock_entity
+        assert services.search is mock_search
+        assert services.evidence is mock_evidence
 
-        # Should be equal but not the same object
-        assert services1 == services2
-        assert services1 is not services2
+    def test_backward_compatibility_get_all_services(self):
+        """Should support deprecated get_all_services() method."""
+        mock_factory = MagicMock(spec=ServiceFactory)
+        mock_vlm = MagicMock(spec=VLMService)
+        mock_ocr = MagicMock(spec=OCRService)
+        mock_entity = MagicMock(spec=EntityService)
+        mock_search = MagicMock(spec=SearchService)
+        mock_evidence = MagicMock(spec=EvidenceService)
 
-    def test_get_individual_services(self):
-        """Should return individual service instances."""
+        mock_factory.create_vlm_service.return_value = mock_vlm
+        mock_factory.create_ocr_service.return_value = mock_ocr
+        mock_factory.create_entity_service.return_value = mock_entity
+        mock_factory.create_search_service.return_value = mock_search
+        mock_factory.create_evidence_service.return_value = mock_evidence
+
+        registry = ServiceRegistry(factory=mock_factory)
+        services_dict = registry.get_all_services()
+
+        assert isinstance(services_dict, dict)
+        assert services_dict["vlm"] is mock_vlm
+        assert services_dict["ocr"] is mock_ocr
+        assert services_dict["entity"] is mock_entity
+        assert services_dict["search"] is mock_search
+        assert services_dict["evidence"] is mock_evidence
+
+    def test_backward_compatibility_get_individual_services(self):
+        """Should support deprecated individual getter methods."""
         mock_factory = MagicMock(spec=ServiceFactory)
         mock_vlm = MagicMock(spec=VLMService)
         mock_ocr = MagicMock(spec=OCRService)
@@ -101,22 +134,6 @@ class TestServiceRegistry:
         assert registry.get_entity_service() is mock_entity
         assert registry.get_search_service() is mock_search
         assert registry.get_evidence_service() is mock_evidence
-
-    def test_get_individual_services_initializes_if_needed(self):
-        """Should initialize services when getting individual service."""
-        mock_factory = MagicMock(spec=ServiceFactory)
-        mock_factory.create_vlm_service.return_value = MagicMock(spec=VLMService)
-        mock_factory.create_ocr_service.return_value = MagicMock(spec=OCRService)
-        mock_factory.create_entity_service.return_value = MagicMock(spec=EntityService)
-        mock_factory.create_search_service.return_value = MagicMock(spec=SearchService)
-        mock_factory.create_evidence_service.return_value = MagicMock(spec=EvidenceService)
-
-        registry = ServiceRegistry(factory=mock_factory)
-
-        # Should initialize when getting individual service
-        vlm = registry.get_vlm_service()
-        assert vlm is not None
-        assert registry._initialized
 
 
 class TestDefaultServiceFactory:
@@ -332,3 +349,32 @@ class TestGetServiceRegistry:
         reset_service_registry()
         registry2 = get_service_registry()
         assert registry1 is not registry2
+
+
+class TestServices:
+    """Test Services dataclass."""
+
+    def test_to_dict(self):
+        """Should convert to dictionary."""
+        mock_vlm = MagicMock(spec=VLMService)
+        mock_ocr = MagicMock(spec=OCRService)
+        mock_entity = MagicMock(spec=EntityService)
+        mock_search = MagicMock(spec=SearchService)
+        mock_evidence = MagicMock(spec=EvidenceService)
+
+        services = Services(
+            vlm=mock_vlm,
+            ocr=mock_ocr,
+            entity=mock_entity,
+            search=mock_search,
+            evidence=mock_evidence,
+        )
+
+        result = services.to_dict()
+
+        assert isinstance(result, dict)
+        assert result["vlm"] is mock_vlm
+        assert result["ocr"] is mock_ocr
+        assert result["entity"] is mock_entity
+        assert result["search"] is mock_search
+        assert result["evidence"] is mock_evidence

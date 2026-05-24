@@ -33,9 +33,7 @@ def _make_full_report() -> AnalysisReport:
         id="i18n-001",
         status=AnalysisStatus.COMPLETED,
         processing_time_ms=3500,
-        image_metadata=ImageMetadata(
-            width=1920, height=1080, format="JPEG", file_size=204800
-        ),
+        image_metadata=ImageMetadata(width=1920, height=1080, format="JPEG", file_size=204800),
         scene_analysis=SceneAnalysis(
             scene_type="street",
             description="A busy commercial street at night with neon signs.",
@@ -44,9 +42,7 @@ def _make_full_report() -> AnalysisReport:
                 confidence=0.85,
                 evidence=["Japanese signage", "Shibuya 109 building"],
             ),
-            time_guess=TimeGuess(
-                time_of_day="night", season="winter", year_estimate="2024"
-            ),
+            time_guess=TimeGuess(time_of_day="night", season="winter", year_estimate="2024"),
             people=[PeopleInfo(count=5, age_group="young", activity="walking")],
             key_evidence=["Neon signs", "Shibuya 109"],
             uncertainties=["Exact street unclear"],
@@ -268,9 +264,7 @@ class TestLanguageConsistency:
         assert md_unknown == md_zh
 
     @pytest.mark.asyncio
-    async def test_content_preserved_across_languages(
-        self, service: MarkdownReportService
-    ):
+    async def test_content_preserved_across_languages(self, service: MarkdownReportService):
         """VLM-generated content (description, location) must be preserved."""
         report = _make_full_report()
         md_zh = await service.generate_user_report(report, lang="zh")

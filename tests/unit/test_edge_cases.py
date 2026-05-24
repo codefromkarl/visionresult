@@ -82,7 +82,7 @@ class TestCorruptedImageHandling:
         buf = io.BytesIO()
         img.save(buf, format="JPEG")
         full_bytes = buf.getvalue()
-        truncated = full_bytes[:len(full_bytes) // 2]
+        truncated = full_bytes[: len(full_bytes) // 2]
 
         # Should either work or raise a clear error
         try:
@@ -131,6 +131,7 @@ class TestBlurDetection:
 
         # High contrast should have higher sharpness
         from vision_insight.utils.image import assess_sharpness
+
         sharpness = assess_sharpness(image_bytes)
         assert sharpness > 0  # Should have some sharpness
 

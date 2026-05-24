@@ -308,14 +308,16 @@ class FusionService(EvidenceService):
                 category=category,
             )
             if self._verbose:
-                self._reasoning_traces.append({
-                    "conclusion_category": category,
-                    "conclusion_statement": result.statement,
-                    "final_probability": 0.0,
-                    "steps": [],
-                    "strategy_used": "none",
-                    "total_duration_ms": int((time.time() - start_time) * 1000),
-                })
+                self._reasoning_traces.append(
+                    {
+                        "conclusion_category": category,
+                        "conclusion_statement": result.statement,
+                        "final_probability": 0.0,
+                        "steps": [],
+                        "strategy_used": "none",
+                        "total_duration_ms": int((time.time() - start_time) * 1000),
+                    }
+                )
             return result
 
         max_conf = max(e.confidence for e in evidence)
@@ -326,17 +328,21 @@ class FusionService(EvidenceService):
             best = max(evidence, key=lambda e: e.confidence)
             supporting = [e for e in evidence if e.supporting]
             prob = self._weighted_probability(supporting)
-            steps.append({
-                "step_id": 1,
-                "action": "rule_match",
-                "description": f"High confidence match (>{_HIGH_CONFIDENCE_THRESHOLD})",
-                "input_summary": f"{len(evidence)} evidence items, max confidence={max_conf:.2f}",
-                "output_summary": f"Best match: [{best.source}] {best.content[:50]}...",
-                "confidence_before": max_conf,
-                "confidence_after": prob,
-                "duration_ms": int((time.time() - start_time) * 1000),
-                "metadata": {"best_source": best.source, "num_supporting": len(supporting)},
-            })
+            steps.append(
+                {
+                    "step_id": 1,
+                    "action": "rule_match",
+                    "description": f"High confidence match (>{_HIGH_CONFIDENCE_THRESHOLD})",
+                    "input_summary": (
+                        f"{len(evidence)} evidence items, max confidence={max_conf:.2f}"
+                    ),
+                    "output_summary": f"Best match: [{best.source}] {best.content[:50]}...",
+                    "confidence_before": max_conf,
+                    "confidence_after": prob,
+                    "duration_ms": int((time.time() - start_time) * 1000),
+                    "metadata": {"best_source": best.source, "num_supporting": len(supporting)},
+                }
+            )
             result = FusedConclusion(
                 statement=f"{label}: {best.content}",
                 probability=prob,
@@ -351,19 +357,21 @@ class FusionService(EvidenceService):
                 llm_response, reasoning = await self._llm.infer_with_reasoning(prompt)
                 prob = self._weighted_probability([e for e in evidence if e.supporting])
                 prob = min(prob, 0.75)
-                steps.append({
-                    "step_id": 1,
-                    "action": "llm_inference",
-                    "description": "Medium confidence, using LLM for reasoning",
-                    "input_summary": (
-                        f"{len(evidence)} evidence items, max confidence={max_conf:.2f}"
-                    ),
-                    "output_summary": f"LLM response: {llm_response[:100]}...",
-                    "confidence_before": max_conf,
-                    "confidence_after": prob,
-                    "duration_ms": int((time.time() - start_time) * 1000),
-                    "metadata": {"llm_reasoning": reasoning, "prompt_length": len(prompt)},
-                })
+                steps.append(
+                    {
+                        "step_id": 1,
+                        "action": "llm_inference",
+                        "description": "Medium confidence, using LLM for reasoning",
+                        "input_summary": (
+                            f"{len(evidence)} evidence items, max confidence={max_conf:.2f}"
+                        ),
+                        "output_summary": f"LLM response: {llm_response[:100]}...",
+                        "confidence_before": max_conf,
+                        "confidence_after": prob,
+                        "duration_ms": int((time.time() - start_time) * 1000),
+                        "metadata": {"llm_reasoning": reasoning, "prompt_length": len(prompt)},
+                    }
+                )
                 result = FusedConclusion(
                     statement=f"{label} (LLM辅助): {llm_response}",
                     probability=prob,
@@ -373,17 +381,19 @@ class FusionService(EvidenceService):
             except Exception as exc:
                 logger.warning("LLM inference failed: %s", exc)
                 strategy_used = "fallback"
-                steps.append({
-                    "step_id": 1,
-                    "action": "llm_failed",
-                    "description": "LLM inference failed, falling back to uncertain",
-                    "input_summary": f"{len(evidence)} evidence items",
-                    "output_summary": str(exc),
-                    "confidence_before": max_conf,
-                    "confidence_after": max_conf * 0.5,
-                    "duration_ms": int((time.time() - start_time) * 1000),
-                    "metadata": {"error": str(exc)},
-                })
+                steps.append(
+                    {
+                        "step_id": 1,
+                        "action": "llm_failed",
+                        "description": "LLM inference failed, falling back to uncertain",
+                        "input_summary": f"{len(evidence)} evidence items",
+                        "output_summary": str(exc),
+                        "confidence_before": max_conf,
+                        "confidence_after": max_conf * 0.5,
+                        "duration_ms": int((time.time() - start_time) * 1000),
+                        "metadata": {"error": str(exc)},
+                    }
+                )
                 result = FusedConclusion(
                     statement=f"{label}: 证据不足，无法确定",
                     probability=max_conf * 0.5,
@@ -393,20 +403,23 @@ class FusionService(EvidenceService):
         # --- Low confidence / no LLM → mark uncertain ---
         else:
             strategy_used = "uncertain"
-            steps.append({
-                "step_id": 1,
-                "action": "low_confidence",
-                "description": (
-                    f"Low confidence (<{_MEDIUM_CONFIDENCE_THRESHOLD}), "
-                    "no LLM available"
-                ),
-                "input_summary": f"{len(evidence)} evidence items, max confidence={max_conf:.2f}",
-                "output_summary": "Marked as uncertain",
-                "confidence_before": max_conf,
-                "confidence_after": max_conf * 0.5,
-                "duration_ms": int((time.time() - start_time) * 1000),
-                "metadata": {},
-            })
+            steps.append(
+                {
+                    "step_id": 1,
+                    "action": "low_confidence",
+                    "description": (
+                        f"Low confidence (<{_MEDIUM_CONFIDENCE_THRESHOLD}), no LLM available"
+                    ),
+                    "input_summary": (
+                        f"{len(evidence)} evidence items, max confidence={max_conf:.2f}"
+                    ),
+                    "output_summary": "Marked as uncertain",
+                    "confidence_before": max_conf,
+                    "confidence_after": max_conf * 0.5,
+                    "duration_ms": int((time.time() - start_time) * 1000),
+                    "metadata": {},
+                }
+            )
             result = FusedConclusion(
                 statement=f"{label}: 证据不足，无法确定",
                 probability=max_conf * 0.5,
@@ -416,14 +429,16 @@ class FusionService(EvidenceService):
 
         # Record reasoning trace if verbose
         if self._verbose:
-            self._reasoning_traces.append({
-                "conclusion_category": category,
-                "conclusion_statement": result.statement,
-                "final_probability": result.probability,
-                "steps": steps,
-                "strategy_used": strategy_used,
-                "total_duration_ms": int((time.time() - start_time) * 1000),
-            })
+            self._reasoning_traces.append(
+                {
+                    "conclusion_category": category,
+                    "conclusion_statement": result.statement,
+                    "final_probability": result.probability,
+                    "steps": steps,
+                    "strategy_used": strategy_used,
+                    "total_duration_ms": int((time.time() - start_time) * 1000),
+                }
+            )
 
         return result
 
@@ -459,7 +474,9 @@ class FusionService(EvidenceService):
         for i, e in enumerate(evidence, 1):
             lines.append(f"  {i}. [{e.source}] {e.content} (置信度={e.confidence:.2f})")
         if verbose:
-            lines.append("请用一句话回答结论，然后另起一行以'推理过程:'开头，详细说明你的推理步骤。")
+            lines.append(
+                "请用一句话回答结论，然后另起一行以'推理过程:'开头，详细说明你的推理步骤。"
+            )
         else:
             lines.append("请用一句话回答，不要解释推理过程。")
         return "\n".join(lines)

@@ -81,6 +81,7 @@ def _broadcast_event(task_id: str, event_data: dict[str, Any]) -> None:
 # In-memory store
 # ---------------------------------------------------------------------------
 
+
 def _store_event(task_id: str, event: str, level: str, data: dict[str, Any]) -> dict[str, Any]:
     """Store event in memory for API retrieval. Returns the event dict.
 
@@ -129,6 +130,7 @@ def clear_task_events(task_id: str) -> None:
 # ---------------------------------------------------------------------------
 # JSON formatter for structured logs
 # ---------------------------------------------------------------------------
+
 
 class _StructuredFormatter(logging.Formatter):
     """Emit one JSON object per line — easy to grep/jq."""

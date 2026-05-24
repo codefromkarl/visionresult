@@ -97,10 +97,12 @@ class TestOCRContextLanguage:
         ocr = self._make_ocr()
 
         with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = json.dumps({
-                "scene_type": "unknown",
-                "description": "test",
-            })
+            mock_chat.return_value = json.dumps(
+                {
+                    "scene_type": "unknown",
+                    "description": "test",
+                }
+            )
             await svc.analyze(b"\x89PNG", ocr, lang="zh")
 
             call_args = mock_chat.call_args
@@ -114,10 +116,12 @@ class TestOCRContextLanguage:
         ocr = self._make_ocr()
 
         with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = json.dumps({
-                "scene_type": "unknown",
-                "description": "test",
-            })
+            mock_chat.return_value = json.dumps(
+                {
+                    "scene_type": "unknown",
+                    "description": "test",
+                }
+            )
             await svc.analyze(b"\x89PNG", ocr, lang="en")
 
             call_args = mock_chat.call_args
@@ -131,10 +135,12 @@ class TestOCRContextLanguage:
         ocr = self._make_ocr()
 
         with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = json.dumps({
-                "scene_type": "unknown",
-                "description": "test",
-            })
+            mock_chat.return_value = json.dumps(
+                {
+                    "scene_type": "unknown",
+                    "description": "test",
+                }
+            )
             await svc.analyze(b"\x89PNG", ocr, lang="zh")
 
             call_args = mock_chat.call_args
@@ -148,10 +154,12 @@ class TestOCRContextLanguage:
         ocr = self._make_ocr()
 
         with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = json.dumps({
-                "scene_type": "unknown",
-                "description": "test",
-            })
+            mock_chat.return_value = json.dumps(
+                {
+                    "scene_type": "unknown",
+                    "description": "test",
+                }
+            )
             await svc.analyze(b"\x89PNG", ocr, lang="en")
 
             call_args = mock_chat.call_args
@@ -170,10 +178,12 @@ class TestPromptSelection:
         svc = OpenAIVLMService(api_key="test-key")
 
         with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = json.dumps({
-                "scene_type": "unknown",
-                "description": "test",
-            })
+            mock_chat.return_value = json.dumps(
+                {
+                    "scene_type": "unknown",
+                    "description": "test",
+                }
+            )
             await svc.analyze(b"\x89PNG", lang="zh")
 
             prompt = mock_chat.call_args[0][0]
@@ -185,10 +195,12 @@ class TestPromptSelection:
         svc = OpenAIVLMService(api_key="test-key")
 
         with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = json.dumps({
-                "scene_type": "unknown",
-                "description": "test",
-            })
+            mock_chat.return_value = json.dumps(
+                {
+                    "scene_type": "unknown",
+                    "description": "test",
+                }
+            )
             await svc.analyze(b"\x89PNG", lang="en")
 
             prompt = mock_chat.call_args[0][0]
@@ -229,10 +241,12 @@ class TestDefaultLanguage:
         svc = OpenAIVLMService(api_key="test-key")
 
         with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = json.dumps({
-                "scene_type": "unknown",
-                "description": "test",
-            })
+            mock_chat.return_value = json.dumps(
+                {
+                    "scene_type": "unknown",
+                    "description": "test",
+                }
+            )
             # No lang parameter — should default to zh
             await svc.analyze(b"\x89PNG")
 

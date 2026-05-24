@@ -17,6 +17,17 @@ router = APIRouter(tags=["system"])
 # Track application start time
 _app_start_time = time.time()
 
+# Simple in-memory metrics (for basic monitoring)
+_metrics: dict[str, Any] = {
+    "requests_total": 0,
+    "requests_success": 0,
+    "requests_error": 0,
+    "analysis_total": 0,
+    "analysis_success": 0,
+    "analysis_error": 0,
+    "last_analysis_time": None,
+}
+
 
 class HealthStatus(BaseModel):
     """Health check response model."""
@@ -169,3 +180,80 @@ async def readiness_check():
 async def liveness_check():
     """Kubernetes liveness probe endpoint."""
     return {"status": "alive", "timestamp": datetime.now(UTC).isoformat()}
+
+
+def record_request(success: bool) -> None:
+    """Record a request metric."""
+    _metrics["requests_total"] += 1
+    if success:
+        _metrics["requests_success"] += 1
+    else:
+        _metrics["requests_error"] += 1
+
+
+def record_analysis(success: bool) -> None:
+    """Record an analysis metric."""
+    _metrics["analysis_total"] += 1
+    _metrics["last_analysis_time"] = datetime.now(UTC).isoformat()
+    if success:
+        _metrics["analysis_success"] += 1
+    else:
+        _metrics["analysis_error"] += 1
+
+
+@router.get("/metrics", summary="Prometheus metrics")
+async def metrics():
+    """Prometheus-compatible metrics endpoint."""
+    uptime = time.time() - _app_start_time
+
+    # Format as Prometheus text format
+    lines = [
+        "# HELP via_uptime_seconds Application uptime in seconds",
+        "# TYPE via_uptime_seconds gauge",
+        f"via_uptime_seconds {uptime:.2f}",
+        "",
+        "# HELP via_requests_total Total number of requests",
+        "# TYPE via_requests_total counter",
+        f"via_requests_total {_metrics['requests_total']}",
+        "",
+        "# HELP via_requests_success_total Total number of successful requests",
+        "# TYPE via_requests_success_total counter",
+        f"via_requests_success_total {_metrics['requests_success']}",
+        "",
+        "# HELP via_requests_error_total Total number of failed requests",
+        "# TYPE via_requests_error_total counter",
+        f"via_requests_error_total {_metrics['requests_error']}",
+        "",
+        "# HELP via_analysis_total Total number of analyses",
+        "# TYPE via_analysis_total counter",
+        f"via_analysis_total {_metrics['analysis_total']}",
+        "",
+        "# HELP via_analysis_success_total Total number of successful analyses",
+        "# TYPE via_analysis_success_total counter",
+        f"via_analysis_success_total {_metrics['analysis_success']}",
+        "",
+        "# HELP via_analysis_error_total Total number of failed analyses",
+        "# TYPE via_analysis_error_total counter",
+        f"via_analysis_error_total {_metrics['analysis_error']}",
+        "",
+        "# HELP via_version_info Application version",
+        "# TYPE via_version_info gauge",
+        f'via_version_info{{version="{__version__}"}} 1',
+        "",
+    ]
+
+    # Add database stats if available
+    try:
+        stats = get_database_stats()
+        lines.extend(
+            [
+                "# HELP via_database_records_total Total records in database",
+                "# TYPE via_database_records_total gauge",
+                f"via_database_records_total {stats['total']}",
+                "",
+            ]
+        )
+    except Exception:
+        pass
+
+    return "\n".join(lines)

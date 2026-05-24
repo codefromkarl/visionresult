@@ -36,15 +36,15 @@ class PipelineRunner:
             return
 
         # Get all services from registry
-        services = self._registry.get_all_services()
+        services = self._registry.get_services()
 
         # Build pipeline graph
         self._pipeline = build_pipeline(
-            ocr_service=services["ocr"],
-            vlm_service=services["vlm"],
-            entity_service=services["entity"],
-            search_service=services["search"],
-            evidence_service=services["evidence"],
+            ocr_service=services.ocr,
+            vlm_service=services.vlm,
+            entity_service=services.entity,
+            search_service=services.search,
+            evidence_service=services.evidence,
         )
         logger.info("Pipeline graph built")
 
@@ -71,8 +71,9 @@ class PipelineRunner:
         self._ensure_pipeline()
 
         # Get evidence service for verbose mode
-        evidence_service = self._registry.get_evidence_service()
-        if hasattr(evidence_service, 'set_verbose'):
+        services = self._registry.get_services()
+        evidence_service = services.evidence
+        if hasattr(evidence_service, "set_verbose"):
             evidence_service.set_verbose(verbose)
 
         task_id = report.id

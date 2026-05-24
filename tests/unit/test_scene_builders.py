@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from vision_insight.utils.scene_builders import build_detected_object, build_scene_analysis
 
 
@@ -68,12 +66,14 @@ class TestBuildDetectedObject:
         assert result.category == ""
 
     def test_full(self):
-        result = build_detected_object({
-            "label": "cat",
-            "confidence": 0.95,
-            "bbox": [10, 20, 100, 200],
-            "category": "animal",
-        })
+        result = build_detected_object(
+            {
+                "label": "cat",
+                "confidence": 0.95,
+                "bbox": [10, 20, 100, 200],
+                "category": "animal",
+            }
+        )
         assert result.label == "cat"
         assert result.confidence == 0.95
         assert result.bbox == [10, 20, 100, 200]

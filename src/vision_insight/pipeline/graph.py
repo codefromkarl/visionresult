@@ -457,8 +457,7 @@ def make_entity_node(entity_service: EntityService):
                 state,
                 step_info,
                 output_summary=(
-                    f"{len(entities.brands)} brands, "
-                    f"{len(entities.landmarks)} landmarks"
+                    f"{len(entities.brands)} brands, {len(entities.landmarks)} landmarks"
                 ),
                 key_findings=findings,
                 output_data={

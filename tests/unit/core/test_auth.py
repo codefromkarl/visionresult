@@ -41,5 +41,3 @@ def test_verify_api_key_allows_any_key_when_no_keys_configured(mock_settings):
     mock_settings.api_keys = ""
 
     assert auth.verify_api_key(api_key_header=None, api_key_query="dev-key") == "dev-key"
-
-

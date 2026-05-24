@@ -150,7 +150,7 @@ class HttpSearchService(SearchService):
     async def _search_wikipedia(self, query: str) -> list[SearchResult]:
         """Search Wikipedia for relevant articles."""
         # 先尝试中文，失败则用英文
-        for lang in ['zh', 'en']:
+        for lang in ["zh", "en"]:
             wiki_url = f"https://{lang}.wikipedia.org/w/api.php"
             search_params: dict[str, str | int] = {
                 "action": "query",
@@ -181,7 +181,7 @@ class HttpSearchService(SearchService):
                                 title=title,
                                 snippet=snippet,
                                 url=page_url,
-                                relevance=0.6 if lang == 'zh' else 0.5,
+                                relevance=0.6 if lang == "zh" else 0.5,
                             )
                         )
                     if results:

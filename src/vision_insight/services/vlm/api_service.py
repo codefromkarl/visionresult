@@ -35,6 +35,7 @@ current_task_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "current_task_id", default="unknown"
 )
 
+
 class OpenAIVLMService(VLMService):
     """VLM service using OpenAI GPT-4 Vision API via httpx."""
 

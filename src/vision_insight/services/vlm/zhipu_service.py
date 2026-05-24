@@ -28,6 +28,7 @@ from vision_insight.utils.scene_builders import (
 
 logger = logging.getLogger(__name__)
 
+
 class ZhipuVLMService(VLMService):
     """VLM service using Zhipu GLM-4V API."""
 

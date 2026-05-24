@@ -152,12 +152,11 @@ def setup_api_key_auth(app: FastAPI, enabled: bool = True) -> None:
             return await call_next(request)
 
         # Check API key
-        api_key = request.headers.get(API_KEY_HEADER) or request.query_params.get(
-            API_KEY_QUERY
-        )
+        api_key = request.headers.get(API_KEY_HEADER) or request.query_params.get(API_KEY_QUERY)
 
         if not api_key:
             from starlette.responses import JSONResponse
+
             return JSONResponse(
                 status_code=401,
                 content={"detail": "API key required"},
@@ -165,6 +164,7 @@ def setup_api_key_auth(app: FastAPI, enabled: bool = True) -> None:
 
         if not _validate_api_key(api_key):
             from starlette.responses import JSONResponse
+
             return JSONResponse(
                 status_code=403,
                 content={"detail": "Invalid API key"},

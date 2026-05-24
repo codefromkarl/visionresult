@@ -31,4 +31,3 @@ def test_sanitize_dict_redacts_sensitive_keys_and_nested_values():
     assert sanitized["token"] == "***"
     assert sanitized["nested"]["password"] == "***"
     assert sanitized["items"][0]["api_key"] == "***"
-
