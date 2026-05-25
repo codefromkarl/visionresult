@@ -23,6 +23,13 @@ from vision_insight.models.schemas import (
     SceneAnalysis,
     SearchResult,
 )
+from vision_insight.pipeline.node_decorator import (
+    _end_pipeline_step,
+    _notify_progress,
+    _start_pipeline_step,
+    _set_imports,
+    pipeline_node,
+)
 from vision_insight.services import (
     EntityService,
     EvidenceService,
@@ -61,83 +68,26 @@ class PipelineState(TypedDict):
     lang: str  # Output language: 'zh' or 'en'
 
 
+# Set imports for node_decorator to avoid circular imports
+_set_imports(PipelineState, ProgressCallback, STAGE_PROGRESS)
+
+
 # ---------------------------------------------------------------------------
 # Node factories — each returns a closure that captures the injected service
 # ---------------------------------------------------------------------------
 
 
-def _notify_progress(state: PipelineState, stage: str) -> None:
-    """Send progress notification if callback is provided."""
-    callback = state.get("progress_callback")
-    if callback:
-        progress = STAGE_PROGRESS.get(stage, 0)
-        try:
-            callback(stage, progress)
-        except Exception:
-            pass  # Don't let callback errors break the pipeline
-
-
-def _start_pipeline_step(state: PipelineState, stage_name: str) -> dict:
-    """Record the start of a pipeline step if verbose mode is enabled."""
-    if not state.get("verbose"):
-        return {}
-
-    return {
-        "stage_name": stage_name,
-        "status": "running",
-        "start_time": dt.now().isoformat(),
-        "input_summary": "",
-        "output_summary": "",
-        "key_findings": [],
-        "error_message": None,
-        "input_data": {},
-        "output_data": {},
-    }
-
-
-def _end_pipeline_step(
-    state: PipelineState,
-    step_info: dict,
-    status: str = "success",
-    output_summary: str = "",
-    key_findings: list[str] | None = None,
-    error_message: str | None = None,
-    output_data: dict[Any, Any] | None = None,
-) -> None:
-    """Complete a pipeline step recording."""
-    if not step_info or not state.get("verbose"):
-        return
-
-    step_info["end_time"] = dt.now().isoformat()
-    step_info["status"] = status
-    if output_summary:
-        step_info["output_summary"] = output_summary
-    if key_findings:
-        step_info["key_findings"] = key_findings
-    if error_message:
-        step_info["error_message"] = error_message
-    if output_data:
-        step_info["output_data"] = output_data
-    # Calculate duration
-    start = dt.fromisoformat(step_info["start_time"])
-    end = dt.fromisoformat(step_info["end_time"])
-    step_info["duration_ms"] = int((end - start).total_seconds() * 1000)
-    # Append to trace
-    if "pipeline_trace" in state:
-        state["pipeline_trace"].setdefault("steps", []).append(step_info)
-
-
 def make_preprocess_node():
     """Stage 1: Image preprocessing - metadata, EXIF, resize."""
 
-    def preprocess_node(state: PipelineState) -> dict[str, Any]:
+    @pipeline_node("preprocess")
+    async def preprocess_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         task_id = report.id
-        _notify_progress(state, "preprocess")
         step_info = _start_pipeline_step(state, "preprocess")
         step_info["input_summary"] = f"Image size: {len(state['image_bytes'])} bytes"
         step_info["input_data"] = {"image_size_bytes": len(state["image_bytes"])}
-        log_event(task_id, "node_start", node="preprocess", image_bytes=len(state["image_bytes"]))
+
         try:
             raw_bytes: bytes = state["image_bytes"]
             original_size = len(raw_bytes)
@@ -170,16 +120,7 @@ def make_preprocess_node():
                 gps=meta_dict.get("gps"),
                 capture_time=capture_time,
             )
-            log_event(
-                task_id,
-                "node_end",
-                node="preprocess",
-                width=meta_dict["width"],
-                height=meta_dict["height"],
-                format=meta_dict.get("format", "JPEG"),
-                has_gps=bool(meta_dict.get("gps")),
-                has_exif=bool(meta_dict.get("exif")),
-            )
+
             logger.info(
                 "Preprocess done: %dx%d, %.1fKB",
                 meta_dict["width"],
@@ -207,9 +148,9 @@ def make_preprocess_node():
                 },
             )
         except Exception as exc:
-            log_event(task_id, "node_fail", node="preprocess", error=str(exc))
-            logger.warning("Preprocess failed: %s", exc)
             _end_pipeline_step(state, step_info, status="failed", error_message=str(exc))
+            raise
+
         return {"report": report}
 
     return preprocess_node
@@ -218,29 +159,23 @@ def make_preprocess_node():
 def make_ocr_node(ocr_service: OCRService):
     """Stage 2: OCR text extraction."""
 
+    @pipeline_node("ocr")
     async def ocr_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         task_id = report.id
-        _notify_progress(state, "ocr")
         step_info = _start_pipeline_step(state, "ocr")
         step_info["input_summary"] = (
             f"Image: {report.image_metadata.width}x{report.image_metadata.height}"
             if report.image_metadata
             else "Image"
         )
-        log_event(task_id, "node_start", node="ocr")
+
         try:
             results = await ocr_service.extract(state["image_bytes"])
             report.ocr_results = results
             texts = [r.text for r in results]
             avg_conf = sum(r.confidence for r in results) / len(results) if results else 0
-            log_event(
-                task_id,
-                "node_end",
-                node="ocr",
-                num_regions=len(results),
-                avg_confidence=round(avg_conf, 3),
-            )
+
             # Send insight event with actual results
             log_event(
                 task_id,
@@ -275,10 +210,10 @@ def make_ocr_node(ocr_service: OCRService):
                 },
             )
         except Exception as exc:
-            log_event(task_id, "node_fail", node="ocr", error=str(exc))
-            logger.warning("OCR failed: %s", exc)
             report.ocr_results = []
             _end_pipeline_step(state, step_info, status="failed", error_message=str(exc))
+            raise
+
         return {"report": report}
 
     return ocr_node
@@ -287,16 +222,16 @@ def make_ocr_node(ocr_service: OCRService):
 def make_vlm_node(vlm_service: VLMService):
     """Stage 3: VLM scene understanding using Qwen2-VL or API."""
 
+    @pipeline_node("vlm_analysis")
     async def vlm_analysis_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         task_id = report.id
         lang = state.get("lang", "zh")
-        _notify_progress(state, "vlm_analysis")
         step_info = _start_pipeline_step(state, "vlm_analysis")
         ocr_texts = [r.text for r in report.ocr_results]
         step_info["input_summary"] = f"Image + {len(ocr_texts)} OCR texts"
         step_info["input_data"] = {"ocr_texts": ocr_texts}
-        log_event(task_id, "node_start", node="vlm_analysis", ocr_count=len(ocr_texts))
+
         try:
             from vision_insight.services.vlm.api_service import current_task_id
 
@@ -307,22 +242,14 @@ def make_vlm_node(vlm_service: VLMService):
                 )
             finally:
                 current_task_id.reset(token)
+
             report.scene_analysis = scene
             findings = [f"Scene: {scene.scene_type}", f"Description: {scene.description[:100]}..."]
             if scene.location_guess:
                 findings.append(f"Location guess: {scene.location_guess.location}")
             if scene.time_guess:
                 findings.append(f"Time guess: {scene.time_guess.time_of_day}")
-            log_event(
-                task_id,
-                "node_end",
-                node="vlm_analysis",
-                scene_type=scene.scene_type,
-                location=scene.location_guess.location if scene.location_guess else None,
-                location_confidence=round(scene.location_guess.confidence, 3)
-                if scene.location_guess
-                else None,
-            )
+
             # Send insight event with actual results
             results_items: list[dict[str, Any]] = [
                 {"label": "场景类型", "value": scene.scene_type},
@@ -382,19 +309,13 @@ def make_vlm_node(vlm_service: VLMService):
                 },
             )
         except Exception as exc:
-            log_event(
-                task_id,
-                "node_fail",
-                node="vlm_analysis",
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
-            logger.warning("VLM analysis failed: %s", exc)
             report.scene_analysis = SceneAnalysis(
                 scene_type="unknown",
                 description=f"VLM 分析失败: {exc}",
             )
             _end_pipeline_step(state, step_info, status="failed", error_message=str(exc))
+            raise
+
         return {"report": report}
 
     return vlm_analysis_node
@@ -403,17 +324,19 @@ def make_vlm_node(vlm_service: VLMService):
 def make_entity_node(entity_service: EntityService):
     """Stage 4: Extract structured entities from VLM + OCR results."""
 
+    @pipeline_node("entity_extraction")
     async def entity_extraction_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         task_id = report.id
-        _notify_progress(state, "entity_extraction")
         step_info = _start_pipeline_step(state, "entity_extraction")
         step_info["input_summary"] = f"Scene analysis + {len(report.ocr_results)} OCR results"
+
         if not report.scene_analysis:
             _end_pipeline_step(
                 state, step_info, status="skipped", output_summary="No scene analysis available"
             )
             return {"report": report}
+
         try:
             entities = await entity_service.extract(report.scene_analysis, report.ocr_results)
             report.entities = entities
@@ -429,6 +352,7 @@ def make_entity_node(entity_service: EntityService):
                 findings.append(f"Landmarks: {', '.join(entities.landmarks[:3])}")
             if entities.location_keywords:
                 findings.append(f"Location keywords: {', '.join(entities.location_keywords[:3])}")
+
             # Send insight event with actual results
             results_items: list[dict[str, Any]] = []
             if entities.brands:
@@ -468,9 +392,10 @@ def make_entity_node(entity_service: EntityService):
                 },
             )
         except Exception as exc:
-            logger.warning("Entity extraction failed: %s", exc)
             report.entities = EntityExtraction()
             _end_pipeline_step(state, step_info, status="failed", error_message=str(exc))
+            raise
+
         return {"report": report}
 
     return entity_extraction_node
@@ -479,11 +404,12 @@ def make_entity_node(entity_service: EntityService):
 def make_search_node(search_service: SearchService):
     """Stage 5: Search the web to verify/expand findings."""
 
+    @pipeline_node("web_search")
     async def web_search_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         task_id = report.id
-        _notify_progress(state, "web_search")
         step_info = _start_pipeline_step(state, "web_search")
+
         if not report.entities:
             _end_pipeline_step(
                 state, step_info, status="skipped", output_summary="No entities to search"
@@ -563,19 +489,21 @@ def make_search_node(search_service: SearchService):
 def make_fusion_node(evidence_service: EvidenceService):
     """Stage 6: Fuse all evidence into weighted conclusions."""
 
+    @pipeline_node("evidence_fusion")
     async def evidence_fusion_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         task_id = report.id
-        _notify_progress(state, "evidence_fusion")
         step_info = _start_pipeline_step(state, "evidence_fusion")
         step_info["input_summary"] = (
             f"{len(report.ocr_results)} OCR, {len(report.search_results)} search results"
         )
+
         if not report.scene_analysis:
             _end_pipeline_step(
                 state, step_info, status="skipped", output_summary="No scene analysis available"
             )
             return {"report": report}
+
         try:
             conclusions = await evidence_service.fuse(
                 scene=report.scene_analysis,
@@ -589,6 +517,7 @@ def make_fusion_node(evidence_service: EvidenceService):
             findings = []
             for c in conclusions[:3]:
                 findings.append(f"{c.category}: {c.statement[:50]}... (prob={c.probability:.2f})")
+
             # Send insight event with actual results
             results_items: list[dict[str, Any]] = [
                 {"label": "结论数量", "value": f"{len(conclusions)} 条"},
@@ -637,9 +566,10 @@ def make_fusion_node(evidence_service: EvidenceService):
                 },
             )
         except Exception as exc:
-            logger.warning("Evidence fusion failed: %s", exc)
             report.conclusions = []
             _end_pipeline_step(state, step_info, status="failed", error_message=str(exc))
+            raise
+
         return {"report": report}
 
     return evidence_fusion_node
@@ -649,14 +579,15 @@ def make_report_node():
     """Stage 7: Generate final markdown report."""
     report_service = MarkdownReportService()
 
+    @pipeline_node("report_generation")
     async def report_generation_node(state: PipelineState) -> dict[str, Any]:
         report: AnalysisReport = state["report"]
         lang = state.get("lang", "zh")
-        _notify_progress(state, "report_generation")
         step_info = _start_pipeline_step(state, "report_generation")
         step_info["input_summary"] = (
             f"{len(report.conclusions)} conclusions, {len(report.ocr_results)} OCR results"
         )
+
         try:
             report.report_markdown = await report_service.generate_user_report(report, lang=lang)
             report.status = AnalysisStatus.COMPLETED
@@ -687,10 +618,11 @@ def make_report_node():
                     verbose_mode=True,
                 )
         except Exception as exc:
-            logger.warning("Report generation failed: %s", exc)
             report.report_markdown = f"# 报告生成失败\n\n错误: {exc}"
             report.status = AnalysisStatus.COMPLETED
             _end_pipeline_step(state, step_info, status="failed", error_message=str(exc))
+            raise
+
         return {"report": report}
 
     return report_generation_node
