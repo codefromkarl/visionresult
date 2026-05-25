@@ -2,15 +2,14 @@
 
 This module provides a deep interface for service management:
 - Single entry point: `get_services()` returns all services
-- Centralized configuration handling
-- Easy to test with mock factories
+- Centralized configuration handling via `create_services()`
+- Easy to test with mock services
 
 The Services dataclass bundles all pipeline services into one structure,
 reducing the interface from 6 getters to 1 entry point.
 """
 
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
@@ -63,193 +62,198 @@ class Services:
         }
 
 
-class ServiceFactory(ABC):
-    """Abstract factory for creating service instances."""
+def create_vlm_service() -> VLMService:
+    """Create VLM service based on configuration with provider fallback."""
+    from vision_insight.services.fallback import CompositeVLMService, DegradedVLMService
 
-    @abstractmethod
-    def create_vlm_service(self) -> VLMService:
-        """Create a VLM service instance."""
-        ...
+    provider = _setting_string("vlm_provider", "auto").lower()
+    preferred = provider if provider in {"zhipu", "openai", "gemini"} else "auto"
 
-    @abstractmethod
-    def create_ocr_service(self) -> OCRService:
-        """Create an OCR service instance."""
-        ...
+    provider_order = ["zhipu", "openai", "gemini"]
+    if preferred != "auto":
+        provider_order = [preferred, *[name for name in provider_order if name != preferred]]
 
-    @abstractmethod
-    def create_entity_service(self) -> EntityService:
-        """Create an entity extraction service instance."""
-        ...
+    services: list[tuple[str, VLMService]] = []
+    for name in provider_order:
+        try:
+            service = _create_single_vlm_service(name)
+        except ValueError as exc:
+            logger.info("VLM provider '%s' unavailable: %s", name, exc)
+            continue
+        services.append((name, service))
+        logger.info("VLM: configured provider '%s'", name)
 
-    @abstractmethod
-    def create_search_service(self) -> SearchService:
-        """Create a search service instance."""
-        ...
+    if not services:
+        logger.warning(
+            "No VLM API key configured; using degraded VLM service. "
+            "Set VIA_ZHIPU_API_KEY, VIA_OPENAI_API_KEY or VIA_GEMINI_API_KEY for full analysis."
+        )
+        return DegradedVLMService()
 
-    @abstractmethod
-    def create_evidence_service(self, vlm_service: VLMService) -> EvidenceService:
-        """Create an evidence fusion service instance."""
-        ...
+    if len(services) == 1:
+        return services[0][1]
+    return CompositeVLMService(services)
 
 
-class DefaultServiceFactory(ServiceFactory):
-    """Default service factory using configuration settings."""
+def _create_single_vlm_service(provider: str) -> VLMService:
+    """Create one VLM provider or raise ValueError when its key is missing."""
+    if provider == "openai":
+        if not _setting_string("openai_api_key"):
+            raise ValueError("VIA_OPENAI_API_KEY is not configured")
+        from vision_insight.services.vlm.api_service import OpenAIVLMService
 
-    def create_vlm_service(self) -> VLMService:
-        """Create VLM service based on configuration with provider fallback."""
-        from vision_insight.services.fallback import CompositeVLMService, DegradedVLMService
+        return OpenAIVLMService(api_key=_setting_string("openai_api_key"))
+    if provider == "gemini":
+        if not _setting_string("gemini_api_key"):
+            raise ValueError("VIA_GEMINI_API_KEY is not configured")
+        from vision_insight.services.vlm.api_service import GeminiVLMService
 
-        provider = _setting_string("vlm_provider", "auto").lower()
-        preferred = provider if provider in {"zhipu", "openai", "gemini"} else "auto"
+        return GeminiVLMService(api_key=_setting_string("gemini_api_key"))
+    if provider == "zhipu":
+        if not _setting_string("zhipu_api_key"):
+            raise ValueError("VIA_ZHIPU_API_KEY is not configured")
+        from vision_insight.services.vlm.zhipu_service import ZhipuVLMService
 
-        provider_order = ["zhipu", "openai", "gemini"]
-        if preferred != "auto":
-            provider_order = [preferred, *[name for name in provider_order if name != preferred]]
+        return ZhipuVLMService(api_key=_setting_string("zhipu_api_key"))
+    raise ValueError(f"Unsupported VLM provider: {provider}")
 
-        services: list[tuple[str, VLMService]] = []
-        for name in provider_order:
-            try:
-                service = self._create_single_vlm_service(name)
-            except ValueError as exc:
-                logger.info("VLM provider '%s' unavailable: %s", name, exc)
-                continue
-            services.append((name, service))
-            logger.info("VLM: configured provider '%s'", name)
 
-        if not services:
-            logger.warning(
-                "No VLM API key configured; using degraded VLM service. "
-                "Set VIA_ZHIPU_API_KEY, VIA_OPENAI_API_KEY or VIA_GEMINI_API_KEY for full analysis."
-            )
-            return DegradedVLMService()
+def create_ocr_service() -> OCRService:
+    """Create OCR service based on configuration with local fallback."""
+    from vision_insight.services.fallback import CompositeOCRService
 
-        if len(services) == 1:
-            return services[0][1]
-        return CompositeVLMService(services)
+    provider = _setting_string("ocr_provider", "auto").lower()
+    preferred = provider if provider in {"baidu", "tesseract", "paddle"} else "auto"
+    provider_order = ["baidu", "tesseract", "paddle"]
+    if preferred != "auto":
+        provider_order = [preferred, *[name for name in provider_order if name != preferred]]
 
-    def _create_single_vlm_service(self, provider: str) -> VLMService:
-        """Create one VLM provider or raise ValueError when its key is missing."""
-        if provider == "openai":
-            if not _setting_string("openai_api_key"):
-                raise ValueError("VIA_OPENAI_API_KEY is not configured")
-            from vision_insight.services.vlm.api_service import OpenAIVLMService
+    services: list[tuple[str, OCRService]] = []
+    for name in provider_order:
+        try:
+            service = _create_single_ocr_service(name)
+        except ValueError as exc:
+            logger.info("OCR provider '%s' unavailable: %s", name, exc)
+            continue
+        services.append((name, service))
+        logger.info("OCR: configured provider '%s'", name)
 
-            return OpenAIVLMService(api_key=_setting_string("openai_api_key"))
-        if provider == "gemini":
-            if not _setting_string("gemini_api_key"):
-                raise ValueError("VIA_GEMINI_API_KEY is not configured")
-            from vision_insight.services.vlm.api_service import GeminiVLMService
+    if not services:
+        logger.warning("No OCR providers could be configured; OCR will return empty results")
+        return CompositeOCRService([])
+    if len(services) == 1:
+        return services[0][1]
+    return CompositeOCRService(services)
 
-            return GeminiVLMService(api_key=_setting_string("gemini_api_key"))
-        if provider == "zhipu":
-            if not _setting_string("zhipu_api_key"):
-                raise ValueError("VIA_ZHIPU_API_KEY is not configured")
-            from vision_insight.services.vlm.zhipu_service import ZhipuVLMService
 
-            return ZhipuVLMService(api_key=_setting_string("zhipu_api_key"))
-        raise ValueError(f"Unsupported VLM provider: {provider}")
+def _create_single_ocr_service(provider: str) -> OCRService:
+    """Create one OCR provider or raise ValueError when configuration is missing."""
+    if provider == "baidu":
+        api_key = _setting_string("baidu_ocr_api_key")
+        secret_key = _setting_string("baidu_ocr_secret_key")
+        if not api_key or not secret_key:
+            raise ValueError("VIA_BAIDU_OCR_API_KEY and VIA_BAIDU_OCR_SECRET_KEY are required")
+        from vision_insight.services.ocr.baidu_service import BaiduOCRService
 
-    def create_ocr_service(self) -> OCRService:
-        """Create OCR service based on configuration with local fallback."""
-        from vision_insight.services.fallback import CompositeOCRService
+        return BaiduOCRService(
+            api_key=api_key,
+            secret_key=secret_key,
+            accurate=_setting_bool("baidu_ocr_accurate", True),
+        )
+    if provider == "paddle":
+        from vision_insight.services.ocr.paddle_service import PaddleOCRService
 
-        provider = _setting_string("ocr_provider", "auto").lower()
-        preferred = provider if provider in {"baidu", "tesseract", "paddle"} else "auto"
-        provider_order = ["baidu", "tesseract", "paddle"]
-        if preferred != "auto":
-            provider_order = [preferred, *[name for name in provider_order if name != preferred]]
+        return PaddleOCRService(lang=_setting_string("ocr_lang", "ch"))
+    if provider == "tesseract":
+        from vision_insight.services.ocr.tesseract_service import TesseractOCRService
 
-        services: list[tuple[str, OCRService]] = []
-        for name in provider_order:
-            try:
-                service = self._create_single_ocr_service(name)
-            except ValueError as exc:
-                logger.info("OCR provider '%s' unavailable: %s", name, exc)
-                continue
-            services.append((name, service))
-            logger.info("OCR: configured provider '%s'", name)
+        return TesseractOCRService(lang=_setting_string("ocr_lang", "ch"))
+    raise ValueError(f"Unsupported OCR provider: {provider}")
 
-        if not services:
-            logger.warning("No OCR providers could be configured; OCR will return empty results")
-            return CompositeOCRService([])
-        if len(services) == 1:
-            return services[0][1]
-        return CompositeOCRService(services)
 
-    def _create_single_ocr_service(self, provider: str) -> OCRService:
-        """Create one OCR provider or raise ValueError when configuration is missing."""
-        if provider == "baidu":
-            api_key = _setting_string("baidu_ocr_api_key")
-            secret_key = _setting_string("baidu_ocr_secret_key")
-            if not api_key or not secret_key:
-                raise ValueError("VIA_BAIDU_OCR_API_KEY and VIA_BAIDU_OCR_SECRET_KEY are required")
-            from vision_insight.services.ocr.baidu_service import BaiduOCRService
+def create_entity_service() -> EntityService:
+    """Create entity extraction service with rule-based fallback."""
+    from vision_insight.services.entity.llm_entity_service import LLMEntityService
+    from vision_insight.services.fallback import RuleBasedEntityService
 
-            return BaiduOCRService(
-                api_key=api_key,
-                secret_key=secret_key,
-                accurate=_setting_bool("baidu_ocr_accurate", True),
-            )
-        if provider == "paddle":
-            from vision_insight.services.ocr.paddle_service import PaddleOCRService
+    zhipu_key = _setting_string("zhipu_api_key")
+    openai_key = _setting_string("openai_api_key")
+    gemini_key = _setting_string("gemini_api_key")
 
-            return PaddleOCRService(lang=_setting_string("ocr_lang", "ch"))
-        if provider == "tesseract":
-            from vision_insight.services.ocr.tesseract_service import TesseractOCRService
+    if zhipu_key:
+        return LLMEntityService(
+            api_key=zhipu_key,
+            model="glm-4-flash",
+            base_url="https://open.bigmodel.cn/api/coding/paas/v4",
+        )
+    if openai_key:
+        return LLMEntityService(api_key=openai_key)
+    if gemini_key:
+        return LLMEntityService(
+            api_key=gemini_key,
+            model="gemini-2.0-flash",
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        )
 
-            return TesseractOCRService(lang=_setting_string("ocr_lang", "ch"))
-        raise ValueError(f"Unsupported OCR provider: {provider}")
+    logger.warning("No LLM API key for entity extraction; using rule-based fallback")
+    return RuleBasedEntityService()
 
-    def create_entity_service(self) -> EntityService:
-        """Create entity extraction service with rule-based fallback."""
-        from vision_insight.services.entity.llm_entity_service import LLMEntityService
-        from vision_insight.services.fallback import RuleBasedEntityService
 
-        zhipu_key = _setting_string("zhipu_api_key")
-        openai_key = _setting_string("openai_api_key")
-        gemini_key = _setting_string("gemini_api_key")
+def create_search_service() -> SearchService:
+    """Create search service based on configuration."""
+    from vision_insight.services.search.http_search_service import HttpSearchService
 
-        if zhipu_key:
-            return LLMEntityService(
-                api_key=zhipu_key,
-                model="glm-4-flash",
-                base_url="https://open.bigmodel.cn/api/coding/paas/v4",
-            )
-        if openai_key:
-            return LLMEntityService(api_key=openai_key)
-        if gemini_key:
-            return LLMEntityService(
-                api_key=gemini_key,
-                model="gemini-2.0-flash",
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai",
-            )
+    return HttpSearchService()
 
-        logger.warning("No LLM API key for entity extraction; using rule-based fallback")
-        return RuleBasedEntityService()
 
-    def create_search_service(self) -> SearchService:
-        """Create search service based on configuration."""
-        from vision_insight.services.search.http_search_service import HttpSearchService
+def create_evidence_service(vlm_service: VLMService) -> EvidenceService:
+    """Create evidence fusion service with LLM port adapter."""
+    from vision_insight.services.evidence.fusion_service import FusionService, LLMPort
+    from vision_insight.services.evidence.llm_ports import EmptyLLMPort, ZhipuLLMPort
 
-        return HttpSearchService()
+    # Use Zhipu LLM if available, otherwise fallback to empty
+    llm: LLMPort
+    if _setting_string("zhipu_api_key"):
+        llm = ZhipuLLMPort(api_key=_setting_string("zhipu_api_key"))
+        logger.info("Evidence fusion: using Zhipu GLM-4-Flash for LLM reasoning")
+    else:
+        llm = EmptyLLMPort()
+        logger.warning(
+            "No LLM API key for evidence fusion, medium-confidence reasoning disabled"
+        )
 
-    def create_evidence_service(self, vlm_service: VLMService) -> EvidenceService:
-        """Create evidence fusion service with LLM port adapter."""
-        from vision_insight.services.evidence.fusion_service import FusionService, LLMPort
-        from vision_insight.services.evidence.llm_ports import EmptyLLMPort, ZhipuLLMPort
+    return FusionService(llm=llm)
 
-        # Use Zhipu LLM if available, otherwise fallback to empty
-        llm: LLMPort
-        if _setting_string("zhipu_api_key"):
-            llm = ZhipuLLMPort(api_key=_setting_string("zhipu_api_key"))
-            logger.info("Evidence fusion: using Zhipu GLM-4-Flash for LLM reasoning")
-        else:
-            llm = EmptyLLMPort()
-            logger.warning(
-                "No LLM API key for evidence fusion, medium-confidence reasoning disabled"
-            )
 
-        return FusionService(llm=llm)
+def create_services() -> Services:
+    """Create all service instances based on configuration.
+
+    This is the main entry point for service creation.
+    It creates all services in the correct order (VLM first, needed for evidence).
+
+    Returns:
+        Services dataclass with all service instances.
+    """
+    logger.info("Initializing services...")
+
+    # Create VLM service first (needed for evidence service)
+    vlm_service = create_vlm_service()
+
+    # Create other services
+    ocr_service = create_ocr_service()
+    entity_service = create_entity_service()
+    search_service = create_search_service()
+    evidence_service = create_evidence_service(vlm_service)
+
+    logger.info("All services initialized successfully")
+
+    return Services(
+        vlm=vlm_service,
+        ocr=ocr_service,
+        entity=entity_service,
+        search=search_service,
+        evidence=evidence_service,
+    )
 
 
 class ServiceRegistry:
@@ -257,18 +261,17 @@ class ServiceRegistry:
 
     Deep interface: single entry point to get all services.
     - `get_services()` returns a Services dataclass with all service instances
-    - Centralized configuration handling via ServiceFactory
-    - Easy to test with mock factories
+    - Centralized configuration handling via create_services()
+    - Easy to test with mock services
     """
 
-    def __init__(self, factory: ServiceFactory | None = None) -> None:
+    def __init__(self, services: Services | None = None) -> None:
         """Initialize the service registry.
 
         Args:
-            factory: Service factory to use. If None, uses DefaultServiceFactory.
+            services: Optional pre-created services. If None, creates from config.
         """
-        self._factory = factory or DefaultServiceFactory()
-        self._services: Services | None = None
+        self._services = services
 
     def get_services(self) -> Services:
         """Get all service instances, initializing if needed.
@@ -277,31 +280,8 @@ class ServiceRegistry:
             Services dataclass with all service instances.
         """
         if self._services is None:
-            self._services = self._initialize_services()
+            self._services = create_services()
         return self._services
-
-    def _initialize_services(self) -> Services:
-        """Initialize all services using the factory."""
-        logger.info("Initializing services...")
-
-        # Create VLM service first (needed for evidence service)
-        vlm_service = self._factory.create_vlm_service()
-
-        # Create other services
-        ocr_service = self._factory.create_ocr_service()
-        entity_service = self._factory.create_entity_service()
-        search_service = self._factory.create_search_service()
-        evidence_service = self._factory.create_evidence_service(vlm_service)
-
-        logger.info("All services initialized successfully")
-
-        return Services(
-            vlm=vlm_service,
-            ocr=ocr_service,
-            entity=entity_service,
-            search=search_service,
-            evidence=evidence_service,
-        )
 
     # Backward compatibility methods (deprecated)
     def get_all_services(self) -> dict[str, Any]:
@@ -333,18 +313,15 @@ class ServiceRegistry:
 _registry: ServiceRegistry | None = None
 
 
-def get_service_registry(factory: ServiceFactory | None = None) -> ServiceRegistry:
+def get_service_registry() -> ServiceRegistry:
     """Get or create the singleton ServiceRegistry.
-
-    Args:
-        factory: Optional service factory to use. Only used on first call.
 
     Returns:
         The singleton ServiceRegistry instance.
     """
     global _registry
     if _registry is None:
-        _registry = ServiceRegistry(factory)
+        _registry = ServiceRegistry()
     return _registry
 
 
