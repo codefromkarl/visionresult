@@ -3,14 +3,12 @@
 import json
 import logging
 
-import httpx
-
 from vision_insight.core.config import settings
 from vision_insight.models.schemas import EntityExtraction, OCRResult, SceneAnalysis
 from vision_insight.services import EntityService
 from vision_insight.utils import extract_entities_rule_based
+from vision_insight.utils.chat_client import ChatCompletionClient
 from vision_insight.utils.json_helpers import parse_llm_json
-from vision_insight.utils.retry import retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +51,17 @@ class LLMEntityService(EntityService):
         base_url: str = "https://api.openai.com/v1",
         timeout: float = 30.0,
     ) -> None:
-        self._api_key = api_key or settings.openai_api_key
-        self._model = model
-        self._base_url = base_url.rstrip("/")
-        self._timeout = timeout
-        if not self._api_key:
+        resolved_key = api_key or settings.openai_api_key
+        if not resolved_key:
             raise ValueError("OpenAI API key is required for entity extraction")
+        self._client = ChatCompletionClient(
+            api_key=resolved_key,
+            base_url=base_url,
+            model=model,
+            timeout=timeout,
+            max_tokens=1024,
+            temperature=0.1,
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -75,7 +78,7 @@ class LLMEntityService(EntityService):
         )
 
         try:
-            response_text = await self._chat(prompt)
+            response_text = await self._client.chat(prompt)
             data = parse_llm_json(response_text)
             return self._build_entity_extraction(data)
         except (json.JSONDecodeError, ValueError, KeyError) as exc:
@@ -85,32 +88,6 @@ class LLMEntityService(EntityService):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-
-    async def _chat(self, prompt: str) -> str:
-        """Make a chat completion request with retry."""
-        payload = {
-            "model": self._model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1024,
-            "temperature": 0.1,
-        }
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json",
-        }
-
-        async def _do_request():
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                resp = await client.post(
-                    f"{self._base_url}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                )
-                resp.raise_for_status()
-                return resp.json()
-
-        body = await retry_with_backoff(_do_request)
-        return body["choices"][0]["message"]["content"]
 
     @staticmethod
     def _build_entity_extraction(data: dict) -> EntityExtraction:

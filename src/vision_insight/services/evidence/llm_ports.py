@@ -2,10 +2,8 @@
 
 import logging
 
-import httpx
-
 from vision_insight.services.evidence.fusion_service import LLMPort
-from vision_insight.utils.retry import retry_with_backoff
+from vision_insight.utils.chat_client import ChatCompletionClient
 
 logger = logging.getLogger(__name__)
 
@@ -14,36 +12,19 @@ class ZhipuLLMPort(LLMPort):
     """Use Zhipu GLM-4-Flash for text-only LLM inference."""
 
     def __init__(self, api_key: str):
-        self._api_key = api_key
-        self._base_url = "https://open.bigmodel.cn/api/coding/paas/v4"
-        self._model = "glm-4-flash"
+        self._client = ChatCompletionClient(
+            api_key=api_key,
+            base_url="https://open.bigmodel.cn/api/coding/paas/v4",
+            model="glm-4-flash",
+            timeout=30.0,
+            max_tokens=512,
+            temperature=0.3,
+        )
 
     async def infer(self, prompt: str) -> str:
         """Send prompt to Zhipu LLM and return response."""
         try:
-            payload = {
-                "model": self._model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 512,
-                "temperature": 0.3,
-            }
-            headers = {
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            }
-
-            async def _do_request():
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    resp = await client.post(
-                        f"{self._base_url}/chat/completions",
-                        json=payload,
-                        headers=headers,
-                    )
-                    resp.raise_for_status()
-                    return resp.json()
-
-            body = await retry_with_backoff(_do_request)
-            return body["choices"][0]["message"]["content"].strip()
+            return await self._client.chat(prompt)
         except Exception as e:
             logger.warning("LLM inference failed: %s", e)
             return ""
