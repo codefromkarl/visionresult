@@ -46,7 +46,7 @@ if [[ -z "$CLOUDFLARE_API_TOKEN" ]]; then
   echo "❌ 请设置 VIA_DEPLOY_TOKEN 或 CLOUDFLARE_API_KEY 环境变量"
   exit 1
 fi
-export CLOUDFLARE_ACCOUNT_ID="<REDACTED>"
+export CLOUDFLARE_ACCOUNT_ID="${VIA_CLOUDFLARE_ACCOUNT_ID:-}"
 
 PROJECT="vision-insight"
 BRANCH="main"

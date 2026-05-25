@@ -1,7 +1,9 @@
 // Visual Insight Agent - Cloudflare Pages Worker (v3)
 // 多阶段 Pipeline + Gemini OCR + 多源搜索 + SSE 实时推送
 
-const GEMINI_KEY = '<REDACTED>';
+// 敏感配置从 Cloudflare Workers 环境变量读取（不要硬编码！）
+// 在 Cloudflare Dashboard → Workers → Settings → Variables 中配置：
+//   GEMINI_API_KEY, BAIDU_OCR_API_KEY, BAIDU_OCR_SECRET_KEY
 let baiduTokenCache = { token: null, expire: 0 };
 
 export default {
@@ -174,7 +176,9 @@ async function runPipeline(env, taskId, uint8, mimeType, filename, sse) {
 
     // ③ Gemini OCR（高精度，需 API Key）
     try {
-      const gemResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
+      const geminiKey = env.GEMINI_API_KEY || '';
+      if (!geminiKey) throw new Error('GEMINI_API_KEY not configured');
+      const gemResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [
           { text: 'Extract ALL text visible in this image. Output ONLY the raw text characters, one per line. No labels, no explanations. If no text, say NONE.' },
