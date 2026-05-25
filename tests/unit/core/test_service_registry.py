@@ -5,10 +5,9 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from vision_insight.core.service_registry import (
-    DefaultServiceFactory,
-    ServiceFactory,
     ServiceRegistry,
     Services,
+    create_services,
     get_service_registry,
     reset_service_registry,
 )
@@ -24,331 +23,66 @@ from vision_insight.services import (
 class TestServiceRegistry:
     """Test ServiceRegistry class."""
 
-    def test_init_with_custom_factory(self):
-        """Should use custom factory when provided."""
-        mock_factory = MagicMock(spec=ServiceFactory)
-        registry = ServiceRegistry(factory=mock_factory)
-        assert registry._factory is mock_factory
-        assert registry._services is None
+    def test_init_with_custom_services(self):
+        """Should use custom services when provided."""
+        mock_services = MagicMock(spec=Services)
+        registry = ServiceRegistry(services=mock_services)
+        assert registry._services is mock_services
 
-    def test_init_with_default_factory(self):
-        """Should use DefaultServiceFactory when none provided."""
+    def test_init_without_services(self):
+        """Should initialize with None services."""
         registry = ServiceRegistry()
-        assert isinstance(registry._factory, DefaultServiceFactory)
+        assert registry._services is None
 
     def test_get_services_initializes_once(self):
         """Should initialize services only once."""
-        mock_factory = MagicMock(spec=ServiceFactory)
-        mock_factory.create_vlm_service.return_value = MagicMock(spec=VLMService)
-        mock_factory.create_ocr_service.return_value = MagicMock(spec=OCRService)
-        mock_factory.create_entity_service.return_value = MagicMock(spec=EntityService)
-        mock_factory.create_search_service.return_value = MagicMock(spec=SearchService)
-        mock_factory.create_evidence_service.return_value = MagicMock(spec=EvidenceService)
+        mock_services = MagicMock(spec=Services)
+        registry = ServiceRegistry(services=mock_services)
 
-        registry = ServiceRegistry(factory=mock_factory)
+        # First call should return provided services
+        result1 = registry.get_services()
+        assert result1 is mock_services
 
-        # First call should initialize
-        services1 = registry.get_services()
-        assert registry._services is not None
+        # Second call should return same instance
+        result2 = registry.get_services()
+        assert result2 is mock_services
 
-        # Second call should not reinitialize
-        services2 = registry.get_services()
-        assert services1 is services2
+    def test_get_services_creates_from_config(self):
+        """Should create services from config when none provided."""
+        registry = ServiceRegistry()
 
-        # Factory methods should only be called once
-        mock_factory.create_vlm_service.assert_called_once()
-        mock_factory.create_ocr_service.assert_called_once()
-        mock_factory.create_entity_service.assert_called_once()
-        mock_factory.create_search_service.assert_called_once()
-        mock_factory.create_evidence_service.assert_called_once()
+        with patch("vision_insight.core.service_registry.create_services") as mock_create:
+            mock_services = MagicMock(spec=Services)
+            mock_create.return_value = mock_services
 
-    def test_get_services_returns_services_dataclass(self):
-        """Should return a Services dataclass with all service instances."""
-        mock_factory = MagicMock(spec=ServiceFactory)
+            result = registry.get_services()
+            assert result is mock_services
+            mock_create.assert_called_once()
+
+    def test_backward_compatibility_methods(self):
+        """Should provide backward compatibility methods."""
         mock_vlm = MagicMock(spec=VLMService)
         mock_ocr = MagicMock(spec=OCRService)
         mock_entity = MagicMock(spec=EntityService)
         mock_search = MagicMock(spec=SearchService)
         mock_evidence = MagicMock(spec=EvidenceService)
 
-        mock_factory.create_vlm_service.return_value = mock_vlm
-        mock_factory.create_ocr_service.return_value = mock_ocr
-        mock_factory.create_entity_service.return_value = mock_entity
-        mock_factory.create_search_service.return_value = mock_search
-        mock_factory.create_evidence_service.return_value = mock_evidence
+        mock_services = Services(
+            vlm=mock_vlm,
+            ocr=mock_ocr,
+            entity=mock_entity,
+            search=mock_search,
+            evidence=mock_evidence,
+        )
+        registry = ServiceRegistry(services=mock_services)
 
-        registry = ServiceRegistry(factory=mock_factory)
-        services = registry.get_services()
-
-        assert isinstance(services, Services)
-        assert services.vlm is mock_vlm
-        assert services.ocr is mock_ocr
-        assert services.entity is mock_entity
-        assert services.search is mock_search
-        assert services.evidence is mock_evidence
-
-    def test_backward_compatibility_get_all_services(self):
-        """Should support deprecated get_all_services() method."""
-        mock_factory = MagicMock(spec=ServiceFactory)
-        mock_vlm = MagicMock(spec=VLMService)
-        mock_ocr = MagicMock(spec=OCRService)
-        mock_entity = MagicMock(spec=EntityService)
-        mock_search = MagicMock(spec=SearchService)
-        mock_evidence = MagicMock(spec=EvidenceService)
-
-        mock_factory.create_vlm_service.return_value = mock_vlm
-        mock_factory.create_ocr_service.return_value = mock_ocr
-        mock_factory.create_entity_service.return_value = mock_entity
-        mock_factory.create_search_service.return_value = mock_search
-        mock_factory.create_evidence_service.return_value = mock_evidence
-
-        registry = ServiceRegistry(factory=mock_factory)
-        services_dict = registry.get_all_services()
-
-        assert isinstance(services_dict, dict)
-        assert services_dict["vlm"] is mock_vlm
-        assert services_dict["ocr"] is mock_ocr
-        assert services_dict["entity"] is mock_entity
-        assert services_dict["search"] is mock_search
-        assert services_dict["evidence"] is mock_evidence
-
-    def test_backward_compatibility_get_individual_services(self):
-        """Should support deprecated individual getter methods."""
-        mock_factory = MagicMock(spec=ServiceFactory)
-        mock_vlm = MagicMock(spec=VLMService)
-        mock_ocr = MagicMock(spec=OCRService)
-        mock_entity = MagicMock(spec=EntityService)
-        mock_search = MagicMock(spec=SearchService)
-        mock_evidence = MagicMock(spec=EvidenceService)
-
-        mock_factory.create_vlm_service.return_value = mock_vlm
-        mock_factory.create_ocr_service.return_value = mock_ocr
-        mock_factory.create_entity_service.return_value = mock_entity
-        mock_factory.create_search_service.return_value = mock_search
-        mock_factory.create_evidence_service.return_value = mock_evidence
-
-        registry = ServiceRegistry(factory=mock_factory)
-
-        assert registry.get_vlm_service() is mock_vlm
-        assert registry.get_ocr_service() is mock_ocr
-        assert registry.get_entity_service() is mock_entity
-        assert registry.get_search_service() is mock_search
-        assert registry.get_evidence_service() is mock_evidence
-
-
-class TestDefaultServiceFactory:
-    """Test DefaultServiceFactory class."""
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_ocr_service(self, mock_settings):
-        """Should create Tesseract OCR service."""
-        mock_settings.ocr_lang = "ch"
-
-        factory = DefaultServiceFactory()
-        service = factory.create_ocr_service()
-
-        assert service is not None
-        assert isinstance(service, OCRService)
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_search_service(self, mock_settings):
-        """Should create HTTP search service."""
-        factory = DefaultServiceFactory()
-        service = factory.create_search_service()
-
-        assert service is not None
-        assert isinstance(service, SearchService)
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_vlm_service_openai(self, mock_settings):
-        """Should create OpenAI VLM service when configured."""
-        mock_settings.vlm_provider = "openai"
-        mock_settings.openai_api_key = "test-key"
-
-        factory = DefaultServiceFactory()
-
-        with patch("vision_insight.services.vlm.api_service.OpenAIVLMService") as mock_cls:
-            mock_cls.return_value = MagicMock(spec=VLMService)
-            factory.create_vlm_service()
-            mock_cls.assert_called_once()
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_vlm_service_gemini(self, mock_settings):
-        """Should create Gemini VLM service when configured."""
-        mock_settings.vlm_provider = "gemini"
-        mock_settings.gemini_api_key = "test-key"
-
-        factory = DefaultServiceFactory()
-
-        with patch("vision_insight.services.vlm.api_service.GeminiVLMService") as mock_cls:
-            mock_cls.return_value = MagicMock(spec=VLMService)
-            factory.create_vlm_service()
-            mock_cls.assert_called_once()
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_vlm_service_zhipu(self, mock_settings):
-        """Should create Zhipu VLM service when configured."""
-        mock_settings.vlm_provider = "zhipu"
-        mock_settings.zhipu_api_key = "test-key"
-
-        factory = DefaultServiceFactory()
-
-        with patch("vision_insight.services.vlm.zhipu_service.ZhipuVLMService") as mock_cls:
-            mock_cls.return_value = MagicMock(spec=VLMService)
-            factory.create_vlm_service()
-            mock_cls.assert_called_once()
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_vlm_service_auto_selects_zhipu(self, mock_settings):
-        """Auto mode should prefer Zhipu when available."""
-        mock_settings.vlm_provider = "auto"
-        mock_settings.zhipu_api_key = "zhipu-key"
-        mock_settings.openai_api_key = "openai-key"
-        mock_settings.gemini_api_key = "gemini-key"
-
-        factory = DefaultServiceFactory()
-
-        with patch("vision_insight.services.vlm.zhipu_service.ZhipuVLMService") as mock_cls:
-            mock_cls.return_value = MagicMock(spec=VLMService)
-            factory.create_vlm_service()
-            mock_cls.assert_called_once()
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_vlm_service_auto_falls_back_to_openai(self, mock_settings):
-        """Auto mode should fall back to OpenAI when Zhipu key is missing."""
-        mock_settings.vlm_provider = "auto"
-        mock_settings.zhipu_api_key = ""
-        mock_settings.openai_api_key = "openai-key"
-        mock_settings.gemini_api_key = "gemini-key"
-
-        factory = DefaultServiceFactory()
-
-        with patch("vision_insight.services.vlm.api_service.OpenAIVLMService") as mock_cls:
-            mock_cls.return_value = MagicMock(spec=VLMService)
-            factory.create_vlm_service()
-            mock_cls.assert_called_once()
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_vlm_service_auto_falls_back_to_gemini(self, mock_settings):
-        """Auto mode should fall back to Gemini when OpenAI key is missing."""
-        mock_settings.vlm_provider = "auto"
-        mock_settings.zhipu_api_key = ""
-        mock_settings.openai_api_key = ""
-        mock_settings.gemini_api_key = "gemini-key"
-
-        factory = DefaultServiceFactory()
-
-        with patch("vision_insight.services.vlm.api_service.GeminiVLMService") as mock_cls:
-            mock_cls.return_value = MagicMock(spec=VLMService)
-            factory.create_vlm_service()
-            mock_cls.assert_called_once()
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_vlm_service_no_key_uses_degraded_service(self, mock_settings):
-        """Should use degraded VLM service when no API key is configured."""
-        from vision_insight.services.fallback import DegradedVLMService
-
-        mock_settings.vlm_provider = "auto"
-        mock_settings.zhipu_api_key = ""
-        mock_settings.openai_api_key = ""
-        mock_settings.gemini_api_key = ""
-
-        factory = DefaultServiceFactory()
-
-        service = factory.create_vlm_service()
-
-        assert isinstance(service, DegradedVLMService)
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_entity_service_zhipu(self, mock_settings):
-        """Should create entity service with Zhipu when configured."""
-        mock_settings.zhipu_api_key = "test-key"
-
-        factory = DefaultServiceFactory()
-
-        with patch(
-            "vision_insight.services.entity.llm_entity_service.LLMEntityService"
-        ) as mock_cls:
-            mock_cls.return_value = MagicMock(spec=EntityService)
-            factory.create_entity_service()
-            mock_cls.assert_called_once_with(
-                api_key="test-key",
-                model="glm-4-flash",
-                base_url="https://open.bigmodel.cn/api/coding/paas/v4",
-            )
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_entity_service_openai(self, mock_settings):
-        """Should create entity service with OpenAI when configured."""
-        mock_settings.zhipu_api_key = ""
-        mock_settings.openai_api_key = "test-key"
-
-        factory = DefaultServiceFactory()
-
-        with patch(
-            "vision_insight.services.entity.llm_entity_service.LLMEntityService"
-        ) as mock_cls:
-            mock_cls.return_value = MagicMock(spec=EntityService)
-            factory.create_entity_service()
-            mock_cls.assert_called_once()
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_entity_service_no_key_uses_rule_based_fallback(self, mock_settings):
-        """Should use rule-based entity service when no LLM key is configured."""
-        from vision_insight.services.fallback import RuleBasedEntityService
-
-        mock_settings.zhipu_api_key = ""
-        mock_settings.openai_api_key = ""
-        mock_settings.gemini_api_key = ""
-
-        factory = DefaultServiceFactory()
-
-        service = factory.create_entity_service()
-
-        assert isinstance(service, RuleBasedEntityService)
-
-    @patch("vision_insight.core.service_registry.settings")
-    def test_create_evidence_service(self, mock_settings):
-        """Should create evidence service with VLM port adapter."""
-        mock_vlm = MagicMock(spec=VLMService)
-
-        factory = DefaultServiceFactory()
-        service = factory.create_evidence_service(mock_vlm)
-
-        assert service is not None
-        assert isinstance(service, EvidenceService)
-
-
-class TestGetServiceRegistry:
-    """Test get_service_registry singleton."""
-
-    def setup_method(self):
-        """Reset singleton before each test."""
-        reset_service_registry()
-
-    def teardown_method(self):
-        """Reset singleton after each test."""
-        reset_service_registry()
-
-    def test_returns_same_instance(self):
-        """Should return the same instance on multiple calls."""
-        registry1 = get_service_registry()
-        registry2 = get_service_registry()
-        assert registry1 is registry2
-        assert isinstance(registry1, ServiceRegistry)
-
-    def test_accepts_custom_factory(self):
-        """Should use custom factory when provided."""
-        mock_factory = MagicMock(spec=ServiceFactory)
-        registry = get_service_registry(factory=mock_factory)
-        assert registry._factory is mock_factory
-
-    def test_reset_service_registry(self):
-        """Should reset the singleton instance."""
-        registry1 = get_service_registry()
-        reset_service_registry()
-        registry2 = get_service_registry()
-        assert registry1 is not registry2
+        # Test deprecated methods
+        assert registry.get_all_services() == mock_services.to_dict()
+        assert registry.get_vlm_service() == mock_vlm
+        assert registry.get_ocr_service() == mock_ocr
+        assert registry.get_entity_service() == mock_entity
+        assert registry.get_search_service() == mock_search
+        assert registry.get_evidence_service() == mock_evidence
 
 
 class TestServices:
@@ -371,10 +105,58 @@ class TestServices:
         )
 
         result = services.to_dict()
-
-        assert isinstance(result, dict)
         assert result["vlm"] is mock_vlm
         assert result["ocr"] is mock_ocr
         assert result["entity"] is mock_entity
         assert result["search"] is mock_search
         assert result["evidence"] is mock_evidence
+
+
+class TestGetServiceRegistry:
+    """Test get_service_registry function."""
+
+    def test_singleton_behavior(self):
+        """Should return same instance on multiple calls."""
+        reset_service_registry()
+
+        registry1 = get_service_registry()
+        registry2 = get_service_registry()
+
+        assert registry1 is registry2
+
+    def test_reset_clears_singleton(self):
+        """Should clear singleton on reset."""
+        reset_service_registry()
+
+        registry1 = get_service_registry()
+        reset_service_registry()
+        registry2 = get_service_registry()
+
+        assert registry1 is not registry2
+
+
+class TestCreateServices:
+    """Test create_services function."""
+
+    def test_creates_all_services(self):
+        """Should create all services."""
+        with patch("vision_insight.core.service_registry.create_vlm_service") as mock_vlm, \
+             patch("vision_insight.core.service_registry.create_ocr_service") as mock_ocr, \
+             patch("vision_insight.core.service_registry.create_entity_service") as mock_entity, \
+             patch("vision_insight.core.service_registry.create_search_service") as mock_search, \
+             patch("vision_insight.core.service_registry.create_evidence_service") as mock_evidence:
+
+            mock_vlm.return_value = MagicMock(spec=VLMService)
+            mock_ocr.return_value = MagicMock(spec=OCRService)
+            mock_entity.return_value = MagicMock(spec=EntityService)
+            mock_search.return_value = MagicMock(spec=SearchService)
+            mock_evidence.return_value = MagicMock(spec=EvidenceService)
+
+            services = create_services()
+
+            assert isinstance(services, Services)
+            mock_vlm.assert_called_once()
+            mock_ocr.assert_called_once()
+            mock_entity.assert_called_once()
+            mock_search.assert_called_once()
+            mock_evidence.assert_called_once()

@@ -13,22 +13,18 @@ import pytest
 from vision_insight.models.schemas import (
     OCRResult,
 )
-from vision_insight.services.vlm.api_service import (
+from vision_insight.services.vlm.api_service import OpenAIVLMService
+from vision_insight.services.vlm.prompts import (
     OBJECT_DETECTION_PROMPT_EN,
     OBJECT_DETECTION_PROMPT_ZH,
     SCENE_ANALYSIS_PROMPT_EN,
     SCENE_ANALYSIS_PROMPT_ZH,
-    OpenAIVLMService,
 )
-from vision_insight.services.vlm.zhipu_service import (
-    SCENE_ANALYSIS_PROMPT_EN as ZHIPU_SCENE_EN,
-)
-from vision_insight.services.vlm.zhipu_service import (
-    SCENE_ANALYSIS_PROMPT_ZH as ZHIPU_SCENE_ZH,
-)
-from vision_insight.services.vlm.zhipu_service import (
-    ZhipuVLMService,
-)
+from vision_insight.services.vlm.zhipu_service import ZhipuVLMService
+
+# Zhipu uses the same shared prompts now
+ZHIPU_SCENE_EN = SCENE_ANALYSIS_PROMPT_EN
+ZHIPU_SCENE_ZH = SCENE_ANALYSIS_PROMPT_ZH
 
 # ─── Prompt Content Tests ────────────────────────────────────────
 
@@ -96,7 +92,7 @@ class TestOCRContextLanguage:
         svc = OpenAIVLMService(api_key="test-key")
         ocr = self._make_ocr()
 
-        with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
+        with patch.object(svc, "_call_vlm", new_callable=AsyncMock) as mock_chat:
             mock_chat.return_value = json.dumps(
                 {
                     "scene_type": "unknown",
@@ -115,7 +111,7 @@ class TestOCRContextLanguage:
         svc = OpenAIVLMService(api_key="test-key")
         ocr = self._make_ocr()
 
-        with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
+        with patch.object(svc, "_call_vlm", new_callable=AsyncMock) as mock_chat:
             mock_chat.return_value = json.dumps(
                 {
                     "scene_type": "unknown",
@@ -134,7 +130,7 @@ class TestOCRContextLanguage:
         svc = ZhipuVLMService(api_key="test-key")
         ocr = self._make_ocr()
 
-        with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
+        with patch.object(svc, "_call_vlm", new_callable=AsyncMock) as mock_chat:
             mock_chat.return_value = json.dumps(
                 {
                     "scene_type": "unknown",
@@ -153,7 +149,7 @@ class TestOCRContextLanguage:
         svc = ZhipuVLMService(api_key="test-key")
         ocr = self._make_ocr()
 
-        with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
+        with patch.object(svc, "_call_vlm", new_callable=AsyncMock) as mock_chat:
             mock_chat.return_value = json.dumps(
                 {
                     "scene_type": "unknown",
@@ -177,7 +173,7 @@ class TestPromptSelection:
     async def test_openai_uses_zh_prompt_for_zh(self):
         svc = OpenAIVLMService(api_key="test-key")
 
-        with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
+        with patch.object(svc, "_call_vlm", new_callable=AsyncMock) as mock_chat:
             mock_chat.return_value = json.dumps(
                 {
                     "scene_type": "unknown",
@@ -194,7 +190,7 @@ class TestPromptSelection:
     async def test_openai_uses_en_prompt_for_en(self):
         svc = OpenAIVLMService(api_key="test-key")
 
-        with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
+        with patch.object(svc, "_call_vlm", new_callable=AsyncMock) as mock_chat:
             mock_chat.return_value = json.dumps(
                 {
                     "scene_type": "unknown",
@@ -211,7 +207,7 @@ class TestPromptSelection:
     async def test_detect_objects_lang_param(self):
         svc = OpenAIVLMService(api_key="test-key")
 
-        with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
+        with patch.object(svc, "_call_vlm", new_callable=AsyncMock) as mock_chat:
             mock_chat.return_value = json.dumps([])
             await svc.detect_objects(b"\x89PNG", lang="zh")
 
@@ -222,7 +218,7 @@ class TestPromptSelection:
     async def test_detect_objects_en_prompt(self):
         svc = OpenAIVLMService(api_key="test-key")
 
-        with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
+        with patch.object(svc, "_call_vlm", new_callable=AsyncMock) as mock_chat:
             mock_chat.return_value = json.dumps([])
             await svc.detect_objects(b"\x89PNG", lang="en")
 
@@ -240,7 +236,7 @@ class TestDefaultLanguage:
     async def test_default_lang_is_zh(self):
         svc = OpenAIVLMService(api_key="test-key")
 
-        with patch.object(svc, "_vision_chat", new_callable=AsyncMock) as mock_chat:
+        with patch.object(svc, "_call_vlm", new_callable=AsyncMock) as mock_chat:
             mock_chat.return_value = json.dumps(
                 {
                     "scene_type": "unknown",

@@ -93,7 +93,7 @@ class TestLLMEntityService:
     def test_init_with_explicit_key(self):
         """Should accept explicit API key."""
         svc = LLMEntityService(api_key="test-key")
-        assert svc._api_key == "test-key"
+        assert svc._client._api_key == "test-key"
 
     # --- extract (normal path) ---
 

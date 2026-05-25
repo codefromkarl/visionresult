@@ -10,8 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from vision_insight.api.routes import (
-    _record_to_report,
-    _report_to_record,
+    record_to_report,
+    report_to_record,
 )
 from vision_insight.core.database import AnalysisRecord
 from vision_insight.models.schemas import (
@@ -27,9 +27,9 @@ from vision_insight.models.schemas import (
 
 
 class TestRecordConversion:
-    """Test _record_to_report and _report_to_record functions."""
+    """Test record_to_report and report_to_record functions."""
 
-    def test_record_to_report_basic(self):
+    def testrecord_to_report_basic(self):
         """Should convert database record to AnalysisReport."""
         record = AnalysisRecord(
             id="test-001",
@@ -58,7 +58,7 @@ class TestRecordConversion:
             report_markdown="# Test Report",
         )
 
-        report = _record_to_report(record)
+        report = record_to_report(record)
 
         assert report.id == "test-001"
         assert report.status == AnalysisStatus.COMPLETED
@@ -73,7 +73,7 @@ class TestRecordConversion:
         assert len(report.search_results) == 1
         assert report.search_results[0].title == "Tokyo"
 
-    def test_record_to_report_empty_json(self):
+    def testrecord_to_report_empty_json(self):
         """Should handle empty JSON fields gracefully."""
         record = AnalysisRecord(
             id="test-002",
@@ -84,7 +84,7 @@ class TestRecordConversion:
             search_results_json="[]",
         )
 
-        report = _record_to_report(record)
+        report = record_to_report(record)
 
         assert report.id == "test-002"
         assert report.ocr_results == []
@@ -92,7 +92,7 @@ class TestRecordConversion:
         assert report.conclusions == []
         assert report.search_results == []
 
-    def test_record_to_report_no_image_metadata(self):
+    def testrecord_to_report_no_image_metadata(self):
         """Should return None for image_metadata when no dimensions."""
         record = AnalysisRecord(
             id="test-003",
@@ -101,11 +101,11 @@ class TestRecordConversion:
             image_height=None,
         )
 
-        report = _record_to_report(record)
+        report = record_to_report(record)
 
         assert report.image_metadata is None
 
-    def test_report_to_record_basic(self):
+    def testreport_to_record_basic(self):
         """Should convert AnalysisReport to database record."""
         report = AnalysisReport(
             id="test-004",
@@ -138,7 +138,7 @@ class TestRecordConversion:
             report_markdown="# Test",
         )
 
-        record = _report_to_record(report, "test.png")
+        record = report_to_record(report, "test.png")
 
         assert record.id == "test-004"
         assert record.status == "completed"
@@ -151,7 +151,7 @@ class TestRecordConversion:
         assert len(ocr) == 1
         assert ocr[0]["text"] == "Test"
 
-    def test_report_to_record_with_scene_analysis(self):
+    def testreport_to_record_with_scene_analysis(self):
         """Should extract scene info from report."""
         from vision_insight.models.schemas import LocationGuess, TimeGuess
 
@@ -166,7 +166,7 @@ class TestRecordConversion:
             ),
         )
 
-        record = _report_to_record(report)
+        record = report_to_record(report)
 
         assert record.scene_type == "street"
         assert record.scene_description == "Busy street"

@@ -57,7 +57,7 @@ class TestRecordConversion:
     """Test conversion between AnalysisReport and AnalysisRecord."""
 
     def test_report_to_record(self):
-        from vision_insight.api.routes import _report_to_record
+        from vision_insight.core.adapters import report_to_record
         from vision_insight.models.schemas import (
             AnalysisReport,
             AnalysisStatus,
@@ -84,7 +84,7 @@ class TestRecordConversion:
             report_markdown="# Test",
         )
 
-        record = _report_to_record(report, "test.png")
+        record = report_to_record(report, "test.png")
         assert record.id == "conv-001"
         assert record.status == "completed"
         assert record.image_filename == "test.png"
