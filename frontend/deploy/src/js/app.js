@@ -1051,11 +1051,373 @@ window.downloadHTML = async function() {
     }
 };
 
+// ==================== 页面导航 ====================
+
+function initNavigation() {
+    // 绑定导航按钮
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const page = btn.dataset.page;
+            showPage(page);
+        });
+    });
+    
+    // 绑定语言切换
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            setLang(btn.dataset.lang);
+            // 更新按钮状态
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+    
+    // 初始化语言按钮状态
+    const currentLang = getLang();
+    document.querySelector(`.lang-btn[data-lang="${currentLang}"]`)?.classList.add('active');
+}
+
+function showPage(pageName) {
+    // 隐藏所有页面
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
+    
+    // 取消所有导航按钮的激活状态
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // 显示目标页面
+    const targetPage = document.getElementById(`page-${pageName}`);
+    if (targetPage) {
+        targetPage.classList.add('active');
+    }
+    
+    // 激活对应的导航按钮
+    const targetBtn = document.querySelector(`.nav-btn[data-page="${pageName}"]`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
+    
+    // 加载页面数据
+    if (pageName === 'history') {
+        loadHistory();
+    } else if (pageName === 'settings') {
+        loadSettings();
+    }
+}
+
+// ==================== 历史记录功能 ====================
+
+window.loadHistory = async function() {
+    const historyList = document.getElementById('historyList');
+    if (!historyList) return;
+    
+    historyList.innerHTML = '<div class="empty-state">⏳ 加载中...</div>';
+    
+    try {
+        const keyword = document.getElementById('historySearch')?.value || '';
+        const sceneType = document.getElementById('historySceneType')?.value || '';
+        
+        let url = `${API_BASE}/reports?limit=50`;
+        if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+        if (sceneType) url += `&scene_type=${encodeURIComponent(sceneType)}`;
+        
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        
+        const data = await resp.json();
+        
+        if (!data || data.length === 0) {
+            historyList.innerHTML = '<div class="empty-state">📋 暂无记录</div>';
+            return;
+        }
+        
+        historyList.innerHTML = data.map(item => {
+            const time = new Date(item.created_at).toLocaleString('zh-CN');
+            const thumb = item.image_key ? `${API_BASE}/image/${item.id}` : '';
+            const analysis = item.result ? JSON.parse(item.result) : null;
+            const tags = analysis ? [analysis.scene_type, analysis.location_guess?.location].filter(Boolean) : [];
+            
+            return `
+                <div class="history-item" onclick="viewReport('${item.id}')">
+                    ${thumb ? `<img src="${thumb}" class="history-thumb" onerror="this.style.display='none'">` : ''}
+                    <div class="history-info">
+                        <div class="history-filename">${escHtml(item.filename || 'unknown')}</div>
+                        <div class="history-time">${time}</div>
+                        <div class="history-meta">
+                            ${tags.map(t => `<span class="history-tag">${escHtml(t)}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="history-actions">
+                        <span class="history-status ${item.status}">${item.status === 'completed' ? '✓' : '⏳'}</span>
+                        <button class="history-delete" onclick="event.stopPropagation();deleteReport('${item.id}')">×</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (err) {
+        historyList.innerHTML = `<div class="empty-state">❌ 加载失败: ${err.message}</div>`;
+        console.error('Load history failed:', err);
+    }
+};
+
+window.viewReport = async function(id) {
+    // 切换到上传页面
+    showPage('upload');
+    
+    // 显示加载状态
+    const resultContainer = document.getElementById('resultContainer');
+    const reportContent = document.getElementById('reportContent');
+    resultContainer.style.display = 'block';
+    reportContent.innerHTML = '<div class="empty-state">⏳ 加载中...</div>';
+    
+    try {
+        const resp = await fetch(`${API_BASE}/report/${id}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        
+        const report = await resp.json();
+        
+        // 更新状态
+        setState('task.id', id);
+        setState('report.markdown', report.report_markdown || '');
+        
+        // 渲染报告
+        renderReport(report);
+        
+    } catch (err) {
+        reportContent.innerHTML = `<div class="empty-state">❌ 加载失败: ${err.message}</div>`;
+        console.error('View report failed:', err);
+    }
+};
+
+window.deleteReport = async function(id) {
+    if (!confirm('确定删除这条记录吗？')) return;
+    
+    try {
+        const resp = await fetch(`${API_BASE}/report/${id}`, { method: 'DELETE' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        
+        showSuccess('删除成功');
+        loadHistory();
+        
+    } catch (err) {
+        showError(`删除失败: ${err.message}`);
+        console.error('Delete report failed:', err);
+    }
+};
+
+// 绑定搜索事件
+function initHistorySearch() {
+    const searchInput = document.getElementById('historySearch');
+    const sceneTypeSelect = document.getElementById('historySceneType');
+    
+    if (searchInput) {
+        let debounceTimer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(loadHistory, 300);
+        });
+    }
+    
+    if (sceneTypeSelect) {
+        sceneTypeSelect.addEventListener('change', loadHistory);
+    }
+}
+
+// ==================== 设置功能 ====================
+
+async function loadSettings() {
+    try {
+        // 加载系统信息
+        await loadSystemInfo();
+        
+        // 从 localStorage 加载保存的设置
+        const savedSettings = localStorage.getItem('visonInsightSettings');
+        if (savedSettings) {
+            const settings = JSON.parse(savedSettings);
+            
+            // VLM 设置
+            if (settings.vlmProvider) {
+                document.getElementById('vlmProvider').value = settings.vlmProvider;
+                toggleCustomVlmFields(settings.vlmProvider);
+            }
+            if (settings.vlmEndpoint) {
+                document.getElementById('vlmEndpoint').value = settings.vlmEndpoint;
+            }
+            if (settings.vlmModel) {
+                document.getElementById('vlmModel').value = settings.vlmModel;
+            }
+            
+            // OCR 设置
+            if (settings.ocrProvider) {
+                document.getElementById('ocrProvider').value = settings.ocrProvider;
+                toggleBaiduOcrFields(settings.ocrProvider);
+            }
+        }
+        
+        // 绑定 VLM 服务商切换事件
+        const vlmSelect = document.getElementById('vlmProvider');
+        if (vlmSelect) {
+            vlmSelect.addEventListener('change', (e) => {
+                toggleCustomVlmFields(e.target.value);
+            });
+        }
+        
+        // 绑定 OCR 服务商切换事件
+        const ocrSelect = document.getElementById('ocrProvider');
+        if (ocrSelect) {
+            ocrSelect.addEventListener('change', (e) => {
+                toggleBaiduOcrFields(e.target.value);
+            });
+        }
+        
+    } catch (err) {
+        console.error('Load settings failed:', err);
+    }
+}
+
+function toggleCustomVlmFields(provider) {
+    const customEndpoint = document.getElementById('customVlmEndpoint');
+    const customModel = document.getElementById('customVlmModel');
+    
+    if (customEndpoint && customModel) {
+        const isCustom = provider === 'custom';
+        customEndpoint.style.display = isCustom ? 'block' : 'none';
+        customModel.style.display = isCustom ? 'block' : 'none';
+    }
+}
+
+function toggleBaiduOcrFields(provider) {
+    const baiduSettings = document.getElementById('baiduOcrSettings');
+    if (baiduSettings) {
+        baiduSettings.style.display = provider === 'baidu' ? 'block' : 'none';
+    }
+}
+
+window.saveVlmSettings = function() {
+    const provider = document.getElementById('vlmProvider').value;
+    const apiKey = document.getElementById('vlmApiKey').value;
+    const endpoint = document.getElementById('vlmEndpoint').value;
+    const model = document.getElementById('vlmModel').value;
+    
+    const settings = JSON.parse(localStorage.getItem('visonInsightSettings') || '{}');
+    settings.vlmProvider = provider;
+    settings.vlmApiKey = apiKey;
+    settings.vlmEndpoint = endpoint;
+    settings.vlmModel = model;
+    localStorage.setItem('visonInsightSettings', JSON.stringify(settings));
+    
+    showSuccess('VLM 配置已保存');
+};
+
+window.saveOcrSettings = function() {
+    const provider = document.getElementById('ocrProvider').value;
+    const baiduApiKey = document.getElementById('baiduOcrApiKey').value;
+    const baiduSecretKey = document.getElementById('baiduOcrSecretKey').value;
+    
+    const settings = JSON.parse(localStorage.getItem('visonInsightSettings') || '{}');
+    settings.ocrProvider = provider;
+    settings.baiduOcrApiKey = baiduApiKey;
+    settings.baiduOcrSecretKey = baiduSecretKey;
+    localStorage.setItem('visonInsightSettings', JSON.stringify(settings));
+    
+    showSuccess('OCR 配置已保存');
+};
+
+window.saveSearchSettings = function() {
+    const googleApiKey = document.getElementById('googleApiKey').value;
+    const googleCseId = document.getElementById('googleCseId').value;
+    const bingApiKey = document.getElementById('bingApiKey').value;
+    
+    const settings = JSON.parse(localStorage.getItem('visonInsightSettings') || '{}');
+    settings.googleApiKey = googleApiKey;
+    settings.googleCseId = googleCseId;
+    settings.bingApiKey = bingApiKey;
+    localStorage.setItem('visonInsightSettings', JSON.stringify(settings));
+    
+    showSuccess('搜索配置已保存');
+};
+
+window.loadSystemInfo = async function() {
+    try {
+        const resp = await fetch(`${API_BASE}/stats`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        
+        const stats = await resp.json();
+        
+        document.getElementById('currentVlm').textContent = stats.vlm_provider || '-';
+        document.getElementById('currentOcr').textContent = stats.ocr_provider || '-';
+        document.getElementById('dbSize').textContent = stats.database_size || '-';
+        
+    } catch (err) {
+        console.error('Load system info failed:', err);
+    }
+};
+
+// ==================== 工具函数 ====================
+
+function escHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function renderReport(report) {
+    const reportContent = document.getElementById('reportContent');
+    if (!reportContent) return;
+    
+    // 如果有 markdown，直接渲染
+    if (report.report_markdown) {
+        reportContent.innerHTML = `<pre>${escHtml(report.report_markdown)}</pre>`;
+        return;
+    }
+    
+    // 否则渲染结构化数据
+    let html = '';
+    const analysis = report.analysis || {};
+    
+    if (analysis.description) {
+        html += `<div class="report-section"><h3>🎬 场景分析</h3><p>${escHtml(analysis.description)}</p></div>`;
+    }
+    
+    if (analysis.location_guess) {
+        const confidence = Math.round((analysis.location_guess.confidence || 0) * 100);
+        html += `<div class="report-section"><h3>📍 地点推测</h3><p>${escHtml(analysis.location_guess.location)} (${confidence}%)</p></div>`;
+    }
+    
+    if (analysis.time_guess) {
+        const parts = [analysis.time_guess.time_of_day, analysis.time_guess.season].filter(Boolean);
+        if (parts.length) {
+            html += `<div class="report-section"><h3>🕐 时间推测</h3><p>${escHtml(parts.join(' · '))}</p></div>`;
+        }
+    }
+    
+    if (analysis.detected_text && analysis.detected_text.length) {
+        html += `<div class="report-section"><h3>📝 检测文字</h3><ul>${analysis.detected_text.map(t => `<li>${escHtml(t)}</li>`).join('')}</ul></div>`;
+    }
+    
+    if (analysis.key_evidence && analysis.key_evidence.length) {
+        html += `<div class="report-section"><h3>🔗 关键证据</h3><ul>${analysis.key_evidence.map(e => `<li>${escHtml(e)}</li>`).join('')}</ul></div>`;
+    }
+    
+    reportContent.innerHTML = html || '<div class="empty-state">暂无报告内容</div>';
+}
+
 // ==================== 初始化 ====================
 
 // 等待 DOM 加载完成
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+        init();
+        initNavigation();
+        initHistorySearch();
+    });
 } else {
     init();
+    initNavigation();
+    initHistorySearch();
 }

@@ -12,133 +12,277 @@
     <link rel="stylesheet" href="src/css/upload.css">
     <link rel="stylesheet" href="src/css/events.css">
     <link rel="stylesheet" href="src/css/report.css">
+    <link rel="stylesheet" href="src/css/pages.css">
     
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
 </head>
 <body>
+    <!-- 导航栏 -->
+    <nav class="nav-bar">
+        <div class="nav-brand">🔍 Visual Insight</div>
+        <div class="nav-links">
+            <button class="nav-btn active" data-page="upload">📤 上传分析</button>
+            <button class="nav-btn" data-page="history">📋 历史记录</button>
+            <button class="nav-btn" data-page="settings">⚙️ 设置</button>
+        </div>
+        <div class="nav-actions">
+            <button class="lang-btn" data-lang="zh">中文</button>
+            <button class="lang-btn" data-lang="en">EN</button>
+        </div>
+    </nav>
+
     <div class="container" role="main">
-        <!-- 标题 -->
-        <header>
-            <h1>🔍 Visual Insight Agent</h1>
-            <p class="subtitle text-secondary text-center mb-8">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
-        </header>
+        <!-- 上传分析页面 -->
+        <div id="page-upload" class="page active">
+            <header>
+                <h1>🔍 Visual Insight Agent</h1>
+                <p class="subtitle text-secondary text-center mb-8">多模态图片分析系统 — 视觉分析 + 证据链推理</p>
+            </header>
 
-        <!-- 上传卡片 -->
-        <section class="card" aria-label="图片上传">
-            <div class="upload-zone" 
-                 id="uploadZone" 
-                 role="button" 
-                 tabindex="0"
-                 aria-label="点击或拖拽图片到此处上传">
-                <span class="upload-zone-icon" aria-hidden="true">📸</span>
-                <h3 class="upload-zone-title">拖拽图片到此处或点击上传</h3>
-                <p class="upload-zone-subtitle">支持 JPG、PNG、GIF、WebP 格式</p>
-                <div class="upload-zone-formats">
-                    <span class="upload-zone-format">JPG</span>
-                    <span class="upload-zone-format">PNG</span>
-                    <span class="upload-zone-format">GIF</span>
-                    <span class="upload-zone-format">WebP</span>
+            <!-- 上传卡片 -->
+            <section class="card" aria-label="图片上传">
+                <div class="upload-zone" 
+                     id="uploadZone" 
+                     role="button" 
+                     tabindex="0"
+                     aria-label="点击或拖拽图片到此处上传">
+                    <span class="upload-zone-icon" aria-hidden="true">📸</span>
+                    <h3 class="upload-zone-title">拖拽图片到此处或点击上传</h3>
+                    <p class="upload-zone-subtitle">支持 JPG、PNG、GIF、WebP 格式</p>
+                    <div class="upload-zone-formats">
+                        <span class="upload-zone-format">JPG</span>
+                        <span class="upload-zone-format">PNG</span>
+                        <span class="upload-zone-format">GIF</span>
+                        <span class="upload-zone-format">WebP</span>
+                    </div>
                 </div>
-            </div>
-            <input type="file" 
-                   id="fileInput" 
-                   accept="image/*"
-                   aria-label="选择图片文件">
+                <input type="file" 
+                       id="fileInput" 
+                       accept="image/*"
+                       aria-label="选择图片文件">
 
-            <!-- 图片预览 -->
-            <div class="preview-container" id="previewContainer" aria-label="图片预览">
-                <img id="previewImg" 
-                     class="preview-img" 
-                     alt="选择的图片预览">
-            </div>
-
-            <!-- 分析选项 -->
-            <div class="analysis-options">
-                <label for="verboseCheck">
-                    <input type="checkbox" id="verboseCheck">
-                    <span>启用详细推理链路（verbose 模式）</span>
-                </label>
-                <div class="analyze-btn-container">
-                    <button class="btn btn-lg" 
-                            id="analyzeBtn" 
-                            disabled
-                            aria-label="开始分析图片">
-                        🚀 开始分析
-                    </button>
+                <!-- 图片预览 -->
+                <div class="preview-container" id="previewContainer" aria-label="图片预览">
+                    <img id="previewImg" 
+                         class="preview-img" 
+                         alt="选择的图片预览">
                 </div>
-            </div>
 
-            <!-- 进度条 -->
-            <div class="progress-container" id="progressContainer" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
+                <!-- 分析选项 -->
+                <div class="analysis-options">
+                    <label for="verboseCheck">
+                        <input type="checkbox" id="verboseCheck">
+                        <span>启用详细推理链路（verbose 模式）</span>
+                    </label>
+                    <div class="analyze-btn-container">
+                        <button class="btn btn-lg" 
+                                id="analyzeBtn" 
+                                disabled
+                                aria-label="开始分析图片">
+                            🚀 开始分析
+                        </button>
+                    </div>
                 </div>
-                <div class="progress-text" id="progressText">
-                    <span class="progress-stage">准备中...</span>
-                    <span class="progress-percent">0%</span>
-                </div>
-            </div>
-        </section>
 
-        <!-- 分析过程卡片 -->
-        <section class="card events-container" 
-                 id="eventsContainer" 
-                 aria-label="分析过程"
-                 style="display: none;">
-            <div class="events-header">
-                <h3>🧠 分析过程</h3>
-            </div>
-            <div class="events-stats" id="eventsStats"></div>
-            <div class="events-timeline" 
-                 id="eventsTimeline"
-                 role="log"
-                 aria-live="polite"
-                 aria-label="分析事件时间线"></div>
-        </section>
-
-        <!-- 结果卡片 -->
-        <section class="card result-container" 
-                 id="resultContainer" 
-                 aria-label="分析结果"
-                 style="display: none;">
-            <div class="report-header">
-                <h2>📊 分析报告</h2>
-                <div class="report-actions">
-                    <button class="btn btn-sm btn-outline" 
-                            onclick="downloadMarkdown()"
-                            aria-label="下载 Markdown 格式报告">
-                        📄 Markdown
-                    </button>
-                    <button class="btn btn-sm btn-outline" 
-                            onclick="downloadHTML()"
-                            aria-label="下载 HTML 格式报告">
-                        🌐 HTML
-                    </button>
-                    <button class="btn btn-sm btn-outline" 
-                            id="traceToggleBtn"
-                            aria-label="显示/隐藏推理链路">
-                        🔍 推理链路
-                    </button>
+                <!-- 进度条 -->
+                <div class="progress-container" id="progressContainer" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">
+                        <span class="progress-stage">准备中...</span>
+                        <span class="progress-percent">0%</span>
+                    </div>
                 </div>
-            </div>
+            </section>
+
+            <!-- 分析过程卡片 -->
+            <section class="card events-container" 
+                     id="eventsContainer" 
+                     aria-label="分析过程"
+                     style="display: none;">
+                <div class="events-header">
+                    <h3>🧠 分析过程</h3>
+                </div>
+                <div class="events-stats" id="eventsStats"></div>
+                <div class="events-timeline" 
+                     id="eventsTimeline"
+                     role="log"
+                     aria-live="polite"
+                     aria-label="分析事件时间线"></div>
+            </section>
+
+            <!-- 结果卡片 -->
+            <section class="card result-container" 
+                     id="resultContainer" 
+                     aria-label="分析结果"
+                     style="display: none;">
+                <div class="report-header">
+                    <h2>📊 分析报告</h2>
+                    <div class="report-actions">
+                        <button class="btn btn-sm btn-outline" 
+                                onclick="downloadMarkdown()"
+                                aria-label="下载 Markdown 格式报告">
+                            📄 Markdown
+                        </button>
+                        <button class="btn btn-sm btn-outline" 
+                                onclick="downloadHTML()"
+                                aria-label="下载 HTML 格式报告">
+                            🌐 HTML
+                        </button>
+                        <button class="btn btn-sm btn-outline" 
+                                id="traceToggleBtn"
+                                aria-label="显示/隐藏推理链路">
+                            🔍 推理链路
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 报告内容 -->
+                <div class="report-content" 
+                     id="reportContent"
+                     role="document"
+                     aria-label="分析报告内容"></div>
+                
+                <!-- 推理链路容器 -->
+                <div class="trace-container" id="traceContainer" aria-label="推理链路详情">
+                    <div class="reasoning-section">
+                        <h3>🧠 思考链条与调用证据链</h3>
+                        <div id="reasoningContainer"></div>
+                    </div>
+                    <h3>⚙️ Pipeline 执行详情</h3>
+                    <div class="trace-timeline" id="traceTimeline"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 历史记录页面 -->
+        <div id="page-history" class="page">
+            <header>
+                <h1>📋 历史记录</h1>
+                <p class="subtitle text-secondary text-center mb-8">点击查看详情</p>
+            </header>
             
-            <!-- 报告内容 -->
-            <div class="report-content" 
-                 id="reportContent"
-                 role="document"
-                 aria-label="分析报告内容"></div>
-            
-            <!-- 推理链路容器 -->
-            <div class="trace-container" id="traceContainer" aria-label="推理链路详情">
-                <div class="reasoning-section">
-                    <h3>🧠 思考链条与调用证据链</h3>
-                    <div id="reasoningContainer"></div>
+            <!-- 搜索和筛选 -->
+            <section class="card">
+                <div class="history-filters">
+                    <input type="text" id="historySearch" placeholder="🔍 搜索关键词..." class="search-input">
+                    <select id="historySceneType" class="filter-select">
+                        <option value="">所有场景</option>
+                        <option value="street">街道</option>
+                        <option value="indoor">室内</option>
+                        <option value="outdoor">户外</option>
+                        <option value="document">文档</option>
+                    </select>
+                    <button class="btn btn-sm" onclick="loadHistory()">🔄 刷新</button>
                 </div>
-                <h3>⚙️ Pipeline 执行详情</h3>
-                <div class="trace-timeline" id="traceTimeline"></div>
-            </div>
-        </section>
+            </section>
+            
+            <!-- 历史列表 -->
+            <section class="card">
+                <div id="historyList" class="history-list">
+                    <div class="empty-state">📋 暂无记录</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 设置页面 -->
+        <div id="page-settings" class="page">
+            <header>
+                <h1>⚙️ 设置</h1>
+                <p class="subtitle text-secondary text-center mb-8">配置 AI 服务商和系统参数</p>
+            </header>
+            
+            <!-- VLM 服务商配置 -->
+            <section class="card">
+                <h3>🤖 VLM 视觉语言模型</h3>
+                <div class="settings-group">
+                    <label>当前服务商</label>
+                    <select id="vlmProvider" class="settings-select">
+                        <option value="zhipu">智谱 AI (GLM-4V)</option>
+                        <option value="openai">OpenAI (GPT-4V)</option>
+                        <option value="gemini">Google (Gemini)</option>
+                        <option value="custom">自定义服务商</option>
+                    </select>
+                </div>
+                <div class="settings-group">
+                    <label>API Key</label>
+                    <input type="password" id="vlmApiKey" placeholder="输入 API Key" class="settings-input">
+                </div>
+                <div class="settings-group" id="customVlmEndpoint" style="display: none;">
+                    <label>自定义 Endpoint</label>
+                    <input type="text" id="vlmEndpoint" placeholder="https://api.example.com/v1" class="settings-input">
+                </div>
+                <div class="settings-group" id="customVlmModel" style="display: none;">
+                    <label>模型名称</label>
+                    <input type="text" id="vlmModel" placeholder="gpt-4-vision-preview" class="settings-input">
+                </div>
+                <button class="btn btn-primary" onclick="saveVlmSettings()">💾 保存 VLM 配置</button>
+            </section>
+            
+            <!-- OCR 服务商配置 -->
+            <section class="card">
+                <h3>📝 OCR 文字识别</h3>
+                <div class="settings-group">
+                    <label>当前服务商</label>
+                    <select id="ocrProvider" class="settings-select">
+                        <option value="baidu">百度 OCR</option>
+                        <option value="tesseract">Tesseract (本地)</option>
+                        <option value="paddle">PaddleOCR (本地)</option>
+                    </select>
+                </div>
+                <div class="settings-group" id="baiduOcrSettings">
+                    <label>百度 OCR API Key</label>
+                    <input type="password" id="baiduOcrApiKey" placeholder="输入 API Key" class="settings-input">
+                    <label>百度 OCR Secret Key</label>
+                    <input type="password" id="baiduOcrSecretKey" placeholder="输入 Secret Key" class="settings-input">
+                </div>
+                <button class="btn btn-primary" onclick="saveOcrSettings()">💾 保存 OCR 配置</button>
+            </section>
+            
+            <!-- 搜索 API 配置 -->
+            <section class="card">
+                <h3>🔍 搜索 API</h3>
+                <div class="settings-group">
+                    <label>Google API Key (可选)</label>
+                    <input type="password" id="googleApiKey" placeholder="输入 Google API Key" class="settings-input">
+                </div>
+                <div class="settings-group">
+                    <label>Google CSE ID (可选)</label>
+                    <input type="text" id="googleCseId" placeholder="输入 Custom Search Engine ID" class="settings-input">
+                </div>
+                <div class="settings-group">
+                    <label>Bing API Key (可选)</label>
+                    <input type="password" id="bingApiKey" placeholder="输入 Bing API Key" class="settings-input">
+                </div>
+                <button class="btn btn-primary" onclick="saveSearchSettings()">💾 保存搜索配置</button>
+            </section>
+            
+            <!-- 系统信息 -->
+            <section class="card">
+                <h3>ℹ️ 系统信息</h3>
+                <div class="system-info">
+                    <div class="info-row">
+                        <span>版本</span>
+                        <span id="systemVersion">1.0.0</span>
+                    </div>
+                    <div class="info-row">
+                        <span>VLM 服务商</span>
+                        <span id="currentVlm">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span>OCR 服务商</span>
+                        <span id="currentOcr">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span>数据库大小</span>
+                        <span id="dbSize">-</span>
+                    </div>
+                </div>
+                <button class="btn btn-outline" onclick="loadSystemInfo()">🔄 刷新系统信息</button>
+            </section>
+        </div>
     </div>
 
     <!-- Toast 容器 -->
@@ -148,6 +292,6 @@
          aria-live="polite"></div>
 
     <!-- 应用脚本 -->
-    <script type="module" src="src/js/app.js?v=9"></script>
+    <script type="module" src="src/js/app.js?v=10"></script>
 </body>
 </html>
