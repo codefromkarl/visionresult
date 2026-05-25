@@ -1,9 +1,15 @@
-"""API Key authentication middleware."""
+"""API Key authentication for FastAPI.
+
+This module provides a deep interface for API key authentication:
+- Single dependency: `verify_api_key` for route protection
+- Centralized key validation logic
+- Easy to test with mock keys
+"""
 
 import hashlib
 import hmac
 
-from fastapi import FastAPI, HTTPException, Request, Security
+from fastapi import HTTPException, Security
 from fastapi.security import APIKeyHeader, APIKeyQuery
 
 from vision_insight.core.config import settings
@@ -21,7 +27,7 @@ def _get_configured_api_keys() -> list[str]:
     """Get list of valid API keys from configuration.
 
     Returns:
-        List of valid API key hashes.
+        List of valid API keys.
     """
     # Get API keys from environment or config
     raw_keys = settings.api_keys
@@ -89,6 +95,9 @@ def verify_api_key(
 ) -> str:
     """Verify API key from header or query parameter.
 
+    This is the single entry point for API key authentication.
+    Use this as a FastAPI dependency to protect routes.
+
     Args:
         api_key_header: API key from X-API-Key header.
         api_key_query: API key from query parameter.
@@ -124,52 +133,19 @@ def verify_api_key(
     return api_key
 
 
-def setup_api_key_auth(app: FastAPI, enabled: bool = True) -> None:
-    """Setup API key authentication for the FastAPI app.
+def is_api_key_configured() -> bool:
+    """Check if API key authentication is configured.
 
-    Args:
-        app: FastAPI application instance.
-        enabled: Whether to enable API key authentication.
+    Returns:
+        True if at least one API key is configured.
     """
-    if not enabled:
-        return
+    return bool(_get_configured_api_keys())
 
-    # Store auth state in app
-    app.state.api_key_auth_enabled = True
 
-    # Add middleware to check API key for protected routes
-    @app.middleware("http")
-    async def check_api_key_middleware(request: Request, call_next):
-        """Middleware to check API key for protected endpoints."""
-        # Skip auth for health checks, docs, and static files
-        path = request.url.path
-        skip_paths = {"/health", "/favicon.ico", "/docs", "/redoc", "/openapi.json"}
-        if path in skip_paths or path.startswith("/static"):
-            return await call_next(request)
+def invalidate_key_cache() -> None:
+    """Invalidate the cached key hashes.
 
-        # Skip auth for frontend serving
-        if path == "/" or not path.startswith("/api/"):
-            return await call_next(request)
-
-        # Check API key
-        api_key = request.headers.get(API_KEY_HEADER) or request.query_params.get(API_KEY_QUERY)
-
-        if not api_key:
-            from starlette.responses import JSONResponse
-
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "API key required"},
-            )
-
-        if not _validate_api_key(api_key):
-            from starlette.responses import JSONResponse
-
-            return JSONResponse(
-                status_code=403,
-                content={"detail": "Invalid API key"},
-            )
-
-        # Process request
-        response = await call_next(request)
-        return response
+    Call this if settings.api_keys changes at runtime.
+    """
+    global _valid_key_hashes
+    _valid_key_hashes = None

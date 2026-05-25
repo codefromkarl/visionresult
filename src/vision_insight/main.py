@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from vision_insight import __version__
 from vision_insight.api.health import router as health_router
 from vision_insight.api.routes import router
-from vision_insight.core.auth import setup_api_key_auth
+from vision_insight.core.auth import is_api_key_configured
 from vision_insight.core.config import ensure_directories, settings
 from vision_insight.core.rate_limiter import setup_rate_limiting
 from vision_insight.core.request_id import setup_request_id
@@ -76,7 +76,9 @@ setup_rate_limiting(
 )
 
 # Setup API key authentication (if enabled)
-setup_api_key_auth(app, enabled=settings.enable_api_key_auth)
+if settings.enable_api_key_auth and is_api_key_configured():
+    # API key auth is handled via FastAPI dependency injection in routes
+    pass
 
 app.add_middleware(
     CORSMiddleware,
